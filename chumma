@@ -128,3 +128,59 @@ conversational memory grows across
 extended debugging runs — and why 
 truncation strategies and summary 
 compression become essential at scale.
+
+
+i want the files in this format
+inside sample_agen i have 
+
+
+
+as-sample-agent.zip
+2026-05-24
+5.78 KB
+
+
+calc.py
+2026-05-23
+47 bytes
+
+dh-sample-agent.zip
+2026-05-25
+158 bytes
+inside this i have 
+agent.py
+2026-05-25
+5.89 KB
+azure_llm.py
+2026-05-25
+6.67 KB
+calc.py
+2026-05-25
+90 bytes
+requirements.txt
+2026-05-25
+107 bytes
+test_calc.py
+2026-05-25
+78 bytes
+
+
+
+sample_agent_using-key_vault
+2026-05-25
+
+
+sp-sample-agent.zip
+2026-05-25
+1.10 KB
+sp-sample_agent
+2026-05-25
+inside this i have 
+calc.py
+2026-05-25
+47 bytes
+iteration_log.txt
+2026-05-25
+955 bytes
+
+
