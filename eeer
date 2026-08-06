@@ -1,0 +1,2141 @@
+@ModelType AssetTabModel
+<div class="admin-tab-content">
+    <div class="container-fluid">
+        <form class="admin-form form-horizontal" id="assetForm">
+
+            <style>
+                .ui-datepicker {
+                    background: #fff !important; /* White background */
+                    border: 1px solid #ccc !important;
+                }
+
+                .ui-datepicker-header {
+                    background: #f0f0f0 !important;
+                }
+
+                .ui-datepicker-current-day {
+                    background: #F0B2C9 !important;
+                }
+            </style>
+
+            <div style="padding-bottom: 20px;" class="form-group form-group-sm">
+                @Html.TextBox("txtRef", Model.ASST_RE_EVALUATION_REFERENCE_NM, New With {.class = "form-control input-sm", .readonly = "readonly", .style = "width: 220px;"})
+                @Html.TextBox("txtProjId", Model.PROJ_ID, New With {.readonly = "readonly", .style = "background-color: red; width: 50px; display: none;"})
+                @Html.TextBox("txtProjStatusId", Model.PROJ_STATUS_ID, New With {.readonly = "readonly", .style = "background-color: red; width: 50px; display: none;"})
+                @Html.TextBox("txtProjStatusFlowId", Model.PROJ_STATUS_FLOW_ID, New With {.readonly = "readonly", .style = "background-color: red; width: 50px; display: none;"})
+                @Html.TextBox("txtGoalId", Model.PRCR_GOAL_ID, New With {.style = "display: none;"})
+                @Html.TextBox("txtBreyneLaw", Model.PRCR_BREYNE_LAW_SW, New With {.style = "display: none;"})
+                @Html.TextBox("txtCreType", Model.PRCR_RE_TYPE_ID, New With {.style = "display: none;"})
+            </div>
+
+            <!--CRE guidelines-->
+            <div class="admin-card">
+                <div class="admin-card-header">
+                    <h4 class="admin-card-title">CRE guidelines</h4>
+                </div>
+                <div class="admin-card-body">
+
+                    <table style="display: inline-block; margin-left: 50px; margin-right: 100px; vertical-align: top;" class="form-group form-group-sm">
+                        <tr>
+                            <td style="text-align: right; padding-bottom: 5px;">
+                                @Html.Label("CRE project", New With {.class = "control-label"})
+                            </td>
+                            <td style="padding-left: 10px; padding-bottom: 5px;">
+                                @Html.DropDownList("DropDownCreProject", CType(ViewBag.SelectCreProject, IEnumerable(Of SelectListItem)), Nothing, New With {.class = "form-control input-sm", .readonly = "readonly", .disabled = "disabled", .style = "width: 220px;"})
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="text-align: right; padding-bottom: 5px;">
+                                @Html.Label("CRE type", New With {.class = "control-label"})
+                            </td>
+                            <td style="padding-left: 10px; padding-bottom: 5px;">
+                                @Html.DropDownList("DropDownCreType", CType(ViewBag.SelectCreType, IEnumerable(Of SelectListItem)), Nothing, New With {.class = "form-control input-sm", .readonly = "readonly", .disabled = "disabled", .style = "width: 220px;"})
+                            </td>
+                        </tr>
+                        <!-- Only if CRE TYPE is 'Senior housing / Service flats' (3) or 'Retail' (6) or 'Residential or mix' (7) or 'Office' (1)  or 'Logistic' (2) then 'CRE type detail' visible -->
+                        @If Model.PRCR_RE_TYPE_ID = 3 Or Model.PRCR_RE_TYPE_ID = 6 Or Model.PRCR_RE_TYPE_ID = 7 Or Model.PRCR_RE_TYPE_ID = 1 Or Model.PRCR_RE_TYPE_ID = 2 Then
+                            @<tr>
+                                <td style="text-align: right; padding-bottom: 5px;">
+                                    @Html.Label("CRE type detail (*)", New With {.class = "control-label"})
+                                </td>
+                                <td style="padding-left: 10px; padding-bottom: 5px;">
+                                    @Html.DropDownList("DropDownCreTypeDetail", CType(ViewBag.SelectCreTypeDetail, IEnumerable(Of SelectListItem)), Nothing, New With {.class = "form-control input-sm", .style = "width: 220px;", .required = "required", .onchange = "swChange = true;"})
+                                </td>
+                            </tr>
+                        End If
+                    </table>
+
+                    @If Model.PRCR_RE_TYPE_ID <> 3 And Model.PRCR_RE_TYPE_ID <> 6 And Model.PRCR_RE_TYPE_ID <> 7 And Model.PRCR_RE_TYPE_ID <> 1 And Model.PRCR_RE_TYPE_ID <> 2 Then
+                        @<input type="hidden" id="DropDownCreTypeDetail" value="-1" />
+                    End If
+
+                    <!-- for 'YIELD PROPERTY' (1): Office (1), Logistic (2), Senior housing / Service flats (3), Residential or mix (7) -->
+                    <!-- for 'PROPERTY PROMOTION' (2) or 'DEVELOPMENT' (3): Office (1), Logistic (2) -->
+                    <!-- for 'OWN USE BUILDING' (5) -->
+                    @If ((Model.PRCR_COMMERCIAL_RE_PRJ_ID = 1) And (Model.PRCR_RE_TYPE_ID = 1 Or Model.PRCR_RE_TYPE_ID = 2 Or Model.PRCR_RE_TYPE_ID = 3 Or Model.PRCR_RE_TYPE_ID = 7)) Or ((Model.PRCR_COMMERCIAL_RE_PRJ_ID = 2 Or Model.PRCR_COMMERCIAL_RE_PRJ_ID = 3) And (Model.PRCR_RE_TYPE_ID = 1 Or Model.PRCR_RE_TYPE_ID = 2)) Or (Model.PRCR_COMMERCIAL_RE_PRJ_ID = 5) Then
+                        @<table style="display: inline-block; margin-right: 100px; vertical-align: top;" class="form-group form-group-sm">
+                            <tr>
+                                <td style="text-align: right; padding-bottom: 5px;">
+                                    @Html.Label("Building year (*)", New With {.class = "control-label"})
+                                </td>
+                                <td style="padding-left: 10px; padding-bottom: 5px;">
+                                    @Html.TextBox("txtBuildingYear", Model.CRGU_BUILDING_YEAR, New With {.class = "form-control input-sm", .style = "width: 60px;", .required = "required", .type = "number", .min = "1700", .pattern = "\\d{4}", .onchange = "swChange = true;"})
+                                </td>
+                                <td style="padding-left: 5px; padding-bottom: 5px;">
+                                    @Html.Label("(YYYY)", New With {.class = "control-label"})
+                                </td>
+                            </tr>
+                            <tr>
+                                <td style="text-align: right; padding-bottom: 5px;">
+                                    @Html.Label("Renovation year (*)", New With {.class = "control-label"})
+                                </td>
+                                <td style="padding-left: 10px; padding-bottom: 5px;">
+                                    @Html.TextBox("txtRenovationYear", Model.CRGU_RENOVATION_YEAR, New With {.class = "form-control input-sm", .style = "width: 60px;", .required = "required", .type = "number", .min = "1700", .pattern = "\\d{4}", .onchange = "swChange = true;"})
+                                </td>
+                                <td style="padding-left: 5px; padding-bottom: 5px;">
+                                    @Html.Label("(YYYY)", New With {.class = "control-label"})
+                                </td>
+                            </tr>
+                            <tr>
+                                <td style="text-align: right; padding-bottom: 5px;">
+                                    @Html.Label("First usage (*)", New With {.class = "control-label"})
+                                </td>
+                                <td style="padding-left: 10px; padding-bottom: 5px;">
+                                    @Html.TextBox("txtFirstUsageYear", Model.CRGU_FIRST_USAGE_YEAR, New With {.class = "form-control input-sm", .style = "width: 60px;", .required = "required", .type = "number", .min = "1700", .pattern = "\\d{4}", .onchange = "swChange = true;"})
+                                </td>
+                                <td style="padding-left: 5px; padding-bottom: 5px;">
+                                    @Html.Label("(YYYY)", New With {.class = "control-label"})
+                                </td>
+                            </tr>
+                        </table>
+                    Else
+                        @<input type="hidden" id="txtBuildingYear" value="0" />
+                        @<input type="hidden" id="txtRenovationYear" value="0" />
+                        @<input type="hidden" id="txtFirstUsageYear" value="0" />
+                    End If
+
+                    <table style="display: inline-block; margin-right: 100px; vertical-align: top;" class="form-group form-group-sm">
+                        <!-- Only if CRE TYPE is 'Logistic' (2) then 'Compliant building' visible -->
+                        @If Model.PRCR_RE_TYPE_ID = 2 Then
+                            @<tr>
+                                <td style="text-align: right; padding-bottom: 5px;">
+                                    @Html.Label("Compliant building ", New With {.class = "control-label"})
+                                </td>
+                                <td style="padding-left: 10px; padding-bottom: 5px;">
+                                    <select id="DropDownCompliantBuilding" data-tbd="true" style="width: 80px;" class="form-control input-sm" required onchange="swChange = true;">
+                                        <option value="-1" @(If(Model.CRGU_COMPLIANT_BUILDING_SW = -1, "selected", ""))>SELECT</option>
+                                        <option value="1" @(If(Model.CRGU_COMPLIANT_BUILDING_SW = 1, "selected", ""))>Yes</option>
+                                        <option value="0" @(If(Model.CRGU_COMPLIANT_BUILDING_SW = 0, "selected", ""))>No</option>
+                                    </select>
+                                </td>
+                            </tr>
+                        End If
+                        <!-- Only if CRE TYPE is 'Office' (1), 'Logistic' (2) or 'Retail' (6) then 'Prime location' visible -->
+                        @If (Model.PRCR_RE_TYPE_ID = 1 Or Model.PRCR_RE_TYPE_ID = 2 Or Model.PRCR_RE_TYPE_ID = 6) Then
+                            @<tr>
+                                <td style="text-align: right; padding-bottom: 5px;">
+                                    @Html.Label("Prime location ", New With {.class = "control-label"})
+                                </td>
+                                <td style="padding-left: 10px; padding-bottom: 5px;">
+                                    <select id="DropDownPrimeLocation" data-tbd="true" style="width: 80px;" class="form-control input-sm" required onchange="swChange = true;">
+                                        <option value="-1" @(If(Model.CRGU_PRIME_LOCATION_SW = -1, "selected", ""))>SELECT</option>
+                                        <option value="1" @(If(Model.CRGU_PRIME_LOCATION_SW = 1, "selected", ""))>Yes</option>
+                                        <option value="0" @(If(Model.CRGU_PRIME_LOCATION_SW = 0, "selected", ""))>No</option>
+                                    </select>
+                                </td>
+                            </tr>
+                        End If
+                        <!-- Only if CRE TYPE is 'Building lots' (5) then 'Contaminated soils' visible -->
+                        @If Model.PRCR_RE_TYPE_ID = 5 Then
+                            @<tr>
+                                <td style="text-align: right; padding-bottom: 5px;">
+                                    @Html.Label("Contaminated soils (*)", New With {.class = "control-label"})
+                                </td>
+                                <td style="padding-left: 10px; padding-bottom: 5px;">
+                                    <select id="DropDownContaminatedSoils" style="width: 160px;" class="form-control input-sm" required onchange="toggleRowCreCondition(); swChange = true;">
+                                        <option value="-1" @(If(Model.CRGU_CONTAMINATED_SOILS_SW = -1, "selected", ""))>SELECT</option>
+                                        <option value="1" @(If(Model.CRGU_CONTAMINATED_SOILS_SW = 1, "selected", ""))>Yes</option>
+                                        <option value="0" @(If(Model.CRGU_CONTAMINATED_SOILS_SW = 0, "selected", ""))>No</option>
+                                    </select>
+                                </td>
+                            </tr>
+                            @<tr id="rowCRECONDITION" style="display: none;">
+                                <td style="text-align: right; padding-bottom: 5px;">
+                                    @Html.Label("CRE condition (*)", New With {.class = "control-label"})
+                                </td>
+                                <td style="padding-left: 10px; padding-bottom: 5px;">
+                                    @Html.DropDownList("DropDownCreCondition", CType(ViewBag.SelectCreCondition, IEnumerable(Of SelectListItem)), Nothing, New With {.class = "form-control input-sm", .style = "width: 160px;", .required = "required", .onchange = "swChange = true;"})
+                                </td>
+                            </tr>
+                        End If
+                    </table>
+
+                    @If Model.PRCR_RE_TYPE_ID <> 2 Then
+                        @<input type="hidden" id="DropDownCompliantBuilding" value="-1" />
+                    End If
+                    @If (Model.PRCR_RE_TYPE_ID <> 1 And Model.PRCR_RE_TYPE_ID <> 2 And Model.PRCR_RE_TYPE_ID <> 6) Then
+                        @<input type="hidden" id="DropDownPrimeLocation" value="-1" />
+                    End If
+                    @If Model.PRCR_RE_TYPE_ID <> 5 Then
+                        @<input type="hidden" id="DropDownContaminatedSoils" value="-1" />
+                        @<input type="hidden" id="DropDownCreCondition" value="@Model.PRCR_CRE_CONDITION_ID" />
+                    End If
+
+                    <table style="display: inline-block; vertical-align: top;" class="form-group form-group-sm">
+                        @If Model.PRCR_RE_TYPE_ID = 5 Then
+                            @<tr>
+                                <td style="text-align: right; padding-bottom: 5px;">
+                                    @Html.Label("Project aligned with Spatial Implementation Plan ", New With {.class = "control-label"})
+                                </td>
+                                <td style="padding-left: 10px; padding-bottom: 5px;">
+                                    <select id="DropDownProjectAlignedSIP" style="width: 80px;" class="form-control input-sm"  data-tbd="true" required onchange="swChange = true;">
+                                        <option value="-1" @(If(Model.CRGU_PROJECT_ALIGNED_SW = -1, "selected", ""))>SELECT</option>
+                                        <option value="1" @(If(Model.CRGU_PROJECT_ALIGNED_SW = 1, "selected", ""))>Yes</option>
+                                        <option value="0" @(If(Model.CRGU_PROJECT_ALIGNED_SW = 0, "selected", ""))>No</option>
+                                    </select>
+                                </td>
+                            </tr>
+                        End If
+
+                        @If ((Model.PRCR_COMMERCIAL_RE_PRJ_ID = 1) And (Model.PRCR_RE_TYPE_ID = 1 Or Model.PRCR_RE_TYPE_ID = 2 Or Model.PRCR_RE_TYPE_ID = 6)) Then
+                            @<tr>
+                                <td style="text-align: right; padding-bottom: 5px;">
+                                    @Html.Label("Tenant risk concentration ", New With {.class = "control-label"})
+                                </td>
+                                <td style="padding-left: 10px; padding-bottom: 5px;">
+                                    <select id="DropDownTenantRisk" style="width: 60px;" class="form-control input-sm"  data-tbd="true" required onchange="swChange = true; toggleActor();">
+                                        <option value="1" @(If(Not String.IsNullOrEmpty(Model.ACTR_ACTOR_ID), "selected", ""))>Yes</option>
+                                        <option value="0" @(If(String.IsNullOrEmpty(Model.ACTR_ACTOR_ID), "selected", ""))>No</option>
+                                    </select>
+                                </td>
+                                <td style="padding-left: 10px; padding-bottom: 5px;">
+                                    @Html.TextBox("txtActorId", Model.ACTR_ACTOR_ID, New With {.class = "form-control input-sm", .style = "width: 80px;", .maxlength = "10", .onchange = "swChange = true; toggleActor();"})
+                                </td>
+                                <td style="padding-left: 10px; padding-bottom: 5px;">
+                                    <button id="ActorButton" type="button" class="btn btn-sm btn-default" onclick="searchActor()">Search</button>
+                                </td>
+                            </tr>
+                            @<tr>
+                                <td style="padding-left: 10px; padding-bottom: 5px;">
+                                    @Html.TextBox("txtActorName", Model.ACTR_ACTOR_NAME_NM, New With {.class = "form-control input-sm", .style = "width: 160px;", .maxlength = "100", .onchange = "swChange = true;"})
+                                </td>
+                                <td style="padding-left: 10px; padding-bottom: 5px;">
+                                    @Html.TextBox("txtActorQuality", "", New With {.class = "form-control input-sm", .style = "width: 60px;", .readonly = "readonly", .disabled = "disabled"})
+                                </td>
+                                <td style="padding-left: 10px; padding-bottom: 5px;">
+                                    @Html.DropDownList("DropDownActorQuality", CType(ViewBag.SelectActorQuality, IEnumerable(Of SelectListItem)), Nothing, New With {.class = "form-control input-sm", .style = "width: 80px;", .onchange = "swChange = true;"})
+                                </td>
+                            </tr>
+                        End If
+                    </table>
+
+                    @If Model.PRCR_RE_TYPE_ID <> 5 Then
+                        @<input type="hidden" id="DropDownProjectAlignedSIP" value="-1" />
+                    End If
+                    @If (Model.PRCR_COMMERCIAL_RE_PRJ_ID <> 1) Or (Model.PRCR_COMMERCIAL_RE_PRJ_ID = 1 And Model.PRCR_RE_TYPE_ID <> 1 And Model.PRCR_RE_TYPE_ID <> 2 And Model.PRCR_RE_TYPE_ID <> 6) Then
+                        @<input type="hidden" id="DropDownTenantRisk" value="0" />
+                        @<input type="hidden" id="ActorButton" />
+                        @<input typ="hidden" id="txtActorId" value="" />
+                        @<input type="hidden" id="txtActorName" value="" />
+                        @<input type="hidden" id="txtActorQuality" value="" />
+                        @<input type="hidden" id="DropDownActorQuality" value="-1" />
+                    End If
+
+                    <script>
+                        function toggleRowCreCondition() {
+
+                            var creType = document.getElementById("txtCreType").value;
+                            var contaminatedSoils = document.getElementById("DropDownContaminatedSoils").value;
+                            var rowCRECONDITION = document.getElementById("rowCRECONDITION");
+
+                            if (creType == 5) {
+                                // Hide row initially
+                                rowCRECONDITION.style.display = "none";
+
+                                if (contaminatedSoils == "1") {
+                                    rowCRECONDITION.style.display = "";
+                                }
+                            }
+                        }
+                    </script>
+
+                    <script>
+                        function toggleActor() {
+
+                            var creProject = document.getElementById("DropDownCreProject").value;
+                            var creType = document.getElementById("DropDownCreType").value;
+
+                            if ((creProject = 1) && (creType == 1 || creType == 2 || creType == 6)) {
+
+                                var tenantRisk = document.getElementById("DropDownTenantRisk").value;
+                                var actorId = document.getElementById("txtActorId");
+                                var actorButton = document.getElementById("ActorButton");
+                                var actorName = document.getElementById("txtActorName");
+                                var actorQualityTxt = document.getElementById("txtActorQuality");
+                                var actorQualityDrDwn = document.getElementById("DropDownActorQuality");
+
+                                clearSpecificFieldErrors(actorId);
+
+                                if (tenantRisk == "1") {
+                                    actorId.style.display = "";
+                                    actorName.style.display = "";
+                                    if (actorId.value == "-") {
+                                        actorButton.style.display = "none";
+                                        actorQualityTxt.style.display = "none";
+                                        actorQualityDrDwn.style.display = "";
+                                        actorName.disabled = false;
+                                        actorName.readOnly = false;
+                                        document.getElementById("txtActorQuality").value = "";
+                                    } else {
+                                        actorButton.style.display = "";
+                                        actorQualityTxt.style.display = "";
+                                        actorQualityDrDwn.style.display = "none";
+                                        actorName.disabled = true;
+                                        actorName.readOnly = true;
+                                        document.getElementById("DropDownActorQuality").value = "-1";
+                                    }
+                                } else {
+                                    actorId.style.display = "none";
+                                    actorButton.style.display = "none";
+                                    actorName.style.display = "none";
+                                    actorQualityTxt.style.display = "none";
+                                    actorQualityDrDwn.style.display = "none";
+                                    document.getElementById("txtActorId").value = "";
+                                    document.getElementById("txtActorName").value = "";
+                                    document.getElementById("txtActorQuality").value = "";
+                                    document.getElementById("DropDownActorQuality").value = "-1";
+                                }
+                            }
+                        }
+                    </script>
+
+                    <script>
+                        function searchActor() {
+
+                            const $actorInput = $('#txtActorId');
+                            var actorId = $actorInput.val();
+
+                            clearSpecificFieldErrors($actorInput);
+                            $('#txtActorName').val('');
+                            $('#txtActorQuality').val('');
+                            $('#DropDownActorQuality').val('1');
+
+                            // Check if actorId is empty
+                            if (!actorId || actorId.trim() === '') {
+                                setFieldError($actorInput, 'Actor ID is required');
+                                return;
+                            }
+
+                            $.get('/Analysis/GetActorDetails', { actorId: actorId.trim() })
+                                .done(function (response) {
+                                    if (response.error) {
+                                        setFieldError($actorInput, response.error);
+                                        $('#txtActorName').val('');
+                                        $('#txtActorQuality').val('');
+                                        return;
+                                    }
+                                    $('#txtActorName').val(response.ActorName);
+                                    $('#txtActorQuality').val(response.QualityName);
+                                })
+                                .fail(function (xhr, status, error) {
+                                    setFieldError($actorInput, 'Failed to fetch actor data. Please try again.');
+                                });
+                        }
+                    </script>
+                </div>
+            </div>
+
+            <!--Address-->
+            <div class="admin-card">
+                <div class="admin-card-header">
+                    <h4 class="admin-card-title">Address (*)</h4>
+                </div>
+                <div class="admin-card-body">
+
+                    <table style="display: inline-block; margin-left: 50px; margin-right: 100px; vertical-align: top;" class="form-group form-group-sm">
+                        <tr>
+                            <td style="text-align: right; padding-bottom: 5px;">
+                                @Html.Label("Street", New With {.class = "control-label"})
+                            </td>
+                            <td style="padding-left: 10px; padding-bottom: 5px;">
+                                @Html.TextBox("txtStreet", Model.ASST_STREET_NM, New With {.class = "form-control input-sm", .style = "width: 370px;", .maxlength = "40", .onchange = "swChange = true;"})
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="text-align: right; padding-bottom: 5px;">
+                                @Html.Label("Street nr", New With {.class = "control-label"})
+                            </td>
+                            <td style="padding-left: 10px; padding-bottom: 5px;">
+                                @Html.TextBox("txtStreetNr", Model.ASST_STREET_NR_NM, New With {.class = "form-control input-sm", .style = "width: 60px;", .maxlength = "5", .onchange = "swChange = true;"})
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="text-align: right; padding-bottom: 5px;">
+                                @Html.Label("Street box", New With {.class = "control-label"})
+                            </td>
+                            <td style="padding-left: 10px; padding-bottom: 5px;">
+                                @Html.TextBox("txtStreetBox", Model.ASST_STREET_BOX_NM, New With {.class = "form-control input-sm", .style = "width: 60px;", .maxlength = "5", .onchange = "swChange = true;"})
+                            </td>
+                        </tr>
+                    </table>
+
+                    <table style="display: inline-block; margin-right: 100px; vertical-align: top;" class="form-group form-group-sm">
+                        <tr>
+                            <td style="text-align: right; padding-bottom: 5px;">
+                                @Html.Label("Postal code", New With {.class = "control-label"})
+                            </td>
+                            <td style="padding-left: 10px; padding-bottom: 5px;">
+                                @Html.TextBox("txtPostalCode", Model.ASST_POSTAL_CODE_ID, New With {.class = "form-control input-sm", .style = "width: 100px;", .maxlength = "10", .onchange = "swChange = true;"})
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="text-align: right; padding-bottom: 5px;">
+                                @Html.Label("City", New With {.class = "control-label"})
+                            </td>
+                            <td style="padding-left: 10px; padding-bottom: 5px;">
+                                @Html.TextBox("txtCity", Model.ASST_CITY_NM, New With {.class = "form-control input-sm", .style = "width: 370px;", .maxlength = "40", .onchange = "swChange = true;"})
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="text-align: right; padding-bottom: 5px;">
+                                @Html.Label("Country", New With {.class = "control-label"})
+                            </td>
+                            <td style="padding-left: 10px; padding-bottom: 5px;">
+                                @Html.DropDownList("DropDownCountry", CType(ViewBag.SelectCountry, IEnumerable(Of SelectListItem)), Nothing, New With {.class = "form-control input-sm", .style = "width: 120px;", .onchange = "swChange = true;"})
+                            </td>
+                        </tr>
+                    </table>
+
+                    <table style="display: inline-block; vertical-align: top; vertical-align: top;" class="form-group form-group-sm">
+                        <tr>
+                            <td style="text-align: right; padding-bottom: 5px;">
+                                @Html.Label("Other location ref", New With {.class = "control-label"})
+                            </td>
+                            <td style="padding-left: 10px; padding-bottom: 5px;">
+                                @Html.TextBox("txtOtherLocation", Model.ASST_OTHER_LOCATION_REFERENCE_NM, New With {.class = "form-control input-sm", .style = "width: 370px;", .maxlength = "40", .onchange = "swChange = true;"})
+                            </td>
+                        </tr>
+                    </table>
+
+                </div>
+            </div>
+
+            <!--Valuation-->
+            <div class="admin-card">
+                <div class="admin-card-header">
+                    <h4 class="admin-card-title">Valuation</h4>
+                </div>
+                <div class="admin-card-body">
+
+                    <table style="display: inline-block; margin-left: 50px; margin-right: 100px; vertical-align: top;" class="form-group form-group-sm">
+                        <tr>
+                            <td style="text-align: right; padding-bottom: 5px;">
+                                @Html.Label("Nature (*)", New With {.class = "control-label"})
+                            </td>
+                            <td style="padding-left: 10px; padding-bottom: 5px;">
+                                @Html.DropDownList("DropDownNature", CType(ViewBag.SelectNature, IEnumerable(Of SelectListItem)), Nothing, New With {.class = "form-control input-sm", .style = "width: 340px;", .required = "required", .onchange = "swChange = true;"})
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="text-align: right; padding-bottom: 5px;">
+                                @Html.Label("Attribute", New With {.class = "control-label"})
+                            </td>
+                            <td style="padding-left: 10px; padding-bottom: 5px;">
+                                @Html.DropDownList("DropDownAttribute", CType(ViewBag.SelectAttribute, IEnumerable(Of SelectListItem)), Nothing, New With {.class = "form-control input-sm", .readonly = "readonly", .disabled = "disabled", .style = "width: 340px;"})
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="text-align: right; padding-bottom: 5px;">
+                                @Html.Label("Market value (*)", New With {.class = "control-label"})
+                            </td>
+                            <td style="padding-left: 10px; padding-bottom: 5px;">
+                                <div style="display: flex; align-items: center;">
+                                    @Html.TextBox("txtMarket", Model.ASST_MARKET_VALUE_AM, New With {.class = "form-control input-sm", .style = "width: 110px; text-align: right;", .required = "required", .type = "text", .pattern = "\d{0,9}", .title = "Please enter a whole number with up to 9 digits", .onfocus = "unFormatThisNumber(this)", .onkeypress = "return (event.charCode >= 48 && event.charCode <= 57) || event.charCode == 8", .oninput = "if (this.value.length > 9) this.value = this.value.slice(0, 9); calculateForcedSaleValue(this.value);", .onchange = "swChange = true;", .tag = "MyNumber"})
+                                    @Html.Label("(Deduced)", New With {.class = "control-label", .style = "margin-left: 10px;"})
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="text-align: right; padding-bottom: 5px;">
+                                @Html.Label("Forced sale value", New With {.class = "control-label"})
+                            </td>
+                            <td style="padding-left: 10px; padding-bottom: 5px;">
+                                <div style="display: flex; align-items: center;">
+                                    @Html.TextBox("txtForced", Model.ASST_FORCED_SALE_VALUE_AM, New With {.class = "form-control input-sm", .disabled = "disabled", .style = "width: 110px; text-align: right;", .type = "text", .pattern = "\d{0,9}", .title = "Please enter a whole number with up to 9 digits", .onfocus = "unFormatThisNumber(this)", .onkeypress = "return (event.charCode >= 48 && event.charCode <= 57) || event.charCode == 8", .oninput = "if (this.value.length > 9) this.value = this.value.slice(0, 9);", .onchange = "swChange = true;", .tag = "MyNumber"})
+                                    @Html.Label("(Computed)", New With {.class = "control-label", .style = "margin-left: 10px;"})
+                                </div>
+                            </td>
+                        </tr>
+                    </table>
+
+                    <script>
+                        function setExpertiseMethodology (){
+
+                            //rule Expertise Methodology - step 1
+                            var natureValue = document.getElementById("DropDownNature").value;
+                            var attributeValue = document.getElementById("DropDownAttribute").value;
+                            var result_part1 = 0;
+
+                            if (natureValue == '35') {
+                                result_part1 = 1
+                            } else {
+                                switch (attributeValue) {
+                                    case '11':
+                                    case '12':
+                                    case '13':
+                                        result_part1 = 2;
+                                        break;
+                                    case '14':
+                                    case '15':
+                                    case '16':
+                                        result_part1 = 3;
+                                        break;
+                                }
+                            }
+
+                            //rule Expertise Methodology - step 2
+                            var result_part2 = 0;
+                            var txtMarket = document.getElementById("txtMarket").value;
+                            var sumCredit = parseFloat('@ViewBag.SumCredit'.replace(',', '.'));
+
+                            // Remove commas and parse as float
+                            var valueMarket = parseFloat(txtMarket.replace(/,/g, ''));
+
+                            if (isNaN(valueMarket) || txtMarket.trim() === "") {
+                                result_part2 = 0;
+                            } else if (valueMarket < 500000) {
+                                result_part2 = 1;
+                            } else if (valueMarket < 1000000) {
+                                result_part2 = 2;
+                            } else if (valueMarket < 2500000) {
+                                result_part2 = 3;
+                            } else {
+                                result_part2 = 4;
+                            }
+
+                            //rule Expertise Methodology - step 3
+                            var result_part3 = 0;
+
+                            if (isNaN(valueMarket) || txtMarket.trim() === "") {
+                                result_part3 = 1
+                            } else if ((sumCredit / valueMarket) > 0.75) {
+                                result_part3 = 2
+                            } else {
+                                result_part3 = 1
+                            }
+
+                            //Concatenate
+                            var result_concatenate = 0;
+
+                            result_concatenate = (result_part1 * 100) + (result_part2 * 10) + result_part3
+
+                            //Set Expertise Methodology
+                            var expMethod = 0;
+                            switch (result_concatenate) {
+                                case 111:
+                                case 121:
+                                case 211:
+                                case 212:
+                                case 221:
+                                case 311:
+                                case 321:
+                                    expMethod = 1;
+                                    break;
+                                case 141:
+                                case 142:
+                                case 241:
+                                case 242:
+                                case 341:
+                                case 342:
+                                    expMethod = 2;
+                                    break;
+                                case 112:
+                                case 122:
+                                case 131:
+                                case 132:
+                                case 312:
+                                case 322:
+                                case 331:
+                                case 332:
+                                    expMethod = 3;
+                                    break;
+                                case 222:
+                                case 231:
+                                case 232:
+                                    expMethod = 4;
+                                    break;
+                            }
+                            $('#DropDownExpMethod').val(expMethod);
+
+                            // Forced Sale Value
+                            var txtForced = document.getElementById("txtForced").value;
+
+                            if (expMethod == 1) {                                               // 1 = Immotool
+                                document.getElementById("txtForcedExpert").value = txtForced;
+                                document.getElementById("txtForced").disabled = false;
+                                document.getElementById("txtForced").style.backgroundColor = "white";
+                            } else {
+                                document.getElementById("txtForced").disabled = true;
+                                document.getElementById("txtForced").style.backgroundColor = "lightgray";
+                            }
+                        }
+                    </script>
+
+                    <script>
+                        function setValuationAmounts() {
+
+                            var txtMarket = document.getElementById("txtMarket").value;
+                            var txtForced = document.getElementById("txtForced").value;
+                            var txtMarketExpert = document.getElementById("txtMarketExpert").value;
+                            var txtForcedExpert = document.getElementById("txtForcedExpert").value;
+
+                            if (txtMarket == 0 && txtForced == 0 && txtMarketExpert == 0 && txtForcedExpert == 0) {
+
+                                var costToMarket = parseFloat('@ViewBag.CostToMarket'.replace(',', '.'));
+                                var forcedSaleValue = parseFloat(costToMarket) * 0.8;
+
+                                document.getElementById("txtMarket").value = costToMarket.toFixed(2);
+                                document.getElementById("txtForced").value = forcedSaleValue.toFixed(2);
+                                document.getElementById("txtMarketExpert").value = costToMarket.toFixed(2);
+                                document.getElementById("txtForcedExpert").value = forcedSaleValue.toFixed(2);
+                            }
+                       }
+                    </script>
+
+                    <script>
+                        $(document).ready(function () {
+                            $('#DropDownNature').change(function () {
+                                var selectedValue = $(this).val();
+                                var attributeValue = '';
+
+                                // Determine the attribute value based on the selected nature value
+                                switch (selectedValue) {
+                                    case '01':
+                                    case '10':
+                                        attributeValue = '11';
+                                        break;
+                                    case '03':
+                                    case '04':
+                                    case '05':
+                                    case '11':
+                                    case '12':
+                                    case '15':
+                                    case '19':
+                                    case '21':
+                                    case '22':
+                                    case '23':
+                                    case '40':
+                                        attributeValue = '12';
+                                        break;
+                                    case '07':
+                                    case '08':
+                                    case '09':
+                                    case '18':
+                                    case '33':
+                                    case '34':
+                                    case '35':
+                                        attributeValue = '13';
+                                        break;
+                                    case '02':
+                                    case '26':
+                                        attributeValue = '14';
+                                        break;
+                                    case '06':
+                                    case '13':
+                                    case '14':
+                                    case '17':
+                                    case '24':
+                                    case '27':
+                                    case '32':
+                                        attributeValue = '15';
+                                        break;
+                                    case '16':
+                                    case '20':
+                                    case '25':
+                                    case '28':
+                                    case '29':
+                                    case '30':
+                                    case '31':
+                                    case '36':
+                                    case '37':
+                                    case '38':
+                                    case '39':
+                                        attributeValue = '16';
+                                        break;
+                                    case '-1':
+                                        attributeValue = '-1';
+                                        break;
+                                }
+
+                                // Set the selected value in the DropDownAttribute dropdown
+                                $('#DropDownAttribute').val(attributeValue);
+
+                                // call function "setExpertiseMethodology"
+                                setExpertiseMethodology();
+                            });
+                        });
+                    </script>
+
+                    <script>
+                        function calculateForcedSaleValue(marketValue) {
+                            var forcedSaleValue = Math.round(parseFloat(marketValue) * 0.8);
+                            document.getElementById("txtForced").value = forcedSaleValue;
+
+                            // call function "setExpertiseMethodology"
+                            setExpertiseMethodology();
+                        }
+                    </script>
+
+
+                    <table style="display: inline-block; margin-right: 100px; vertical-align: top;" class="form-group form-group-sm">
+                        <tr>
+                            <td style="text-align: right; padding-bottom: 5px;">
+                                @Html.Label("Expertise methodology", New With {.class = "control-label"})
+                            </td>
+                            <td style="padding-left: 10px; padding-bottom: 5px;">
+                                @Html.DropDownList("DropDownExpMethod", CType(ViewBag.SelectMethod, IEnumerable(Of SelectListItem)), Nothing, New With {.class = "form-control input-sm", .readonly = "readonly", .disabled = "disabled", .style = "width: 240px;"})
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="text-align: right; padding-bottom: 5px;">
+                                @Html.Label("Expertise methodology conformity (*)", New With {.class = "control-label"})
+                            </td>
+                            <td style="padding-left: 10px; padding-bottom: 5px;">
+                                @Html.DropDownList("DropDownExpMethodConf", CType(ViewBag.SelectMethodConf, IEnumerable(Of SelectListItem)), Nothing, New With {.class = "form-control input-sm", .style = "width: 110px;", .required = "required", .onchange = "swChange = true;"})
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="text-align: right; padding-bottom: 5px;">
+                                @Html.Label("Market value ", New With {.class = "control-label", .data_tdb = "true"})
+                            </td>
+                            <td style="padding-left: 10px; padding-bottom: 5px;">
+                                <div style="display: flex; align-items: center;">
+                                    @Html.TextBox("txtMarketExpert", Model.ASST_MARKET_VALUE_EXPERT_AM, New With {.class = "form-control input-sm", .style = "width: 110px;  text-align: right;", .required = "required", .type = "text", .pattern = "\d{0,9}", .title = "Please enter a whole number with up to 9 digits", .onfocus = "unFormatThisNumber(this)", .onkeypress = "return (event.charCode >= 48 && event.charCode <= 57) || event.charCode == 8", .oninput = "if (this.value.length > 9) this.value = this.value.slice(0, 9);", .onchange = "swChange = true;", .tag = "MyNumber"})
+                                    @Html.Label("(Expertise)", New With {.class = "control-label", .style = "margin-left: 10px;"})
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="text-align: right; padding-bottom: 5px;">
+                                @Html.Label("Forced sale value ", New With {.class = "control-label", .data_tbd = "true"})
+                            </td>
+                            <td style="padding-left: 10px; padding-bottom: 5px;">
+                                <div style="display: flex; align-items: center;">
+                                    @Html.TextBox("txtForcedExpert", Model.ASST_FORCED_SALE_VALUE_EXPERT_AM, New With {.class = "form-control input-sm", .style = "width: 110px;  text-align: right;", .required = "required", .type = "text", .pattern = "\d{0,9}", .title = "Please enter a whole number with up to 9 digits", .onfocus = "unFormatThisNumber(this)", .onkeypress = "return (event.charCode >= 48 && event.charCode <= 57) || event.charCode == 8", .oninput = "if (this.value.length > 9) this.value = this.value.slice(0, 9);", .onchange = "swChange = true;", .tag = "MyNumber"})
+                                    @Html.Label("(Expertise)", New With {.class = "control-label", .style = "margin-left: 10px;"})
+                                </div>
+                            </td>
+                        </tr>
+                    </table>
+
+                    <table style="display: inline-block; vertical-align: top;" class="form-group form-group-sm">
+                        <tr>
+                            <td style="text-align: right; padding-bottom: 5px;">
+                                @Html.Label("Expertise source (*)", New With {.class = "control-label"})
+                            </td>
+                            <td style="padding-left: 10px; padding-bottom: 5px;">
+                                @Html.DropDownList("DropDownExpSource", CType(ViewBag.SelectExpSource, IEnumerable(Of SelectListItem)), Nothing, New With {.class = "form-control input-sm", .style = "width: 200px;", .required = "required", .onchange = "toggleRowSource(); swChange = true;"})
+                            </td>
+                        </tr>
+                        <tr id="rowOTHER" style="display: none;">
+                            <td style="text-align: right; padding-bottom: 5px;">
+                                @Html.Label("Other expertise source", New With {.class = "control-label"})
+                            </td>
+                            <td style="padding-left: 10px; padding-bottom: 5px;">
+                                @Html.TextBox("txtOtherExpSource", Model.ASST_EXPERTISE_SOURCE_OTHER_NM, New With {.class = "form-control input-sm", .style = "width: 280px;", .maxlength = "30", .onchange = "swChange = true;"})
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="text-align: right; padding-bottom: 5px;">
+                                @Html.Label("Expertise date ", New With {.class = "control-label", .data_tbd = "true"})
+                            </td>
+                            <td style="padding-left: 10px; padding-bottom: 5px;">
+                                @Html.TextBox("txtExpDate", Model.ASST_EXPERTISE_DATE_DT.ToString("dd-MM-yyyy"), New With {.class = "form-control input-sm", .style = "width: 80px;", .required = "required", .id = "txtExpDate", .pattern = "\d{2}-\d{2}-\d{4}", .title = "Please enter a date in the format dd-mm-yyyy", .onchange = "swChange = true;"})
+                            </td>
+                        </tr>
+                    </table>
+
+                    <script>
+                        function toggleRowSource() {
+                            var expertiseSource = document.getElementById("DropDownExpSource").value;
+                            var rowOTHER = document.getElementById("rowOTHER");
+
+                            // Hide row initially
+                            rowOTHER.style.display = "none";
+
+                            // Show row based on the selected expertise source
+                            if (expertiseSource == "4") {
+                                rowOTHER.style.display = "";
+                            } else {
+                                document.getElementById("txtOtherExpSource").value = "";
+                            }
+                        }
+                    </script>
+
+                    <script>
+                        $(document).ready(function () {
+                            $("#txtExpDate").datepicker({
+                                dateFormat: "dd-mm-yy",
+                                changeMonth: true,
+                                changeYear: true,
+                                showButtonPanel: true,
+                                firstDay: 1,            // Monday as the first day of the week
+                                yearRange: "2000:c",    // Shows years from 2000 to the current year
+                                maxDate: new Date()     // Prevents selecting future dates
+                            });
+                        });
+                    </script>
+
+                </div>
+            </div>
+
+            <!--Other info-->
+            <div Class="admin-card">
+                <div Class="admin-card-header">
+                    <h4 Class="admin-card-title">Other info</h4>
+                </div>
+                <div Class="admin-card-body">
+
+                    <table style="display: inline-block; margin-left: 50px; margin-right: 100px; vertical-align: top;" class="form-group form-group-sm">
+                        @If Model.PRCR_COMMERCIAL_RE_PRJ_ID = 1 Then
+                            @<tr>
+                                <td style="text-align: right; padding-bottom: 5px;">
+                                    @Html.Label("Yearly estimated rental income (*)", New With {.class = "control-label"})
+                                </td>
+                                <td style="padding-left: 10px; padding-bottom: 5px;">
+                                    @Html.TextBox("txtEstRentIncome", Model.ASST_YEARLY_ESTIMATED_RENTAL_INCOME_AM, New With {.class = "form-control input-sm", .style = "width: 110px; text-align: right;", .required = "required", .type = "text", .pattern = "\d{0,9}", .title = "Please enter a whole number with up to 9 digits", .onfocus = "unFormatThisNumber(this)", .onkeypress = "return (event.charCode >= 48 && event.charCode <= 57) || event.charCode == 8", .oninput = "if (this.value.length > 9) this.value = this.value.slice(0, 9);", .onchange = "swChange = true;", .tag = "MyNumber"})
+                                </td>
+                            </tr>
+                            @<tr>
+                                <td style="text-align: right; padding-bottom: 5px;">
+                                    @Html.Label("Yearly contracted rental income (*)", New With {.class = "control-label"})
+                                </td>
+                                <td style="padding-left: 10px; padding-bottom: 5px;">
+                                    @Html.TextBox("txtConRentIncome", Model.ASST_YEARLY_CONTRACTED_RENTAL_INCOME_AM, New With {.class = "form-control input-sm", .style = "width: 110px; text-align: right;", .required = "required", .type = "text", .pattern = "\d{0,9}", .title = "Please enter a whole number with up to 9 digits", .onfocus = "unFormatThisNumber(this)", .onkeypress = "return (event.charCode >= 48 && event.charCode <= 57) || event.charCode == 8", .oninput = "if (this.value.length > 9) this.value = this.value.slice(0, 9);", .onchange = "swChange = true;", .tag = "MyNumber"})
+                                </td>
+                            </tr>
+                            @<tr>
+                                <td style="text-align: right; padding-bottom: 5px;">
+                                    @Html.Label("Annual operational expense", New With {.class = "control-label", .data_tbd = "true"})
+                                </td>
+                                <td style="padding-left: 10px; padding-bottom: 5px;">
+                                    @Html.TextBox("txtAnnOperExpense", Model.ASST_ANNUAL_OPER_EXPENSE_AM, New With {.class = "form-control input-sm", .style = "width: 110px; text-align: right;", .type = "text", .pattern = "\d{0,9}", .title = "Please enter a whole number with up to 9 digits", .onfocus = "unFormatThisNumber(this)", .onkeypress = "return (event.charCode >= 48 && event.charCode <= 57) || event.charCode == 8", .oninput = "if (this.value.length > 9) this.value = this.value.slice(0, 9);", .onchange = "swChange = true;", .tag = "MyNumber"})
+                                </td>
+                            </tr>
+                        End If
+                        @If Model.PRCR_COMMERCIAL_RE_PRJ_ID = 2 Or Model.PRCR_COMMERCIAL_RE_PRJ_ID = 3 Then
+                            @<tr>
+                                <td style="text-align: right; padding-bottom: 5px;">
+                                    @Html.Label("Total expected sales price (*)", New With {.class = "control-label"})
+                                </td>
+                                <td style="padding-left: 10px; padding-bottom: 5px;">
+                                    @Html.TextBox("txtTotExpSalPrice", Model.ASST_TOTAL_EXPECTED_SALES_PRICE_AM, New With {.class = "form-control input-sm", .style = "width: 110px; text-align: right;", .required = "required", .type = "text", .pattern = "\d{0,9}", .title = "Please enter a whole number with up to 9 digits", .onfocus = "unFormatThisNumber(this)", .onkeypress = "return (event.charCode >= 48 && event.charCode <= 57) || event.charCode == 8", .oninput = "if (this.value.length > 9) this.value = this.value.slice(0, 9);", .onchange = "swChange = true;", .tag = "MyNumber"})
+                                </td>
+                            </tr>
+                        End If
+                        <tr>
+                            <td style="text-align: Right; padding-bottom: 5px;">
+                                @Html.Label("% Build ", New With {.class = "control-label", .data_tbd = "true"})
+                            </td>
+                            <td style="padding-left: 10px; padding-bottom: 5px;">
+                                @Html.DropDownList("DropDownBuildPerc", CType(ViewBag.SelectBuildPerc, IEnumerable(Of SelectListItem)), Nothing, New With {.class = "form-control input-sm", .style = "width: 100px;", .required = "required", .onchange = "swChange = true;"})
+                            </td>
+                        </tr>
+                        @If Model.PRCR_COMMERCIAL_RE_PRJ_ID = 2 Or Model.PRCR_COMMERCIAL_RE_PRJ_ID = 3 Then
+                            @<tr>
+                                <td style="text-align: right; padding-bottom: 5px;">
+                                    @Html.Label("Expected date of 'All sold' (*)", New With {.class = "control-label"})
+                                </td>
+                                <td style="padding-left: 10px; padding-bottom: 5px;">
+                                    @Html.TextBox("txtExpDateAllSold", Model.ASST_ALL_SOLD_EXPECTED_DATE_DT.ToString("dd-MM-yyyy"), New With {.class = "form-control input-sm", .style = "width: 80px;", .required = "required", .id = "txtExpDateAllSold", .pattern = "\d{2}-\d{2}-\d{4}", .title = "Please enter a date in the format dd-mm-yyyy", .onchange = "swChange = true;"})
+                                </td>
+                            </tr>
+                        End If
+                    </table>
+
+                    <table style="display: inline-block; vertical-align: top;" class="form-group form-group-sm">
+                        @If Model.PRCR_COMMERCIAL_RE_PRJ_ID = 1 Then
+                            @<tr>
+                                <td style="text-align: right; padding-bottom: 5px;">
+                                    @Html.Label("Date next rental break", New With {.class = "control-label", .data_tbd = "true"})
+                                </td>
+                                <td style="padding-left: 10px; padding-bottom: 5px;">
+                                    @Html.TextBox("txtDateNxtRntBrk", Model.ASST_NEXT_RENTAL_BREAK_DATE_DT.ToString("dd-MM-yyyy"), New With {.class = "form-control input-sm", .style = "width: 80px;", .id = "txtDateNxtRntBrk", .pattern = "\d{2}-\d{2}-\d{4}", .title = "Please enter a date in the format dd-mm-yyyy", .onchange = "swChange = true;"})
+                                </td>
+                            </tr>
+                            @<tr>
+                                <td style="text-align: right; padding-bottom: 5px;">
+                                    @Html.Label("End date contract", New With {.class = "control-label", .data_tbd = "true"})
+                                </td>
+                                <td style="padding-left: 10px; padding-bottom: 5px;">
+                                    @Html.TextBox("txtEndDateCntr", Model.ASST_END_DATE_CONTRACT_DT.ToString("dd-MM-yyyy"), New With {.class = "form-control input-sm", .style = "width: 80px;", .id = "txtEndDateCntr", .pattern = "\d{2}-\d{2}-\d{4}", .title = "Please enter a date in the format dd-mm-yyyy", .onchange = "swChange = true;"})
+                                </td>
+                            </tr>
+                            @<tr>
+                                <td style="text-align: right; padding-bottom: 5px;">
+                                    @Html.Label("Surface rented (m²) ", New With {.class = "control-label", .data_tbd = "true"})
+                                </td>
+                                <td style="padding-left: 10px; padding-bottom: 5px;">
+                                    @Html.TextBox("txtSurfRented", Model.ASST_SURFACE_RENTED_AM, New With {.class = "form-control input-sm", .style = "width: 72px; text-align: right;", .required = "required", .type = "text", .pattern = "\d{0,6}", .title = "Please enter a whole number with up to 6 digits", .onfocus = "unFormatThisNumber(this)", .onkeypress = "return (event.charCode >= 48 && event.charCode <= 57) || event.charCode == 8", .oninput = "if (this.value.length > 6) this.value = this.value.slice(0, 6);", .onchange = "swChange = true;", .tag = "MyNumber"})
+                                </td>
+                            </tr>
+                        End If
+                        <tr>
+                            <td style="text-align: right; padding-bottom: 5px;">
+                                @Html.Label("Net total surface (m²) ", New With {.class = "control-label", .data_tbd = "true"})
+                            </td>
+                            <td style="padding-left: 10px; padding-bottom: 5px;">
+                                @Html.TextBox("txtSurface", Model.ASST_SURFACE_AM, New With {.class = "form-control input-sm", .style = "width: 72px; text-align: right;", .required = "required", .type = "text", .pattern = "\d{0,6}", .title = "Please enter a whole number with up to 6 digits", .onfocus = "unFormatThisNumber(this)", .onkeypress = "return (event.charCode >= 48 && event.charCode <= 57) || event.charCode == 8", .oninput = "if (this.value.length > 6) this.value = this.value.slice(0, 6);", .onchange = "swChange = true;", .tag = "MyNumber"})
+                            </td>
+                        </tr>
+                        @If Model.PRCR_COMMERCIAL_RE_PRJ_ID = 2 Or Model.PRCR_COMMERCIAL_RE_PRJ_ID = 3 Or Model.PRCR_COMMERCIAL_RE_PRJ_ID = 5 Then
+                            @<tr>
+                                <td style="text-align: right; padding-bottom: 5px;">
+                                    @Html.Label("Number of main units (*)", New With {.class = "control-label"})
+                                </td>
+                                <td style="padding-left: 10px; padding-bottom: 5px;">
+                                    @Html.TextBox("txtUnits", Model.ASST_MAIN_UNITS_AM, New With {.class = "form-control input-sm", .style = "width: 72px; text-align: right;", .required = "required", .type = "number", .min = "1", .max = "999", .oninput = "this.value = this.value.replace(/[^0-9]/g, ''); if (this.value.length > 3) this.value = this.value.slice(0, 3);", .onchange = "if (this.value == '0') this.value = '1'; swChange = true;"})
+                                </td>
+                            </tr>
+                        End If
+                    </table>
+
+                    @If Model.PRCR_COMMERCIAL_RE_PRJ_ID <> 2 And Model.PRCR_COMMERCIAL_RE_PRJ_ID <> 3 Then
+                        @<input type="hidden" id="txtTotExpSalPrice" value="0" />
+                        @<input type="hidden" id="txtExpDateAllSold" value="01-01-1900" />
+                    End If
+                    @If Model.PRCR_COMMERCIAL_RE_PRJ_ID <> 2 And Model.PRCR_COMMERCIAL_RE_PRJ_ID <> 3 And Model.PRCR_COMMERCIAL_RE_PRJ_ID <> 5 Then
+                        @<input type="hidden" id="txtUnits" value="0" />
+                    End If
+                    @If Model.PRCR_COMMERCIAL_RE_PRJ_ID <> 1 Then
+                        @<input type="hidden" id="txtEstRentIncome" value="0" />
+                        @<input type="hidden" id="txtConRentIncome" value="0" />
+                        @<input type="hidden" id="txtAnnOperExpense" value="0" />
+                        @<input type="hidden" id="txtDateNxtRntBrk" value="01-01-1900" />
+                        @<input type="hidden" id="txtEndDateCntr" value="01-01-1900" />
+                        @<input type="hidden" id="txtSurfRented" value="0" />
+                    End If
+
+                    <script>
+                        $(document).ready(function () {
+                            $("#txtDateNxtRntBrk").datepicker({
+                                dateFormat: "dd-mm-yy",
+                                changeMonth: true,
+                                changeYear: true,
+                                showButtonPanel: true,
+                                firstDay: 1,            // Monday as the first day of the week
+                                yearRange: "2025:c+10", // Shows years from 2025 to the current year plus 10 years
+                                minDate: +1             // Prevents selecting past dates
+                            });
+                            $("#txtEndDateCntr").datepicker({
+                                dateFormat: "dd-mm-yy",
+                                changeMonth: true,
+                                changeYear: true,
+                                showButtonPanel: true,
+                                firstDay: 1,             // Monday as the first day of the week
+                                yearRange: "2025:c+100", // Shows years from 2025 to the current year plus 100 years
+                                minDate: +1              // Prevents selecting past dates
+                            });
+                            $("#txtExpDateAllSold").datepicker({
+                                dateFormat: "dd-mm-yy",
+                                changeMonth: true,
+                                changeYear: true,
+                                showButtonPanel: true,
+                                firstDay: 1,            // Monday as the first day of the week
+                                yearRange: "2025:c+10", // Shows years from 2025 to the current year plus 10 years
+                                minDate: +1             // Prevents selecting past dates
+                            });
+                        });
+                    </script>
+
+                </div>
+            </div>
+
+            <!--ESG-->
+            <div class="admin-card">
+                <div class="admin-card-header">
+                    <h4 class="admin-card-title">ESG</h4>
+                </div>
+                <div class="admin-card-body">
+
+                    <table style="display: inline-block; margin-left: 50px; margin-right: 100px; vertical-align: top;" class="form-group form-group-sm">
+                        <tr>
+                                                    <td style="text-align: right; padding-bottom: 5px;">
+                                @Html.Label("Energy label type ", New With {.class = "control-label", .data_tbd = "true"})
+                            </td>
+                            <td style="padding-left: 10px; padding-bottom: 5px;">
+                                @Html.DropDownList("DropDownEnergyLabelType", CType(ViewBag.SelectEnergyLabelType, IEnumerable(Of SelectListItem)), Nothing, New With {.class = "form-control input-sm", .style = "width: 220px;", .required = "required", .onchange = "toggleRows(); swChange = true;"})
+                            </td>
+                        </tr>
+                        <tr id="rowEPC" style="display: none;">
+                            <td style="text-align: right; padding-bottom: 5px;">
+                                @Html.Label("Energy label ", New With {.class = "control-label", .data_tbd = "true"})
+                            </td>
+                            <td style="padding-left: 10px; padding-bottom: 5px;">
+                                @Html.DropDownList("DropDownEnergyLabelEPC", CType(ViewBag.SelectEnergyLabelEPC, IEnumerable(Of SelectListItem)), Nothing, New With {.class = "form-control input-sm", .style = "width: 220px;", .required = "required", .onchange = "swChange = true;"})
+                            </td>
+                        </tr>
+                        <tr id="rowBREEAM" style="display: none;">
+                            <td style="text-align: right; padding-bottom: 5px;">
+                                @Html.Label("Energy label ", New With {.class = "control-label", .data_tbd = "true"})
+                            </td>
+                            <td style="padding-left: 10px; padding-bottom: 5px;">
+                                @Html.DropDownList("DropDownEnergyLabelBREEAM", CType(ViewBag.SelectEnergyLabelBREEAM, IEnumerable(Of SelectListItem)), Nothing, New With {.class = "form-control input-sm", .style = "width: 220px;", .required = "required", .onchange = "swChange = true;"})
+                            </td>
+                        </tr>
+                        <tr id="rowLEED" style="display: none;">
+                            <td style="text-align: right; padding-bottom: 5px;">
+                                @Html.Label("Energy label ", New With {.class = "control-label", .data_tbd = "true"})
+                            </td>
+                            <td style="padding-left: 10px; padding-bottom: 5px;">
+                                @Html.DropDownList("DropDownEnergyLabelLEED", CType(ViewBag.SelectEnergyLabelLEED, IEnumerable(Of SelectListItem)), Nothing, New With {.class = "form-control input-sm", .style = "width: 220px;", .required = "required", .onchange = "swChange = true;"})
+                            </td>
+                        </tr>
+                        <tr id="rowDATE" style="display: none;">
+                            <td style="text-align: right; padding-bottom: 5px;">
+                                @Html.Label("Energy label date ", New With {.class = "control-label", .data_tbd = "true"})
+                            </td>
+                            <td style="padding-left: 10px; padding-bottom: 5px;">
+                                @Html.TextBox("txtEnergyLabelDate", Model.ASST_ENERGY_LABEL_DATE_DT.ToString("dd-MM-yyyy"), New With {.class = "form-control input-sm", .style = "width: 80px;", .required = "required", .id = "txtEnergyLabelDate", .pattern = "\d{2}-\d{2}-\d{4}", .title = "Please enter a date in the format dd-mm-yyyy", .onchange = "swChange = true;"})
+                            </td>
+                        </tr>
+                    </table>
+
+                    <script>
+                                                    function toggleRows() {
+                            var energyLabelType = document.getElementById("DropDownEnergyLabelType").value;
+                            var rowEPC = document.getElementById("rowEPC");
+                            var rowBREEAM = document.getElementById("rowBREEAM");
+                            var rowLEED = document.getElementById("rowLEED");
+                            var rowDATE = document.getElementById("rowDATE");
+
+                            // Hide all rows initially
+                            rowEPC.style.display = "none";
+                            rowBREEAM.style.display = "none";
+                            rowLEED.style.display = "none";
+                            rowDATE.style.display = "none";
+
+                            // Show rows based on the selected energy label type
+                            switch (energyLabelType) {
+                                case "1" :
+                                                        rowEPC.style.display = "";
+                                    rowDATE.style.display = "";
+                                    break;
+                                case "2" :
+                                                        rowBREEAM.style.display = "";
+                                    rowDATE.style.display = "";
+                                    break;
+                                case "3" :
+                                                        rowLEED.style.display = "";
+                                    rowDATE.style.display = "";
+                                    break;
+                                default:
+                                                        document.getElementById("txtEnergyLabelDate").value = "01-01-2000";
+                                    break;
+                            }
+                        }
+                    </script>
+
+                    <script>
+                        $(document).ready(function () {
+                            $("#txtEnergyLabelDate").datepicker({
+                                dateFormat: "dd-mm-yy",
+                                changeMonth: true,
+                                changeYear: true,
+                                showButtonPanel: true,
+                                firstDay: 1,            // Monday as the first day of the week
+                                yearRange: "2000:c",    // Shows years from 2000 to the current year
+                                maxDate: new Date()     // Prevents selecting future dates
+                            });
+                        });
+                    </script>
+
+                    <table style="display: inline-block; margin-right: 100px; vertical-align: top;" class="form-group form-group-sm">
+                        <tr>
+                            <td style="text-align: right; padding-bottom: 5px;">
+                                @Html.Label("Flood risk ", New With {.class = "control-label", .data_tbd = "true"})
+                            </td>
+                            <td style="padding-left: 10px; padding-bottom: 5px;">
+                                @Html.DropDownList("DropDownFloodRisk", CType(ViewBag.SelectFloodRisk, IEnumerable(Of SelectListItem)), Nothing, New With {.class = "form-control input-sm", .style = "width: 220px;", .required = "required", .onchange = "swChange = true;"})
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="text-align: right; padding-bottom: 5px;">
+                                @Html.Label("Heating, cooling primary source", New With {.class = "control-label", .data_tbd = "true"})
+                            </td>
+                            <td style="padding-left: 10px; padding-bottom: 5px;">
+                                @Html.DropDownList("DropDownPrimarySource", CType(ViewBag.SelectPrimarySource, IEnumerable(Of SelectListItem)), Nothing, New With {.class = "form-control input-sm", .style = "width: 220px;", .required = "required", .onchange = "swChange = true;"})
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="text-align: right; padding-bottom: 5px;">
+                                @Html.Label("Solar panels ", New With {.class = "control-label", .data_tbd = "true"})
+                            </td>
+                            <td style="padding-left: 10px; padding-bottom: 5px;">
+                                @Html.DropDownList("DropDownSolarPanels", CType(ViewBag.SelectSolarPanels, IEnumerable(Of SelectListItem)), Nothing, New With {.class = "form-control input-sm", .style = "width: 220px;", .required = "required", .onchange = "swChange = true;"})
+                            </td>
+                        </tr>
+                    </table>
+
+                    <table style="display: inline-block; vertical-align: top;" class="form-group form-group-sm">
+                        <tr>
+                            <td style="text-align: right; padding-bottom: 5px;">
+                                @Html.Label("Kwh/m²/year", New With {.class = "control-label", .data_tbd = "true"})
+                            </td>
+                            <td style="padding-left: 10px; padding-bottom: 5px;">
+                                @Html.TextBox("txtKwh", Model.ASST_KWH_M_YEAR_AM, New With {.class = "form-control input-sm", .style = "width: 110px; text-align: right;", .type = "text", .pattern = "\d{0,9}", .title = "Please enter a whole number with up to 9 digits", .onfocus = "unFormatThisNumber(this)", .onkeypress = "return (event.charCode >= 48 && event.charCode <= 57) || event.charCode== 8", .oninput = "if (this.value.length > 9) this.value = this.value.slice(0, 9);", .onchange = "swChange = true;", .tag = "MyNumber"})
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="text-align: right; padding-bottom: 5px;">
+                                @Html.Label("CO2-emissions (kg/CO2/m²/year)", New With {.class = "control-label", .data_tbd = "true"})
+                            </td>
+                            <td style="padding-left: 10px; padding-bottom: 5px;">
+                                @Html.TextBox("txtCO2", Model.ASST_CO_EMISSIONS_AM, New With {.class = "form-control input-sm", .style = "width: 110px; text-align: right;", .type = "text", .pattern = "\d{0,9}", .title = "Please enter a whole number with up to 9 digits", .onfocus = "unFormatThisNumber(this)", .onkeypress = "return (event.charCode >= 48 && event.charCode <= 57) || event.charCode == 8", .oninput = "if (this.value.length > 9) this.value = this.value.slice(0, 9);", .onchange = "swChange = true;", .tag = "MyNumber"})
+                            </td>
+                        </tr>
+                    </table>
+
+                </div>
+            </div>
+
+            <script>
+                $(document).ready(function () {
+
+                    swChange = false;
+                    currentTabId = getCurrentActiveTab();
+
+                    toggleRows();
+                    toggleRowSource();
+                    toggleRowCreCondition();
+                    setValuationAmounts();
+                    setExpertiseMethodology();
+                    toggleActor();
+                    formatAllTextboxes();
+                    applyAssetTabAccess();
+                });
+            </script>
+
+            @*<script>
+            $('.analyze-tab').on('click', function (e) {
+                if (currentTabId == 'project-asset') {
+                    var targetTabId = $(this).data('tab');
+                    SwitchTabWithPopup(targetTabId, swChange);
+                    currentTabId = targetTabId;
+                }
+            });
+            </script>*@
+
+            <script>
+                function formatAllTextboxes() {
+
+                    var inputs = document.getElementsByTagName('input');
+
+                    for (var i = 0; i < inputs.length; i++) {
+
+                        var input = inputs[i];
+
+                        if (input.type === 'text' && input.getAttribute('tag') === 'MyNumber') {
+
+                            let start = input.selectionStart;
+                            let end = input.selectionEnd;
+                            let value = input.value.replace(/\D/g, ''); // Remove all non-digit characters
+
+                            // Format with thousand separators (dots)
+                            let formattedNumber = value.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+
+                            input.value = formattedNumber;
+                            input.setSelectionRange(start, end);
+                        }
+                    }
+                }
+            </script>
+
+            <script>
+                function unformatAllTextboxes() {
+
+                    var inputs = document.getElementsByTagName('input');
+
+                    for (var i = 0; i < inputs.length; i++) {
+
+                        var input = inputs[i];
+
+                        if (input.type === 'text' && input.getAttribute('tag') === 'MyNumber') {
+
+                            let start = input.selectionStart;
+                            let end = input.selectionEnd;
+                            // Remove all thousand separators (dots)
+                            input.value = input.value.replace(/\./g, '');
+                            input.setSelectionRange(start, end);
+                        }
+                    }
+                }
+            </script>
+
+            <script>
+                window.unFormatThisNumber = function (input) {
+                    var value = input.value;
+                    value = value.replace(/\./g, ''); // Replace all dots with nothing
+                    value = value.replace(/\,/g, '.'); // Replace all commas with dots
+                    input.value = value;
+                };
+            </script>
+
+            <!-- Asset tab action buttons -->
+            <div Class="admin-action-buttons">
+                <div Class="admin-action-left">
+                    <Button type="button" Class="btn btn-primary analyze-btn analyze-btn-save-close" id="saveCloseBtnAsset">
+                        <Span Class="glyphicon glyphicon-floppy-saved"></Span>Save And Close file
+                    </Button>
+                    <Button type="button" Class="btn btn-success analyze-btn analyze-btn-save" id="saveBtnAsset">
+                        <Span Class="glyphicon glyphicon-floppy-disk"></Span>Save And Next
+                    </Button>
+                </div>
+                <div Class="admin-action-right">
+                    <Button type="button" Class="btn btn-default analyze-btn analyze-btn-cancel" id="cancelBtnAsset">
+                        <Span Class="glyphicon glyphicon-remove"></Span>Cancel
+                    </Button>
+                </div>
+            </div>
+
+            <script>
+                document.getElementById('saveBtnAsset').addEventListener('click', function () {
+                    saveAssetTab(false);
+                });
+            </script>
+
+            <script>
+                document.getElementById('saveCloseBtnAsset').addEventListener('click', function () {
+                    saveAssetTab(true);
+                });
+            </script>
+
+            <script>
+                document.getElementById('cancelBtnAsset').addEventListener('click', function () {
+                    if (swChange == true) {
+                        $('#cancelConfirmModal').modal('show');
+                    } else {
+                        returnToTaskList();
+                    }
+                });
+            </script>
+
+            <script>
+                function saveAssetTab(saveAndClose, callback, isTabSwitch) {
+
+                    isTabSwitch = isTabSwitch || false;
+
+                    var form = saveBtnAsset.closest("form");
+                    var messages = [];
+                    var focusField;
+                    var currentDate = new Date();
+                    var creProject = document.getElementById("DropDownCreProject").value;
+                    var creType = document.getElementById("DropDownCreType").value;
+
+                    unformatAllTextboxes();
+
+                    //function for istbd
+                    function isTBD(field) {
+                        if (!field)
+                            return false;
+                        console.log(field.id);
+                        console.log(field.getAttribute("data-tbd"));
+                        return field && field.getAttribute("data-tbd") === "true";
+                    }
+
+                    if (creType == 1 || creType == 2 || creType == 3 || creType == 6 || creType == 7) {
+
+                        // check 'CRE type detail'
+                        var creTypeDetail = document.getElementById("DropDownCreTypeDetail");
+
+                        if (saveAndClose == false && !isTabSwitch && creTypeDetail.value == "-1") {
+                            messages.push("CRE type detail is required.");
+                            if (focusField == null) {
+                                focusField = creTypeDetail;
+                            }
+                        }
+                    }
+
+                    if (((creProject == 1) && (creType == 1 || creType == 2 || creType == 3 || creType == 7)) || ((creProject == 2 || creProject == 3) && (creType == 1 || creType == 2)) || (creProject == 5)) {
+
+                        // check 'building year' & 'renovation year' & 'first usage year'
+                        var buildingYear = document.getElementById("txtBuildingYear");
+                        var renovationYear = document.getElementById("txtRenovationYear");
+                        var firstUsageYear = document.getElementById("txtFirstUsageYear");
+                        const currentYear = new Date().getFullYear();
+
+                        if (saveAndClose == false && !isTabSwitch && !buildingYear.value) {
+                            messages.push("Building year is required.");
+                            if (focusField == null) {
+                                focusField = buildingYear;
+                            }
+                        }
+
+                        if (buildingYear.value && parseInt(buildingYear.value) < 1700) {
+                            messages.push("Building year should be greater than 1700.");
+                            if (focusField == null) {
+                                focusField = buildingYear;
+                            }
+                        }
+
+                        if (saveAndClose == false && !isTabSwitch && !renovationYear.value) {
+                            messages.push("Renovation year is required.");
+                            if (focusField == null) {
+                                focusField = renovationYear;
+                            }
+                        }
+
+                        if (renovationYear.value && parseInt(renovationYear.value) < 1700) {
+                            messages.push("Renovation year should be greater than 1700.");
+                            if (focusField == null) {
+                                focusField = renovationYear;
+                            }
+                        }
+
+                        if (buildingYear.value && renovationYear.value && parseInt(renovationYear.value) < parseInt(buildingYear.value)) {
+                            messages.push("Renovation year should be equal or greater than the building year.");
+                            if (focusField == null) {
+                                focusField = renovationYear;
+                            }
+                        }
+
+                        if (saveAndClose == false && !isTabSwitch && !firstUsageYear.value) {
+                            messages.push("First usage year is required.");
+                            if (focusField == null) {
+                                focusField = firstUsageYear;
+                            }
+                        }
+
+                        if (firstUsageYear.value && parseInt(firstUsageYear.value) < 1700) {
+                            messages.push("First usage year should be greater than 1700.");
+                            if (focusField == null) {
+                                focusField = firstUsageYear;
+                            }
+                        }
+
+                        if (buildingYear.value && firstUsageYear.value && parseInt(firstUsageYear.value) < parseInt(buildingYear.value)) {
+                            messages.push("First usage year should be equal or greater than the building year.");
+                            if (focusField == null) {
+                                focusField = firstUsageYear;
+                            }
+                        }
+                    }
+
+                    if (creType == 2) {
+
+                        // check 'compliant building'
+                        var compliantBuilding = document.getElementById("DropDownCompliantBuilding");
+
+                        if (saveAndClose == false && !isTabSwitch && !isTBD(compliantBuilding) && compliantBuilding.value == "-1") {
+                            messages.push("Compliant building is required.");
+                            if (focusField == null) {
+                                focusField = compliantBuilding;
+                            }
+                        }
+                    }
+
+                    if (creType == 1 || creType == 2 || creType == 6) {
+
+                        // check 'prime location'
+                        var primeLocation = document.getElementById("DropDownPrimeLocation");
+
+                        if (saveAndClose == false && !isTabSwitch && !isTBD(primeLocation) && primeLocation.value == "-1") {
+                            messages.push("Prime location is required.");
+                            if (focusField == null) {
+                                focusField = primeLocation;
+                            }
+                        }
+                    }
+
+                    if (creType == 5) {
+
+                        // check 'contaminated soils'
+                        var contaminatedSoils = document.getElementById("DropDownContaminatedSoils");
+
+                        if (saveAndClose == false && !isTabSwitch && !isTBD(contaminatedSoils) && contaminatedSoils.value == "-1") {
+                            messages.push("Contaminated soils is required.");
+                            if (focusField == null) {
+                                focusField = contaminatedSoils;
+                            }
+                        }
+
+                        // check 'cre condition'
+                        var creCondition = document.getElementById("DropDownCreCondition");
+
+                        if (saveAndClose == false && !isTabSwitch && contaminatedSoils.value == "1" && creCondition.value == "-1") {
+                            messages.push("CRE condition is required.");
+                            if (focusField == null) {
+                                focusField = creCondition;
+                            }
+                        }
+
+                        // check 'project aligned with spatial implementation plan'
+                        var projectAlignedSIP = document.getElementById("DropDownProjectAlignedSIP");
+
+                        if (saveAndClose == false && !isTabSwitch && !isTBD(projectAlignedSIP) && projectAlignedSIP.value == "-1") {
+                            messages.push("Project aligned with spatial implementation plan is required.");
+                            if (focusField == null) {
+                                focusField = projectAlignedSIP;
+                            }
+                        }
+                    }
+
+                    if ((creProject == 1) && (creType == 1 || creType == 2 || creType == 6)) {
+
+                        // check 'tenant risk concentration'
+                        var tenantRisk = document.getElementById("DropDownTenantRisk");
+                        var actorId = document.getElementById("txtActorId");
+                        var actorName = document.getElementById("txtActorName");
+                        var actorQuality = document.getElementById("DropDownActorQuality");
+
+                        if (saveAndClose == false && !isTabSwitch && !isTBD(tenantRisk) && tenantRisk.value == "1") {
+                            if (!actorId.value) {
+                                messages.push("Actor Id of tenant is required.");
+                                if (focusField == null) {
+                                    focusField = actorId;
+                                }
+                            }
+                            else {
+                                if (actorId.value == "-") {
+                                    if (!actorName.value) {
+                                        messages.push("Actor name of tenant is required.");
+                                        if (focusField == null) {
+                                            focusField = actorName;
+                                        }
+                                    }
+                                    if (actorQuality.value == "-1") {
+                                        messages.push("Actor quality of tenant is required.");
+                                        if (focusField == null) {
+                                            focusField = actorQuality;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // check 'project address'
+                    var textboxes = [
+                        document.getElementById("txtStreet") || '',
+                        document.getElementById("txtStreetNr") || '',
+                        document.getElementById("txtStreetBox") || '',
+                        document.getElementById("txtPostalCode") || '',
+                        document.getElementById("txtCity") || ''
+                    ];
+
+                    var country = document.getElementById("DropDownCountry");
+                    var otherLocation = document.getElementById("txtOtherLocation");
+
+                    var allEmptys = textboxes.every(function (textbox) {
+                        return textbox.value.trim() === "";
+                    });
+
+                    if (saveAndClose == false && !isTabSwitch && allEmptys && country.value == "-1" && otherLocation.value.trim() === "") {
+                        messages.push("If the project address is not filled in, the field 'Other location ref' must be filled in.");
+                        if (focusField == null) {
+                            focusField = otherLocation;
+                        }
+                    }
+                    if (saveAndClose == false && !isTabSwitch && !allEmptys && !document.getElementById("txtStreet").value) {
+                        messages.push("Street of address is required.");
+                        if (focusField == null) {
+                            focusField = country;
+                        }
+                    }
+                    if (saveAndClose == false && !isTabSwitch && !allEmptys && !document.getElementById("txtStreetNr").value) {
+                        messages.push("Street nr of address is required.");
+                        if (focusField == null) {
+                            focusField = country;
+                        }
+                    }
+                    if (saveAndClose == false && !isTabSwitch && !allEmptys && !document.getElementById("txtPostalCode").value) {
+                        messages.push("Postal code of address is required.");
+                        if (focusField == null) {
+                            focusField = country;
+                        }
+                    }
+                    if (saveAndClose == false && !isTabSwitch && !allEmptys && !document.getElementById("txtCity").value) {
+                        messages.push("City of address is required.");
+                        if (focusField == null) {
+                            focusField = country;
+                        }
+                    }
+                    if (saveAndClose == false && !isTabSwitch && !allEmptys && country.value == "-1") {
+                        messages.push("Country of address is required.");
+                        if (focusField == null) {
+                            focusField = country;
+                        }
+                    }
+
+                    // check 'nature'
+                    var nature = document.getElementById("DropDownNature");
+
+                    if (saveAndClose == false && !isTabSwitch && nature.value == "-1") {
+                        messages.push("Nature is required.");
+                        if (focusField == null) {
+                            focusField = nature;
+                        }
+                    }
+
+                    // check 'market value (deduced)'
+                    var amount = document.getElementById("txtMarket");
+
+                    if (saveAndClose == false && !isTabSwitch && !amount.value) {
+                        messages.push("Market value (deduced) is required.");
+                        if (focusField == null) {
+                            focusField = amount;
+                        }
+                    }
+
+                    if (amount.value && parseFloat(amount.value) <= 0) {
+                        messages.push("Market value (deduced) should be greater than 0.");
+                        if (focusField == null) {
+                            focusField = amount;
+                        }
+                    }
+
+                    // check 'forced sale value (computed)'
+                    var amount = document.getElementById("txtForced");
+
+                    if (saveAndClose == false && !isTabSwitch && !amount.value) {
+                        messages.push("Forced sale value (computed) is required.");
+                        if (focusField == null) {
+                            focusField = amount;
+                        }
+                    }
+
+                    if (!isTBD(amount) && amount.value && parseFloat(amount.value) <= 0) {
+                        messages.push("Forced sale value (computed) should be greater than 0.");
+                        if (focusField == null) {
+                            focusField = amount;
+                        }
+                    }
+
+                    // check 'expertise methodology conformity'
+                    var expMethodConf = document.getElementById("DropDownExpMethodConf");
+
+                    if (saveAndClose == false && !isTabSwitch && expMethodConf.value == "-1") {
+                        messages.push("Expertise methodology conformity is required.");
+                        if (focusField == null) {
+                            focusField = expMethodConf;
+                        }
+                    }
+
+                    // check 'market value (expertise)'
+                    var amount = document.getElementById("txtMarketExpert");
+
+                    if (saveAndClose == false && !isTabSwitch && !amount.value) {
+                        messages.push("Market value (expertise) is required.");
+                        if (focusField == null) {
+                            focusField = amount;
+                        }
+                    }
+
+                    if (!isTBD(amount) && amount.value && parseFloat(amount.value) <= 0) {
+                        messages.push("Market value (expertise) should be greater than 0.");
+                        if (focusField == null) {
+                            focusField = amount;
+                        }
+                    }
+
+                    // check 'forced sale value (expertise)'
+                    var amount = document.getElementById("txtForcedExpert");
+
+                    if (saveAndClose == false && !isTabSwitch && !amount.value) {
+                        messages.push("Forced sale value (expertise) is required.");
+                        if (focusField == null) {
+                            focusField = amount;
+                        }
+                    }
+
+                    if (!isTBD(amount) && amount.value && parseFloat(amount.value) <= 0) {
+                        messages.push("Forced sale value (expertise) should be greater than 0.");
+                        if (focusField == null) {
+                            focusField = amount;
+                        }
+                    }
+
+                    // check 'expertise source'
+                    var expSource = document.getElementById("DropDownExpSource");
+
+                    if (saveAndClose == false && !isTabSwitch && expSource.value == "-1") {
+                        messages.push("Expertise source is required.");
+                        if (focusField == null) {
+                            focusField = expSource;
+                        }
+                    }
+
+                    // check 'expertise date'
+                    var expertiseDate = document.getElementById("txtExpDate");
+                    var dateParts = expertiseDate.value.split('-');
+
+                    if ((saveAndClose == false && !isTabSwitch) && (dateParts.length !== 3 || dateParts[0].length !== 2 || dateParts[1].length !== 2 || dateParts[2].length !== 4)) {
+                        messages.push("Please enter a valid expertise date in the format dd-mm-yyyy");
+                        if (focusField == null) {
+                            focusField = expertiseDate;
+                        }
+                    } else {
+                        // Additional validation to check if the date is valid
+                        var day = parseInt(dateParts[0], 10);
+                        var month = parseInt(dateParts[1], 10) - 1; // Months are 0-based in JavaScript
+                        var year = parseInt(dateParts[2], 10);
+                        var date = new Date(year, month, day);
+
+                        if ((saveAndClose == false && !isTabSwitch) && (date.getFullYear() !== year || date.getMonth() !== month || date.getDate() !== day)) {
+                            messages.push("Please enter a valid expertise date in the format dd-mm-yyyy");
+                            if (focusField == null) {
+                                focusField = expertiseDate;
+                            }
+                        } else {
+                            if (year < 2000) {
+                                messages.push("Please enter an expertise date from the year 2000 or later.");
+                                if (focusField == null) {
+                                    focusField = expertiseDate;
+                                }
+                            } else if (date > currentDate) {
+                                messages.push("Please enter an expertise date that is not in the future.");
+                                if (focusField == null) {
+                                    focusField = expertiseDate;
+                                }
+                            }
+                        }
+                    }
+
+                    //1 = Yield Property
+                    if (creProject == 1) {
+
+                        // check 'yearly estimated rental income'
+                        var amount = document.getElementById("txtEstRentIncome");
+
+                        if (saveAndClose == false && !isTabSwitch && !amount.value) {
+                            messages.push("Yearly estimated rental income is required.");
+                            if (focusField == null) {
+                                focusField = amount;
+                            }
+                        }
+
+                        if (!isTBD(amount) && amount.value && parseFloat(amount.value) <= 0) {
+                            messages.push("Yearly estimated rental income should be greater than 0.");
+                            if (focusField == null) {
+                                focusField = amount;
+                            }
+                        }
+
+                        // check 'yearly contracted rental income'
+                        var amount2 = document.getElementById("txtConRentIncome");
+
+                        if (saveAndClose == false && !isTabSwitch && !amount2.value) {
+                            messages.push("Yearly contracted rental income is required.");
+                            if (focusField == null) {
+                                focusField = amount2;
+                            }
+                        }
+
+                        if (amount2.value && parseFloat(amount2.value) < 0) {
+                            messages.push("Yearly contracted rental income should be greater than or equal to 0.");
+                            if (focusField == null) {
+                                focusField = amount2;
+                            }
+                        }
+
+                        // check 'yearly estimated rental income' vs 'yearly contracted rental income'
+                        if (amount.value && amount2.value && parseFloat(amount.value) < parseFloat(amount2.value)) {
+                            messages.push("Yearly estimated rental income must be equal to or greater than yearly contracted rental income.");
+                            if (focusField == null) {
+                                focusField = amount;
+                            }
+                        }
+
+                        // check 'date next rental break'
+                        var breakDate = document.getElementById("txtDateNxtRntBrk");
+
+                        if (!breakDate.dataset.tbd &&   breakDate.value.trim() !== "") {
+
+                            var dateParts = breakDate.value.split('-');
+
+                            if (dateParts.length !== 3 || dateParts[0].length !== 2 || dateParts[1].length !== 2 || dateParts[2].length !== 4) {
+                                messages.push("Please enter a valid date next rental break in the format dd-mm-yyyy");
+                                if (focusField == null) {
+                                    focusField = breakDate;
+                                }
+                            } else {
+                                // Additional validation to check if the date is valid
+                                var day = parseInt(dateParts[0], 10);
+                                var month = parseInt(dateParts[1], 10) - 1; // Months are 0-based in JavaScript
+                                var year = parseInt(dateParts[2], 10);
+                                var date = new Date(year, month, day);
+
+                                if (date.getFullYear() !== year || date.getMonth() !== month || date.getDate() !== day) {
+                                    messages.push("Please enter a valid date next rental break in the format dd-mm-yyyy");
+                                    if (focusField == null) {
+                                        focusField = breakDate;
+                                    }
+                                } else {
+                                    if (date < currentDate) {
+                                        messages.push("Please enter a date next rental break that is in the future.");
+                                        if (focusField == null) {
+                                            focusField = breakDate;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // check 'end date contract'
+                        var endDate = document.getElementById("txtEndDateCntr");
+
+                        if (endDate.value.trim() !== "") {
+
+                            var dateParts = endDate.value.split('-');
+
+                            if (dateParts.length !== 3 || dateParts[0].length !== 2 || dateParts[1].length !== 2 || dateParts[2].length !== 4) {
+                                messages.push("Please enter a valid end date contract in the format dd-mm-yyyy");
+                                if (focusField == null) {
+                                    focusField = endDate;
+                                }
+                            } else {
+                                // Additional validation to check if the date is valid
+                                var day = parseInt(dateParts[0], 10);
+                                var month = parseInt(dateParts[1], 10) - 1; // Months are 0-based in JavaScript
+                                var year = parseInt(dateParts[2], 10);
+                                var date = new Date(year, month, day);
+
+                                if (date.getFullYear() !== year || date.getMonth() !== month || date.getDate() !== day) {
+                                    messages.push("Please enter a valid end date contract in the format dd-mm-yyyy");
+                                    if (focusField == null) {
+                                        focusField = endDate;
+                                    }
+                                } else {
+                                    if (date < currentDate) {
+                                        messages.push("Please enter an end date contract that is in the future.");
+                                        if (focusField == null) {
+                                            focusField = endDate;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+
+                        // check 'surface rented'
+                        var amount = document.getElementById("txtSurfRented");
+
+                        if (saveAndClose == false && !isTabSwitch && !amount.value) {
+                            messages.push("Surface rented is required.");
+                            if (focusField == null) {
+                                focusField = amount;
+                            }
+                        }
+
+                        if (amount.value && parseFloat(amount.value) <= 0) {
+                            messages.push("Surface rented should be greater than 0.");
+                            if (focusField == null) {
+                                focusField = amount;
+                            }
+                        }
+                    }
+
+                    // check '% build'
+                    var buildPerc = document.getElementById("DropDownBuildPerc");
+
+                    if (saveAndClose == false && !isTabSwitch && buildPerc.value == "-1") {
+                        messages.push("% build is required.");
+                        if (focusField == null) {
+                            focusField = buildPerc;
+                        }
+                    }
+
+                    // check 'net total surface'
+                    var amount = document.getElementById("txtSurface");
+
+                    if (saveAndClose == false && !isTabSwitch && !amount.value) {
+                        messages.push("Net total surface is required.");
+                        if (focusField == null) {
+                            focusField = amount;
+                        }
+                    }
+
+                    if (amount.value && parseFloat(amount.value) <= 0) {
+                        messages.push("Net total surface should be greater than 0.");
+                        if (focusField == null) {
+                            focusField = amount;
+                        }
+                    }
+
+                    // 2 = Property Promotion, 3 = Development, 5 = Own use building
+                    if (creProject == 2 || creProject == 3 || creProject == 5) {
+
+                        // check 'number of main units'
+                        var amount = document.getElementById("txtUnits");
+
+                        if (saveAndClose == false && !isTabSwitch && !amount.value) {
+                            messages.push("Number of main units is required.");
+                            if (focusField == null) {
+                                focusField = amount;
+                            }
+                        }
+
+                        if (amount.value && parseFloat(amount.value) <= 0) {
+                            messages.push("Number of main units should be greater than 0.");
+                            if (focusField == null) {
+                                focusField = amount;
+                            }
+                        }
+                    }
+
+                    // 2 = Property Promotion, 3 = Development
+                    if (creProject == 2 || creProject == 3) {
+
+                        // check 'total expected sales price'
+                        var amount = document.getElementById("txtTotExpSalPrice");
+
+                        if (saveAndClose == false && !isTabSwitch && !amount.value) {
+                            messages.push("Total expected sales price is required.");
+                            if (focusField == null) {
+                                focusField = amount;
+                            }
+                        }
+
+                        if (amount.value && parseFloat(amount.value) <= 0) {
+                            messages.push("Total expected sales price should be greater than 0.");
+                            if (focusField == null) {
+                                focusField = amount;
+                            }
+                        }
+
+                        // check 'expected date of all sold'
+                        var soldDate = document.getElementById("txtExpDateAllSold");
+                        var dateParts = soldDate.value.split('-');
+
+                        if ((saveAndClose == false && !isTabSwitch) && (dateParts.length !== 3 || dateParts[0].length !== 2 || dateParts[1].length !== 2 || dateParts[2].length !== 4)) {
+                            messages.push("Please enter a valid expected date of 'All sold' in the format dd-mm-yyyy");
+                            if (focusField == null) {
+                                focusField = soldDate;
+                            }
+                        } else {
+                            // Additional validation to check if the date is valid
+                            var day = parseInt(dateParts[0], 10);
+                            var month = parseInt(dateParts[1], 10) - 1; // Months are 0-based in JavaScript
+                            var year = parseInt(dateParts[2], 10);
+                            var date = new Date(year, month, day);
+
+                            if ((saveAndClose == false && !isTabSwitch) && (date.getFullYear() !== year || date.getMonth() !== month || date.getDate() !== day)) {
+                                messages.push("Please enter a valid expected date of 'All sold' in the format dd-mm-yyyy");
+                                if (focusField == null) {
+                                    focusField = soldDate;
+                                }
+                            } else {
+                                if (date < currentDate) {
+                                    messages.push("Please enter an expected date of 'All sold' that is in the future.");
+                                    if (focusField == null) {
+                                        focusField = soldDate;
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // check 'energy label type'
+                    var energyLabelType = document.getElementById("DropDownEnergyLabelType");
+
+                    if (saveAndClose == false && !isTabSwitch && energyLabelType.value == "-1") {
+                        messages.push("Energy label type is required.");
+                        if (focusField == null) {
+                            focusField = energyLabelType;
+                        }
+                    }
+
+                    // check 'energy label'
+                    var energyLabelEPC = document.getElementById("DropDownEnergyLabelEPC");
+                    var energyLabelBREEAM = document.getElementById("DropDownEnergyLabelBREEAM");
+                    var energyLabelLEED = document.getElementById("DropDownEnergyLabelLEED");
+                    var energyLabel;
+
+                    switch (energyLabelType.value) {
+                        case "1":
+                            energyLabel = energyLabelEPC.value;
+                            if (saveAndClose == false && !isTabSwitch && energyLabelEPC.value == "-1") {
+                                messages.push("Energy label is required.");
+                                if (focusField == null) {
+                                    focusField = energyLabelEPC;
+                                }
+                            }
+                            break;
+                        case "2":
+                            energyLabel = energyLabelBREEAM.value;
+                            if (saveAndClose == false && !isTabSwitch && energyLabelBREEAM.value == "-1") {
+                                messages.push("Energy label is required.");
+                                if (focusField == null) {
+                                    focusField = energyLabelBREEAM;
+                                }
+                            }
+                            break;
+                        case "3":
+                            energyLabel = energyLabelLEED.value;
+                            if (saveAndClose == false && !isTabSwitch && energyLabelLEED.value == "-1") {
+                                messages.push("Energy label is required.");
+                                if (focusField == null) {
+                                    focusField = energyLabelLEED;
+                                }
+                            }
+                            break;
+                        default:
+                            energyLabel = -1;
+                            break;
+                    }
+
+                    // check 'energy label date'
+                    var energyDate = document.getElementById("txtEnergyLabelDate");
+                    var dateParts = energyDate.value.split('-');
+
+                    if ((saveAndClose == false && !isTabSwitch) && (dateParts.length !== 3 || dateParts[0].length !== 2 || dateParts[1].length !== 2 || dateParts[2].length !== 4)) {
+                        messages.push("Please enter a valid energy label date in the format dd-mm-yyyy");
+                        if (focusField == null) {
+                            focusField = energyDate;
+                        }
+                    } else {
+                        // Additional validation to check if the date is valid
+                        var day = parseInt(dateParts[0], 10);
+                        var month = parseInt(dateParts[1], 10) - 1; // Months are 0-based in JavaScript
+                        var year = parseInt(dateParts[2], 10);
+                        var date = new Date(year, month, day);
+
+                        if ((saveAndClose == false && !isTabSwitch) && (date.getFullYear() !== year || date.getMonth() !== month || date.getDate() !== day)) {
+                            messages.push("Please enter a valid energy label date in the format dd-mm-yyyy");
+                            if (focusField == null) {
+                                focusField = energyDate;
+                            }
+                        } else {
+                            if (year < 2000) {
+                                messages.push("Please enter an energy label date from the year 2000 or later.");
+                                if (focusField == null) {
+                                    focusField = energyDate;
+                                }
+                            } else if (date > currentDate) {
+                                messages.push("Please enter an energy label date that is not in the future.");
+                                if (focusField == null) {
+                                    focusField = energyDate;
+                                }
+                            }
+                        }
+                    }
+
+                    // check 'flood risk'
+                    var floodRisk = document.getElementById("DropDownFloodRisk");
+
+                    if (saveAndClose == false && !isTabSwitch && floodRisk.value == "-1") {
+                        messages.push("Flood risk is required.");
+                        if (focusField == null) {
+                            focusField = floodRisk;
+                        }
+                    }
+
+                    // check 'heating, cooling primary source'
+                    var primarySource = document.getElementById("DropDownPrimarySource");
+
+                    if (saveAndClose == false && !isTabSwitch && primarySource.value == "-1") {
+                        messages.push("Heating, cooling primary source is required.");
+                        if (focusField == null) {
+                            focusField = primarySource;
+                        }
+                    }
+
+                    // check 'solar panels'
+                    var solarPanels = document.getElementById("DropDownSolarPanels");
+
+                    if (saveAndClose == false && !isTabSwitch && solarPanels.value == "-1") {
+                        messages.push("Solar panels is required.");
+                        if (focusField == null) {
+                            focusField = solarPanels;
+                        }
+                    }
+
+                    // Check Validity of fields
+                    var swValid;
+                    if (saveAndClose) {
+                        swValid = true;
+                    } else {
+                        swValid = form.checkValidity();
+                    }
+
+                    if (swValid && messages.length === 0) {
+
+                        // Proceed with saving the form "Asset"
+
+                        var assetData = {
+                            PROJ_ID: document.getElementById("txtProjId").value || 0,
+                            PROJ_STATUS_ID: document.getElementById("txtProjStatusId").value || 0,
+                            PROJ_STATUS_FLOW_ID: document.getElementById("txtProjStatusFlowId").value || 0,
+                            PRCR_RE_TYPE_DETAIL_ID: document.getElementById("DropDownCreTypeDetail").value || -1,
+                            PRCR_CRE_CONDITION_ID: document.getElementById("DropDownCreCondition").value || -1,
+                            CRGU_BUILDING_YEAR: document.getElementById("txtBuildingYear").value || 0,
+                            CRGU_RENOVATION_YEAR: document.getElementById("txtRenovationYear").value || 0,
+                            CRGU_FIRST_USAGE_YEAR: document.getElementById("txtFirstUsageYear").value || 0,
+                            CRGU_COMPLIANT_BUILDING_SW: document.getElementById("DropDownCompliantBuilding").value || -1,
+                            CRGU_PRIME_LOCATION_SW: document.getElementById("DropDownPrimeLocation").value || -1,
+                            CRGU_CONTAMINATED_SOILS_SW: document.getElementById("DropDownContaminatedSoils").value || -1,
+                            CRGU_BUILD_PERC_ID: document.getElementById("DropDownBuildPerc").value || -1,
+                            CRGU_PROJECT_ALIGNED_SW: document.getElementById("DropDownProjectAlignedSIP").value || -1,
+                            ASST_STREET_NM: document.getElementById("txtStreet").value || '',
+                            ASST_STREET_NR_NM: document.getElementById("txtStreetNr").value || '',
+                            ASST_STREET_BOX_NM: document.getElementById("txtStreetBox").value || '',
+                            ASST_POSTAL_CODE_ID: document.getElementById("txtPostalCode").value || '',
+                            ASST_CITY_NM: document.getElementById("txtCity").value || '',
+                            ASST_LOCATION_ID: document.getElementById("DropDownCountry").value || -1,
+                            ASST_OTHER_LOCATION_REFERENCE_NM: document.getElementById("txtOtherLocation").value || '',
+                            ASST_SURFACE_AM: document.getElementById("txtSurface").value || 0,
+                            ASST_MAIN_UNITS_AM: document.getElementById("txtUnits").value || 0,
+                            ASST_COLLATERAL_NATURE_ID: document.getElementById("DropDownNature").value || '-1',
+                            ASST_COLLATERAL_ATTRIBUTE_ID: document.getElementById("DropDownAttribute").value || '-1',
+                            ASST_MARKET_VALUE_AM: parseFloat(parseFloat(document.getElementById("txtMarket").value).toFixed(2)) || 0,
+                            ASST_FORCED_SALE_VALUE_AM: parseFloat(parseFloat(document.getElementById("txtForced").value).toFixed(2)) || 0,
+                            ASST_EXPERT_METHODO_CONFIRM_ID: document.getElementById("DropDownExpMethodConf").value || -1,
+                            ASST_EXPERTISE_METHODO_ID: document.getElementById("DropDownExpMethod").value || -1,
+                            ASST_MARKET_VALUE_EXPERT_AM: parseFloat(parseFloat(document.getElementById("txtMarketExpert").value).toFixed(2)) || 0,
+                            ASST_FORCED_SALE_VALUE_EXPERT_AM: parseFloat(parseFloat(document.getElementById("txtForcedExpert").value).toFixed(2)) || 0,
+                            ASST_EXPERTISE_SOURCE_ID: document.getElementById("DropDownExpSource").value || -1,
+                            ASST_EXPERTISE_SOURCE_OTHER_NM: document.getElementById("txtOtherExpSource").value || '',
+                            ASST_EXPERTISE_DATE_DT: document.getElementById("txtExpDate").value || '31-12-9999',
+                            ASST_ENERGY_LABEL_TYPE_ID: document.getElementById("DropDownEnergyLabelType").value || -1,
+                            ASST_ENERGY_LABEL_ID: energyLabel || -1,
+                            ASST_ENERGY_LABEL_DATE_DT: document.getElementById("txtEnergyLabelDate").value || '31-12-9999',
+                            ASST_FLOOD_RISK_ID: document.getElementById("DropDownFloodRisk").value || -1,
+                            ASST_HEATING_COOLING_PRIMARY_SOURCE_ID: document.getElementById("DropDownPrimarySource").value || -1,
+                            ASST_SOLAR_PANELS_ID: document.getElementById("DropDownSolarPanels").value || -1,
+                            ASST_KWH_M_YEAR_AM: parseFloat(parseFloat(document.getElementById("txtKwh").value).toFixed(2)) || 0,
+                            ASST_CO_EMISSIONS_AM: parseFloat(parseFloat(document.getElementById("txtCO2").value).toFixed(2)) || 0,
+                            ASST_TOTAL_EXPECTED_SALES_PRICE_AM: parseFloat(parseFloat(document.getElementById("txtTotExpSalPrice").value).toFixed(2)) || 0,
+                            ASST_YEARLY_ESTIMATED_RENTAL_INCOME_AM: parseFloat(parseFloat(document.getElementById("txtEstRentIncome").value).toFixed(2)) || 0,
+                            ASST_YEARLY_CONTRACTED_RENTAL_INCOME_AM: parseFloat(parseFloat(document.getElementById("txtConRentIncome").value).toFixed(2)) || 0,
+                            ASST_SURFACE_RENTED_AM: document.getElementById("txtSurfRented").value || 0,
+                            ASST_ALL_SOLD_EXPECTED_DATE_DT: document.getElementById("txtExpDateAllSold").value || '31-12-9999',
+                            ASST_ANNUAL_OPER_EXPENSE_AM: parseFloat(parseFloat(document.getElementById("txtAnnOperExpense").value).toFixed(2)) || 0,
+                            ASST_NEXT_RENTAL_BREAK_DATE_DT: document.getElementById("txtDateNxtRntBrk").value || '31-12-9999',
+                            ASST_END_DATE_CONTRACT_DT: document.getElementById("txtEndDateCntr").value || '31-12-9999',
+                            ACTR_ACTOR_ID: document.getElementById("txtActorId").value || '',
+                            ACTR_QUALITY_ID: document.getElementById("DropDownActorQuality").value || -1,
+                            ACTR_ACTOR_NAME_NM: document.getElementById("txtActorName").value || ''
+                        };
+
+                        fetch('/Analysis/Save_RE_ASST', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify(assetData),
+                        })
+                            .then(response => {
+                                if (!response.ok) {
+                                    throw new Error('Network response was not ok');
+                                }
+                                return response.json();
+                            })
+                            .then(data => {
+                                if (data.success) {
+
+                                    formatAllTextboxes();
+                                    showSuccessMessage('Data saved successfully');
+                                    markDataAsClean();
+                                    swChange = false;
+                                    if (isTabSwitch) {
+                                        if (typeof callback === 'function') {
+                                            callback();
+                                        }
+                                    } else if (saveAndClose) {
+                                        markTabAsSaved('project-asset', saveAndClose);
+                                        // Return to tasklist after short delay
+                                        setTimeout(function () {
+                                            returnToTaskList();
+                                        }, 1000);
+                                    } else {
+                                        markTabAsSaved('project-asset', saveAndClose);
+                                        // Navigate to next tab after short delay
+                                        setTimeout(function () {
+                                            //navigateToNextTab(document.getElementById("txtProjStatusId").value || 0, document.getElementById("DropDownCreProject").value || 0, document.getElementById("txtGoalId").value || 0, document.getElementById("txtBreyneLaw").value || 0);
+                                            navigateToNextTab();
+                                        }, 1000);
+                                    }
+
+                                } else {
+
+                                    console.error('Error saving asset data: ', response.message);
+                                    showErrorMessage('Save failed', response.message || 'Failed to save data');
+                                    markDataAsDirty()
+
+                                }
+                            })
+                            .catch(error => {
+                                console.error('Error saving asset data: ', error);
+                                showErrorMessage('Save error', 'Failed to save data', +error);
+                            });
+
+                    } else {
+
+                        // Validation failed
+
+                        if (messages.length === 0) {
+                            var requiredFields = form.querySelectorAll("[required]");
+                            requiredFields.forEach(function (field) {
+                                if (!field.value.trim()) {
+                                    console.log("Required field is empty: ", field.name);
+                                    messages.push("Required field is empty: " + field.name);
+                                    if (focusField == null) {
+                                        focusField = field;
+                                    }
+                                }
+                            });
+
+                            var patternFields = form.querySelectorAll("[pattern]");
+                            patternFields.forEach(function (field) {
+                                if (!field.checkValidity()) {
+                                    console.log("Invalid pattern: ", field.name);
+                                    messages.push("Invalid pattern: " + field.name);
+                                    if (focusField == null) {
+                                        focusField = field;
+                                    }
+                                }
+                            });
+
+                            var numberFields = form.querySelectorAll("[type='number']");
+                            numberFields.forEach(function (field) {
+                                if (!field.checkValidity()) {
+                                    console.log("Invalid number value: ", field.name);
+                                    messages.push("Invalid number value: " + field.name);
+                                    if (focusField == null) {
+                                        focusField = field;
+                                    }
+                                }
+                            });
+                        }
+
+                        showErrorMessage('Validation failed', messages.join('<br>'));
+                        if (focusField != null) {
+                            focusField.focus();
+                        }
+                        event.preventDefault(); // Prevent form submission
+                    }
+                }
+                function applyAssetTabAccess() {
+                    if (!window.assetTabAccess) return;
+                    console.log("Asset Tab Access:", window.assetTabAccess);
+
+                    if (window.assetTabAccess === "VIEW") {
+                        $('#assetForm input, #assetForm select, #assetForm textarea').prop('disabled', true);
+                        $('#saveBtnAsset, #saveCloseBtnAsset', '#cancelBtnAsset').prop('disabled', false);
+                  
+                }
+
+            </script>
+
+        </form>
+    </div>
+</div>
+
+<!-- Modal for cancel confirmation -->
+@Html.Partial("_CancelConfirmModal")
+<!-- Modal for leave confirmation -->
+@Html.Partial("_LeaveConfirmModal")
+
+<script>
+    window.assetTabAccess = '@ViewBag.Access';
+</script>
