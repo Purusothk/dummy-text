@@ -235,7 +235,7 @@
                     @If (Model.PRCR_COMMERCIAL_RE_PRJ_ID <> 1) Or (Model.PRCR_COMMERCIAL_RE_PRJ_ID = 1 And Model.PRCR_RE_TYPE_ID <> 1 And Model.PRCR_RE_TYPE_ID <> 2 And Model.PRCR_RE_TYPE_ID <> 6) Then
                         @<input type="hidden" id="DropDownTenantRisk" value="0" />
                         @<input type="hidden" id="ActorButton" />
-                        @<input typ="hidden" id="txtActorId" value="" />
+                        @<input type="hidden" id="txtActorId" value="" />
                         @<input type="hidden" id="txtActorName" value="" />
                         @<input type="hidden" id="txtActorQuality" value="" />
                         @<input type="hidden" id="DropDownActorQuality" value="-1" />
@@ -265,7 +265,7 @@
                             var creProject = document.getElementById("DropDownCreProject").value;
                             var creType = document.getElementById("DropDownCreType").value;
 
-                            if ((creProject = 1) && (creType == 1 || creType == 2 || creType == 6)) {
+                            if ((creProject == 1) && (creType == 1 || creType == 2 || creType == 6)) {
 
                                 var tenantRisk = document.getElementById("DropDownTenantRisk").value;
                                 var actorId = document.getElementById("txtActorId");
@@ -446,7 +446,7 @@
                         </tr>
                         <tr>
                             <td style="text-align: right; padding-bottom: 5px;">
-                                @Html.Label("Market value (*)", New With {.class = "control-label"})
+                                @Html.Label("Market value ", New With {.class = "control-label"})
                             </td>
                             <td style="padding-left: 10px; padding-bottom: 5px;">
                                 <div style="display: flex; align-items: center;">
@@ -1504,7 +1504,7 @@
                         }
                     }
 
-                    if (!isTBD(amount) && amount.value && parseFloat(amount.value) <= 0) {
+                    if (amount.value && parseFloat(amount.value) <= 0) {
                         messages.push("Forced sale value (computed) should be greater than 0.");
                         if (focusField == null) {
                             focusField = amount;
@@ -1524,7 +1524,7 @@
                     // check 'market value (expertise)'
                     var amount = document.getElementById("txtMarketExpert");
 
-                    if (saveAndClose == false && !isTabSwitch && !amount.value) {
+                    if (saveAndClose == false && !isTBD(amount) && !isTabSwitch && !amount.value) {
                         messages.push("Market value (expertise) is required.");
                         if (focusField == null) {
                             focusField = amount;
@@ -1541,7 +1541,7 @@
                     // check 'forced sale value (expertise)'
                     var amount = document.getElementById("txtForcedExpert");
 
-                    if (saveAndClose == false && !isTabSwitch && !amount.value) {
+                    if (saveAndClose == false && !isTBD(amount) && !isTabSwitch && !amount.value) {
                         messages.push("Forced sale value (expertise) is required.");
                         if (focusField == null) {
                             focusField = amount;
@@ -1569,12 +1569,12 @@
                     var expertiseDate = document.getElementById("txtExpDate");
                     var dateParts = expertiseDate.value.split('-');
 
-                    if ((saveAndClose == false && !isTabSwitch) && (dateParts.length !== 3 || dateParts[0].length !== 2 || dateParts[1].length !== 2 || dateParts[2].length !== 4)) {
+                    if ((!isTBD(expertiseDate) && saveAndClose == false && !isTabSwitch) && (dateParts.length !== 3 || dateParts[0].length !== 2 || dateParts[1].length !== 2 || dateParts[2].length !== 4)) {
                         messages.push("Please enter a valid expertise date in the format dd-mm-yyyy");
                         if (focusField == null) {
                             focusField = expertiseDate;
                         }
-                    } else {
+                    } else if(!isTBD(expertiseDate)) {
                         // Additional validation to check if the date is valid
                         var day = parseInt(dateParts[0], 10);
                         var month = parseInt(dateParts[1], 10) - 1; // Months are 0-based in JavaScript
@@ -1649,7 +1649,7 @@
                         // check 'date next rental break'
                         var breakDate = document.getElementById("txtDateNxtRntBrk");
 
-                        if (!breakDate.dataset.tbd &&   breakDate.value.trim() !== "") {
+                        if (!breakDate.dataset.tbd && !isTBD(breakDate) && breakDate.value.trim() !== "") {
 
                             var dateParts = breakDate.value.split('-');
 
@@ -1684,7 +1684,7 @@
                         // check 'end date contract'
                         var endDate = document.getElementById("txtEndDateCntr");
 
-                        if (endDate.value.trim() !== "") {
+                        if (!isTBD(endDate) && endDate.value.trim() !== "") {
 
                             var dateParts = endDate.value.split('-');
 
@@ -1720,7 +1720,7 @@
                         // check 'surface rented'
                         var amount = document.getElementById("txtSurfRented");
 
-                        if (saveAndClose == false && !isTabSwitch && !amount.value) {
+                        if (saveAndClose == false && !isTBD(amount) && !isTabSwitch && !amount.value) {
                             messages.push("Surface rented is required.");
                             if (focusField == null) {
                                 focusField = amount;
@@ -1738,7 +1738,7 @@
                     // check '% build'
                     var buildPerc = document.getElementById("DropDownBuildPerc");
 
-                    if (saveAndClose == false && !isTabSwitch && buildPerc.value == "-1") {
+                    if (saveAndClose == false && !isTBD(buildPerc) && !isTabSwitch && buildPerc.value == "-1") {
                         messages.push("% build is required.");
                         if (focusField == null) {
                             focusField = buildPerc;
@@ -1748,7 +1748,7 @@
                     // check 'net total surface'
                     var amount = document.getElementById("txtSurface");
 
-                    if (saveAndClose == false && !isTabSwitch && !amount.value) {
+                    if (saveAndClose == false && !isTBD(amount) && !isTabSwitch && !amount.value) {
                         messages.push("Net total surface is required.");
                         if (focusField == null) {
                             focusField = amount;
@@ -1838,7 +1838,7 @@
                     // check 'energy label type'
                     var energyLabelType = document.getElementById("DropDownEnergyLabelType");
 
-                    if (saveAndClose == false && !isTabSwitch && energyLabelType.value == "-1") {
+                    if (saveAndClose == false &&!isTBD(energyLabelType) && !isTabSwitch && energyLabelType.value == "-1") {
                         messages.push("Energy label type is required.");
                         if (focusField == null) {
                             focusField = energyLabelType;
@@ -1854,7 +1854,7 @@
                     switch (energyLabelType.value) {
                         case "1":
                             energyLabel = energyLabelEPC.value;
-                            if (saveAndClose == false && !isTabSwitch && energyLabelEPC.value == "-1") {
+                            if (saveAndClose == false && !isTBD(energyLabel) &&!isTabSwitch && energyLabelEPC.value == "-1") {
                                 messages.push("Energy label is required.");
                                 if (focusField == null) {
                                     focusField = energyLabelEPC;
@@ -1863,7 +1863,7 @@
                             break;
                         case "2":
                             energyLabel = energyLabelBREEAM.value;
-                            if (saveAndClose == false && !isTabSwitch && energyLabelBREEAM.value == "-1") {
+                            if (saveAndClose == false && !isTBD(energyLabel) && !isTabSwitch && energyLabelBREEAM.value == "-1") {
                                 messages.push("Energy label is required.");
                                 if (focusField == null) {
                                     focusField = energyLabelBREEAM;
@@ -1872,7 +1872,7 @@
                             break;
                         case "3":
                             energyLabel = energyLabelLEED.value;
-                            if (saveAndClose == false && !isTabSwitch && energyLabelLEED.value == "-1") {
+                            if (saveAndClose == false && !isTBD(energyLabel) && !isTabSwitch && energyLabelLEED.value == "-1") {
                                 messages.push("Energy label is required.");
                                 if (focusField == null) {
                                     focusField = energyLabelLEED;
@@ -1888,12 +1888,12 @@
                     var energyDate = document.getElementById("txtEnergyLabelDate");
                     var dateParts = energyDate.value.split('-');
 
-                    if ((saveAndClose == false && !isTabSwitch) && (dateParts.length !== 3 || dateParts[0].length !== 2 || dateParts[1].length !== 2 || dateParts[2].length !== 4)) {
+                    if ((!isTBD(energyDate) && saveAndClose == false && !isTabSwitch) && (dateParts.length !== 3 || dateParts[0].length !== 2 || dateParts[1].length !== 2 || dateParts[2].length !== 4)) {
                         messages.push("Please enter a valid energy label date in the format dd-mm-yyyy");
                         if (focusField == null) {
                             focusField = energyDate;
                         }
-                    } else {
+                    } else if (!isTBD(energyDate)){
                         // Additional validation to check if the date is valid
                         var day = parseInt(dateParts[0], 10);
                         var month = parseInt(dateParts[1], 10) - 1; // Months are 0-based in JavaScript
@@ -1923,7 +1923,7 @@
                     // check 'flood risk'
                     var floodRisk = document.getElementById("DropDownFloodRisk");
 
-                    if (saveAndClose == false && !isTabSwitch && floodRisk.value == "-1") {
+                    if (saveAndClose == false && !isTBD(floodRisk) && !isTabSwitch && floodRisk.value == "-1") {
                         messages.push("Flood risk is required.");
                         if (focusField == null) {
                             focusField = floodRisk;
@@ -1933,7 +1933,7 @@
                     // check 'heating, cooling primary source'
                     var primarySource = document.getElementById("DropDownPrimarySource");
 
-                    if (saveAndClose == false && !isTabSwitch && primarySource.value == "-1") {
+                    if (saveAndClose == false && !isTBD(primarySource) && !isTabSwitch && primarySource.value == "-1") {
                         messages.push("Heating, cooling primary source is required.");
                         if (focusField == null) {
                             focusField = primarySource;
@@ -1943,7 +1943,7 @@
                     // check 'solar panels'
                     var solarPanels = document.getElementById("DropDownSolarPanels");
 
-                    if (saveAndClose == false && !isTabSwitch && solarPanels.value == "-1") {
+                    if (saveAndClose == false && !isTBD(solarPanels) && !isTabSwitch && solarPanels.value == "-1") {
                         messages.push("Solar panels is required.");
                         if (focusField == null) {
                             focusField = solarPanels;
@@ -2121,8 +2121,9 @@
 
                     if (window.assetTabAccess === "VIEW") {
                         $('#assetForm input, #assetForm select, #assetForm textarea').prop('disabled', true);
-                        $('#saveBtnAsset, #saveCloseBtnAsset', '#cancelBtnAsset').prop('disabled', false);
-                  
+                        $('#saveBtnAsset, #saveCloseBtnAsset ,#cancelBtnAsset').prop('disabled', false);
+
+                    }
                 }
 
             </script>
