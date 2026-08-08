@@ -71,7 +71,7 @@
                                         @Html.TextBox("lbl2", "No restructuring", New With {.class = "form-control input-sm Style_lbl", .data_tbd = "true", .readonly = "readonly"})
                                     </td>
                                     <td>
-                                        @Html.DropDownList("DropDown2", CType(ViewBag.SelectEval2, IEnumerable(Of SelectListItem)), Nothing, New With {.class = "form-control input-sm Style_drdwn", .style = "height: 25px;", .onchange = "swChange = true;"})
+                                        @Html.DropDownList("DropDown2", CType(ViewBag.SelectEval2, IEnumerable(Of SelectListItem)), Nothing, New With {.class = "form-control input-sm Style_drdwn", .data_tbd = "true", .style = "height: 25px;", .onchange = "swChange = true;"})
                                     </td>
                                 </tr>
                                 <tr>
@@ -87,7 +87,7 @@
                                 </tr>
                                 <tr>
                                     <td>
-                                        @Html.TextBox("nbr4", "4", New With {.class = "form-control input-sm Style_nbr", .readonly = "readonly"})
+                                        @Html.TextBox("nbr4", "4", New With {.class = "form-control input-sm Style_nbr", .data_tbd = "true", .readonly = "readonly"})
                                     </td>
                                     <td>
                                         @Html.TextBox("lbl4", "Personal guarantee as majority shareholder or exercise control", New With {.class = "form-control input-sm Style_lbl", .data_tbd = "true", .readonly = "readonly"})
@@ -98,7 +98,7 @@
                                 </tr>
                                 <tr>
                                     <td>
-                                        @Html.TextBox("nbr5", "5", New With {.class = "form-control input-sm Style_nbr", .readonly = "readonly"})
+                                        @Html.TextBox("nbr5", "5", New With {.class = "form-control input-sm Style_nbr", .data_tbd = "true", .readonly = "readonly"})
                                     </td>
                                     <td>
                                         @Html.TextBox("lbl5", "Repayment capacity", New With {.class = "form-control input-sm Style_lbl", .data_tbd = "true", .readonly = "readonly"})
@@ -109,7 +109,7 @@
                                 </tr>
                                 <tr>
                                     <td>
-                                        @Html.TextBox("nbr6", "6", New With {.class = "form-control input-sm Style_nbr", .readonly = "readonly"})
+                                        @Html.TextBox("nbr6", "6", New With {.class = "form-control input-sm Style_nbr", .data_tbd = "true", .readonly = "readonly"})
                                     </td>
                                     <td>
                                         @Html.TextBox("lbl6", "No negative risk indicator", New With {.class = "form-control input-sm Style_lbl", .data_tbd = "true", .readonly = "readonly"})
@@ -120,7 +120,7 @@
                                 </tr>
                                 <tr>
                                     <td>
-                                        @Html.TextBox("nbr7", "7", New With {.class = "form-control input-sm Style_nbr", .readonly = "readonly"})
+                                        @Html.TextBox("nbr7", "7", New With {.class = "form-control input-sm Style_nbr", .data_tbd = "true", .readonly = "readonly"})
                                     </td>
                                     <td>
                                         @Html.TextBox("lbl7", "Minimal coverage in risk sectors", New With {.class = "form-control input-sm Style_lbl", .data_tbd = "true", .readonly = "readonly"})
@@ -131,7 +131,7 @@
                                 </tr>
                                 <tr>
                                     <td>
-                                        @Html.TextBox("nbr8", "8", New With {.class = "form-control input-sm Style_nbr", .readonly = "readonly"})
+                                        @Html.TextBox("nbr8", "8", New With {.class = "form-control input-sm Style_nbr", .data_tbd = "true", .readonly = "readonly"})
                                     </td>
                                     <td>
                                         @Html.TextBox("lbl8", "No negative net-assets", New With {.class = "form-control input-sm Style_lbl", .data_tbd = "true", .readonly = "readonly"})
@@ -142,7 +142,7 @@
                                 </tr>
                                 <tr>
                                     <td>
-                                        @Html.TextBox("nbr9", "9", New With {.class = "form-control input-sm Style_nbr", .readonly = "readonly"})
+                                        @Html.TextBox("nbr9", "9", New With {.class = "form-control input-sm Style_nbr", .data_tbd = "true", .readonly = "readonly"})
                                     </td>
                                     <td>
                                         @Html.TextBox("lbl9", "No funding of VAT", New With {.class = "form-control input-sm Style_lbl", .data_tbd = "true", .readonly = "readonly"})
@@ -156,7 +156,7 @@
                                 @If Model.PRCR_COMMERCIAL_RE_PRJ_ID = 5 Then
                                     @<tr>
                                         <td>
-                                            @Html.TextBox("nbr10", "10", New With {.class = "form-control input-sm Style_nbr", .readonly = "readonly"})
+                                            @Html.TextBox("nbr10", "10", New With {.class = "form-control input-sm Style_nbr", .data_tbd = "true", .readonly = "readonly"})
                                         </td>
                                         <td>
                                             @Html.TextBox("lbl10", "Real estate > 10y guarantee mortgage and/or mortgage mandate", New With {.class = "form-control input-sm Style_lbl", .data_tbd = "true", .readonly = "readonly"})
@@ -167,7 +167,7 @@
                                     </tr>
                                     @<tr>
                                         <td>
-                                            @Html.TextBox("nbr11", "11", New With {.class = "form-control input-sm Style_nbr", .readonly = "readonly"})
+                                            @Html.TextBox("nbr11", "11", New With {.class = "form-control input-sm Style_nbr", .data_tbd = "true", .readonly = "readonly"})
                                         </td>
                                         <td>
                                             @Html.TextBox("lbl11", "Bullet loans", New With {.class = "form-control input-sm Style_lbl", .data_tbd = "true", .readonly = "readonly"})
@@ -178,7 +178,7 @@
                                     </tr>
                                     @<tr>
                                         <td>
-                                            @Html.TextBox("nbr12", "12", New With {.class = "form-control input-sm Style_nbr", .readonly = "readonly"})
+                                            @Html.TextBox("nbr12", "12", New With {.class = "form-control input-sm Style_nbr", .data_tbd = "true", .readonly = "readonly"})
                                         </td>
                                         <td>
                                             @Html.TextBox("lbl12", "Minimum own contribution", New With {.class = "form-control input-sm Style_lbl", .data_tbd = "true", .readonly = "readonly"})
@@ -478,6 +478,16 @@
                     swChange = false;
                     currentTabId = getCurrentActiveTab();
 
+                    function isTBD(field) {
+                        if (window.userRole === "CRE EXPERT" || window.userRole === "Super User") {
+                            return true; // skip validation if TBD is selected for cre and superuser
+                        }
+                        if (!field)
+                            return false;
+                        console.log(field.id);
+                        console.log(field.getAttribute("data-tbd"));
+                        return field && field.getAttribute("data-tbd") === "true";
+                    }
                     var creProject = document.getElementById("txtCreProject").value;
                     var projStatus = document.getElementById("RE_PROJ_STATUS_ID").value;
                     applyGuidelinesTabAccess();
@@ -706,7 +716,7 @@
 
                     // check 'deviation motivations'
                     if (creProject == "5") {
-                        if (saveAndClose == false && !isTabSwitch && document.getElementById("DropDownDeviatMotiv_1").value == "0" && document.getElementById("DropDownDeviatMotiv_2").value == "0" && document.getElementById("DropDownDeviatMotiv_3").value == "0") {
+                        if (saveAndClose == false && !isTBD() && !isTabSwitch && document.getElementById("DropDownDeviatMotiv_1").value == "0" && document.getElementById("DropDownDeviatMotiv_2").value == "0" && document.getElementById("DropDownDeviatMotiv_3").value == "0") {
                             messages.push("At least 1 deviation motivation is required.");
                             if (focusField == null) {
                                 focusField = document.getElementById("DropDownDeviatMotiv_1");
