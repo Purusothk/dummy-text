@@ -3405,9 +3405,7 @@ registerTabValidator('collaterals', function () {
         if ($el.attr("data-tbd") === "true" || $el.data('tbd') === "true") {
             return;
 
-        }
-    }
-        }
+        }   
         
         
 
