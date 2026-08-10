@@ -794,5 +794,5 @@ End Code
 
 <script>
     window.tabAccess = "@(If(ViewBag.Access, "NO_ACCESS"))";
-    window.userRole = "@(If(ViewBag.UserRole, ""))";
+    //window.userRole = "@(If(ViewBag.UserRole, ""))";
 </script>
