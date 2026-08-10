@@ -1,0 +1,443 @@
+@Imports Newtonsoft.Json
+@ModelType ProjectCreditsTabViewModel
+<div class="admin-tab-content" id="project-credits-tab">
+    <div class="container-fluid">
+        <form class="admin-form form-horizontal" id="projectCreditsForm">
+            @*@Html.AntiForgeryToken()*@
+            <!--Hidden JSON for main loaded data & Belfius Credits data-->
+            <input type="hidden" id="re-proj-id" value="@Model.ProjectId" />
+            <input type="hidden" id="re-proj-status-id" value="@Model.ProjectStatusId" />
+            <input type="hidden" id="re-proj-status-flow-id" value="@Model.ProjectStatusFlowId" />
+            <input type="hidden" id="project-credits-data" value="@Html.Raw(HttpUtility.HtmlAttributeEncode(If(Model.JsonForClient, String.Empty)))" />
+            <!-- Project Details Card -->
+            <div class="admin-card">
+                <div class="admin-card-header">
+                    <h4 class="admin-card-title">Project Details</h4>
+                </div>
+                <div class="admin-card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <!--Made CRE Project, CRE Type, Project Goal readonly-->
+                            <div class="form-group form-group-sm">
+                                <label class="col-sm-5 control-label">CRE project (*):</label>
+                                <div class="col-sm-7">
+                                    @Html.DropDownListFor(Function(m) m.SelectedCREProjectID, New SelectList(Model.CREProjectOptions, "TcodId", "TcodDescName"), "", New With {.class = "form-control input-sm prcr-display-only-select", .id = "cre-project-options", .data_required = "true", .data_label = "CRE Project", .disabled = "disabled"})
+                                </div>
+                            </div>
+
+                            <div class="form-group form-group-sm">
+                                <label class="col-sm-5 control-label">CRE type (*):</label>
+                                <div class="col-sm-7">
+                                    @Html.DropDownListFor(Function(m) m.SelectedCRETypeID, New SelectList(Model.CRETypeOptions, "TcodId", "TcodDescName"), "", New With {.class = "form-control input-sm prcr-display-only-select", .id = "cre-type-options", .data_required = "true", .data_label = "CRE Type", .disabled = "disabled"})
+                                </div>
+                            </div>
+                            <div class="form-group form-group-sm">
+                                <label class="col-sm-5 control-label">Project goal (*):</label>
+                                <div class="col-sm-7">
+                                    @Html.DropDownListFor(Function(m) m.SelectedProjectGoalID, New SelectList(Model.ProjectGoalOptions, "TcodId", "TcodDescName"), "", New With {.class = "form-control input-sm prcr-display-only-select", .id = "project-goal-options", .data_required = "true", .data_label = "Project Goal", .disabled = "disabled"})
+                                </div>
+                            </div>
+                            <div class="form-group form-group-sm">
+                                <label class="col-sm-5 control-label">Environment permit (*):</label>
+                                <div class="col-sm-7">
+                                    @Html.DropDownListFor(Function(m) m.SelectedEnvironmentPermit, New SelectList(Model.YesNoOptions, "TcodId", "TcodDescName"), "SELECT", New With {.Class = "form-control input-sm", .id = "environment-permit", .data_required = "true", .data_label = "Environment Permit", .data_review_edit = "true"})
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="form-group form-group-sm" id="breyne-law-field">
+                                <Label class="col-sm-5 control-label">Breyne law (*):</Label>
+                                <div class="col-sm-7">
+                                    @Html.DropDownListFor(Function(m) m.SelectedBreyneLaw, New SelectList(Model.YesNoOptions, "TcodId", "TcodDescName"), "SELECT", New With {.class = "form-control input-sm", .id = "breyne-law", .data_required = "true", .data_label = "Breyne Law"})
+                                </div>
+                            </div>
+
+                            <div class="form-group form-group-sm" id="ground-building-split-field">
+                                <Label class="col-sm-5 control-label">Ground/Building split (*):</Label>
+                                <div class="col-sm-7">
+                                    @Html.DropDownListFor(Function(m) m.SelectedGroundBuildingSplit, New SelectList(Model.YesNoOptions, "TcodId", "TcodDescName"), "SELECT", New With {.class = "form-control input-sm", .id = "ground-building-split", .data_required = "true", .data_label = "Ground/Building Split"})
+                                </div>
+                            </div>
+                            <div class="form-group form-group-sm">
+                                <Label class="col-sm-5 control-label">Number of products (*):</Label>
+                                <div class="col-sm-7">
+                                    @Html.DropDownListFor(Function(m) m.SelectedNumberOfProducts, Model.NumberOfProducts, New With {.class = "form-control input-sm", .id = "number-of-products", .data_required = "true", .data_label = "Number of Products"})
+                                </div>
+                            </div>
+                            <div class="form-group form-group-sm">
+                                <Label class="col-sm-5 control-label">Environment permit date :</Label>
+                                <div class="col-sm-7">
+                                    @Html.TextBoxFor(Function(m) m.SelectedEnvironmentPermitDate,
+                                  New With {
+                                  .type = "date",
+                                  .class = "form-control input-sm",
+                                  .data_tbd = "true",
+                                  .id = "environment-permit-date",
+                                  .data_label = "Environment Permit Date",
+                                  .data_review_edit = "true"})
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Project Financing Details Card -->
+            <div class="admin-card">
+                <div class="admin-card-header">
+                    <h4 class="admin-card-title">Project financing</h4>
+                </div>
+                <div class="admin-card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group form-group-sm">
+                                <Label class="col-sm-5 control-label">Project costs (*):</Label>
+                                <div class="col-sm-7">
+                                    <input type="text" class="form-control input-sm formatted-number" id="project-costs" ReadOnly>
+                                </div>
+                            </div>
+                            <div class="form-group form-group-sm">
+                                <label class="col-sm-5 control-label" style="text-align: center; font-size: 14px;">Type Cost</label>
+                                <label class="col-sm-7 control-label" style="text-align: center; font-size: 14px;">Amount</label>
+                            </div>
+                            <div id="project-costs-container" data-project-costs='@Html.Raw(JsonConvert.SerializeObject(Model.ProjectCosts))'></div>
+                            <div class="form-group form-group-sm">
+                                <Label class="col-sm-5 control-label">TOTAL funds - costs:</Label>
+                                <div class="col-sm-7">
+                                    <input type="text" class="form-control input-sm formatted-number" id="total-diff-funds-costs" ReadOnly>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="form-group form-group-sm">
+                                <Label class="col-sm-5 control-label">Project funding (*):</Label>
+                            </div>
+
+                            <div class="form-group form-group-sm">
+                                <Label class="col-sm-5 control-label">Own funds (*):</Label>
+                                <div class="col-sm-7">
+                                    <input type="text" class="form-control input-sm formatted-number" id="own-funds" ReadOnly>
+                                </div>
+                            </div>
+                            <div class="form-group form-group-sm">
+                                <Label class="col-sm-5 control-label">Client contribution (*):</Label>
+                                <div class="col-sm-7">
+                                    @Html.TextBoxFor(Function(m) m.ClientContributionAmount, New With {.class = "form-control input-sm formatted-number", .id = "client-contribution", .data_required = "true", .data_label = "Client Contribution"})
+                                </div>
+                            </div>
+                            <div class="form-group form-group-sm" id="sponsor-contribution-field">
+                                <Label class="col-sm-5 control-label">Sponsor contribution (*):</Label>
+                                <div class="col-sm-7">
+                                    @Html.TextBoxFor(Function(m) m.SponsorContributionAmount, New With {.class = "form-control input-sm formatted-number", .id = "sponsor-contribution", .data_required = "true", .data_label = "Sponsor Contribution"})
+                                </div>
+                            </div>
+                            <div class="form-group form-group-sm" id="pre-sales-field">
+                                <Label class="col-sm-5 control-label">Pre-sales (*):</Label>
+                                <div class="col-sm-7">
+                                    <input type="text" class="form-control input-sm formatted-number" id="pre-sales" ReadOnly>
+                                </div>
+                            </div>
+                            <div class="form-group form-group-sm" id="deposit-pre-sales-field">
+                                <Label class="col-sm-5 control-label">Deposit pre-sales (*):</Label>
+                                <div class="col-sm-7">
+                                    @Html.TextBoxFor(Function(m) m.DepositPreSalesAmount, New With {.class = "form-control input-sm formatted-number", .id = "deposit-pre-sales", .data_required = "true", .data_label = "Deposit Pre-Sales"})
+                                </div>
+                            </div>
+                            <div class="form-group form-group-sm" id="signed-pre-sales-field">
+                                <Label class="col-sm-5 control-label">Signed pre-sales (*):</Label>
+                                <div class="col-sm-7">
+                                    @Html.TextBoxFor(Function(m) m.SignedPreSalesAmount, New With {.class = "form-control input-sm formatted-number", .id = "signed-pre-sales", .data_required = "true", .data_label = "Signed Pre-Sales"})
+                                </div>
+                            </div>
+                            <div class="form-group form-group-sm">
+                                <Label class="col-sm-5 control-label">Other (*):</Label>
+                                <div class="col-sm-7">
+                                    @Html.TextBoxFor(Function(m) m.OtherAmount, New With {.class = "form-control input-sm formatted-number", .id = "other-funds", .data_required = "true", .data_label = "Others"})
+                                </div>
+                            </div>
+                            <div class="form-group form-group-sm">
+                                <Label class="col-sm-5 control-label">Belfius Credits (total) (*):</Label>
+                                <div class="col-sm-7">
+                                    <input type="text" class="form-control input-sm formatted-number" id="belfius-credits-total" ReadOnly>
+                                </div>
+                            </div>
+                            <div class="form-group form-group-sm">
+                                <Label class="col-sm-5 control-label">TOTAL funds (*):</Label>
+                                <div class="col-sm-7">
+                                    <input type="text" class="form-control input-sm formatted-number" id="total-funds" ReadOnly>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Belfius Credit Details Card -->
+            <div class="admin-card">
+                <div class="admin-card-header">
+                    <h4 class="admin-card-title">Belfius credits</h4>
+                </div>
+                <div class="admin-card-body">
+                    <div class="row">
+                        <table class="table table-sm">
+                            <thead style="color: #51626F; font-size:12px">
+                                <tr>
+                                    <th></th>
+                                    <th>% (Breyne)</th>
+                                    <th>Amount (*)</th>
+                                    <th>Duration (months) incl. Capital grace (*)</th>
+                                    <th class="capital-grace-column">Capital grace (*)</th>
+                                    <th>Prod/Line (*)</th>
+                                    <th class="credit-number-column">number (*)</th>
+                                    <th>Credit purpose (*)</th>
+                                    <th>Credit type (*)</th>
+                                </tr>
+                            </thead>
+                            <tbody style="font-size:12px">
+                                <!-- Standard Credit Rows -->
+                                <tr id="belfius-credit-1" data-credit-type="standard" data-credit-id="1">
+                                    <td> <Label class="control-label-belfius-credits">Belfius Credit (*):</Label></td>
+                                    <td></td>
+                                    <td> <input type="text" class="form-control input-sm formatted-number" id="belfius-credit-1-amount" data-role="amount" data-required="true" data-label="Belfius Credit 1: Amount"></td>
+                                    <td> <input type="text" class="form-control input-sm duration-input" id="belfius-credit-1-duration" data-role="duration" data-required="true" data-label="Belfius Credit 1: Duration"></td>
+                                    <td> <input type="text" class="form-control input-sm duration-input" id="belfius-credit-1-capital-grace" data-role="capital-grace" data-required="true" data-label="Belfius Credit 1: Capital Grace"></td>
+                                    <td>
+                                        @Html.DropDownListFor(Function(m) m.CreditIdentifierOptions, New SelectList(Model.CreditIdentifierOptions, "TcodId", "TcodDescName"), "SELECT", New With {.Class = "form-control input-sm", .id = "belfius-credit-1-credit-identifier-options", .data_role = "credit-identifier", .data_required = "true", .data_label = "Belfius Credit 1: Prod/Line"})
+                                    </td>
+                                    <td> <input type="text" class="form-control input-sm credit-card-input" id="belfius-credit-1-credit-number" data-role="credit-number" data-required="true" data-label="Belfius Credit 1: Credit Number"></td>
+                                    <td>
+                                        @Html.DropDownListFor(Function(m) m.CreditPurposeOptions, New SelectList(Model.CreditPurposeOptions, "TcodId", "TcodDescName"), "SELECT", New With {.Class = "form-control input-sm", .id = "belfius-credit-1-credit-purpose-options", .data_role = "purpose", .data_required = "true", .data_label = "Belfius Credit 1: Credit Purpose"})
+                                    </td>
+                                    <td>
+                                        @Html.DropDownListFor(Function(m) m.CreditTypeOptions, New SelectList(Model.CreditTypeOptions, "TcodId", "TcodDescName"), "SELECT", New With {.class = "form-control input-sm", .id = "belfius-credit-1-credit-type-options", .data_role = "type", .data_required = "true", .data_label = "Belfius Credit 1: Credit Type"})
+                                    </td>
+                                </tr>
+                                <tr id="belfius-credit-2" data-credit-type="standard" data-credit-id="2">
+                                    <td><Label class="control-label-belfius-credits">Belfius Credit 2 (*):</Label></td>
+                                    <td></td>
+                                    <td><input type="text" class="form-control input-sm formatted-number" id="belfius-credit-2-amount" data-role="amount" data-required="true" data-label="Belfius Credit 2: Amount"></td>
+                                    <td><input type="text" class="form-control input-sm duration-input" id="belfius-credit-2-duration" data-role="duration" data-required="true" data-label="Belfius Credit 2: Duration"></td>
+                                    <td><input type="text" class="form-control input-sm duration-input" id="belfius-credit-2-capital-grace" data-role="capital-grace" data-required="true" data-label="Belfius Credit 2: Capital Grace"></td>
+                                    <td>
+                                        @Html.DropDownListFor(Function(m) m.CreditIdentifierOptions, New SelectList(Model.CreditIdentifierOptions, "TcodId", "TcodDescName"), "SELECT", New With {.Class = "form-control input-sm", .id = "belfius-credit-2-credit-identifier-options", .data_role = "credit-identifier", .data_required = "true", .data_label = "Belfius Credit 2: Prod/Line"})
+                                    </td>
+                                    <td><input type="text" class="form-control input-sm credit-card-input" id="belfius-credit-2-credit-number" data-role="credit-number" data-required="true" data-label="Belfius Credit 2: Credit Number"></td>
+                                    <td>
+                                        @Html.DropDownListFor(Function(m) m.CreditPurposeOptions, New SelectList(Model.CreditPurposeOptions, "TcodId", "TcodDescName"), "SELECT", New With {.class = "form-control input-sm", .id = "belfius-credit-2-credit-purpose-options", .data_role = "purpose", .data_required = "true", .data_label = "Belfius Credit 2: Credit Purpose"})
+                                    </td>
+                                    <td>
+                                        @Html.DropDownListFor(Function(m) m.CreditTypeOptions, New SelectList(Model.CreditTypeOptions, "TcodId", "TcodDescName"), "SELECT", New With {.class = "form-control input-sm", .id = "belfius-credit-2-credit-type-options", .data_role = "type", .data_required = "true", .data_label = "Belfius Credit 2: Credit Type"})
+                                    </td>
+                                </tr>
+                                <tr id="belfius-credit-3" data-credit-type="standard" data-credit-id="3">
+                                    <td><Label class="control-label-belfius-credits">Belfius Credit 3 (*):</Label></td>
+                                    <td></td>
+                                    <td><input type="text" class="form-control input-sm formatted-number" id="belfius-credit-3-amount" data-role="amount" data-required="true" data-label="Belfius Credit 3: Amount"></td>
+                                    <td><input type="text" class="form-control input-sm duration-input" id="belfius-credit-3-duration" data-role="duration" data-required="true" data-label="Belfius Credit 3: Duration"></td>
+                                    <td><input type="text" class="form-control input-sm duration-input" id="belfius-credit-3-capital-grace" data-role="capital-grace" data-required="true" data-label="Belfius Credit 3: Capital Grace"></td>
+                                    <td>
+                                        @Html.DropDownListFor(Function(m) m.CreditIdentifierOptions, New SelectList(Model.CreditIdentifierOptions, "TcodId", "TcodDescName"), "SELECT", New With {.Class = "form-control input-sm", .id = "belfius-credit-3-credit-identifier-options", .data_role = "credit-identifier", .data_required = "true", .data_label = "Belfius Credit 3: Prod/Line"})
+                                    </td>
+                                    <td><input type="text" class="form-control input-sm credit-card-input" id="belfius-credit-3-credit-number" data-role="credit-number" data-required="true" data-label="Belfius Credit 3: Credit Number"></td>
+                                    <td>
+                                        @Html.DropDownListFor(Function(m) m.CreditPurposeOptions, New SelectList(Model.CreditPurposeOptions, "TcodId", "TcodDescName"), "SELECT", New With {.class = "form-control input-sm", .id = "belfius-credit-3-credit-purpose-options", .data_role = "purpose", .data_required = "true", .data_label = "Belfius Credit 3: Credit Purpose"})
+                                    </td>
+                                    <td>
+                                        @Html.DropDownListFor(Function(m) m.CreditTypeOptions, New SelectList(Model.CreditTypeOptions, "TcodId", "TcodDescName"), "SELECT", New With {.class = "form-control input-sm", .id = "belfius-credit-3-credit-type-options", .data_role = "type", .data_required = "true", .data_label = "Belfius Credit 3: Credit Type"})
+                                    </td>
+                                </tr>
+                                <!-- Ground Credit Row -->
+                                <tr id="belfius-credit-ground" data-credit-type="ground" data-credit-id="4">
+                                    <td><Label class="control-label-belfius-credits">Belfius Credit Ground (*):</Label></td>
+                                    <td></td>
+                                    <td><input type="text" class="form-control input-sm formatted-number" id="belfius-credit-ground-amount" data-role="amount" data-required="true" data-label="Belfius Credit Ground: Amount"></td>
+                                    <td><input type="text" class="form-control input-sm duration-input" id="belfius-credit-ground-duration" data-role="duration" data-required="true" data-label="Belfius Credit Ground: Duration"></td>
+                                    <td><input type="text" class="form-control input-sm duration-input" id="belfius-credit-ground-capital-grace" data-role="capital-grace" data-required="true" data-label="Belfius Credit Ground: Capital Grace"></td>
+                                    <td>
+                                        @Html.DropDownListFor(Function(m) m.CreditIdentifierOptions, New SelectList(Model.CreditIdentifierOptions, "TcodId", "TcodDescName"), "SELECT", New With {.Class = "form-control input-sm", .id = "belfius-credit-ground-credit-identifier-options", .data_role = "credit-identifier", .data_required = "true", .data_label = "Belfius Credit Ground: Prod/Line"})
+                                    </td>
+                                    <td><input type="text" class="form-control input-sm credit-card-input" id="belfius-credit-ground-credit-number" data-role="credit-number" data-required="true" data-label="Belfius Credit Ground: Credit Number"></td>
+                                </tr>
+                                <!-- Garanty Breyne Credit Row -->
+                                <tr id="belfius-credit-garanite-breyne" data-credit-type="garanite-breyne" data-credit-id="5">
+                                    <td><Label class="control-label-belfius-credits">Belfius Credit Garanty 'Breyne' (*):</Label></td>
+                                    <td>
+                                        @Html.DropDownListFor(Function(m) m.PercentageGarantyBreyneOptions, New SelectList(Model.PercentageGarantyBreyneOptions, "TcodId", "TcodDescName"), "SELECT", New With {.class = "form-control input-sm", .id = "belfius-credit-garanite-breyne-percentage-options", .data_role = "breyne-percentage", .data_required = "true", .data_label = "Belfius Credit Garanty 'Breyne': Percentage", .data_review_edit = "true"})
+                                    </td>
+                                    <td><input type="text" class="form-control input-sm formatted-number" id="belfius-credit-garanite-breyne-amount" data-role="amount" data-required="true" data-label="Belfius Credit Garanty 'Breyne': Amount" data-review-edit="true"></td>
+                                    <td></td>
+                                    <td></td>
+                                    <td>
+                                        @Html.DropDownListFor(Function(m) m.CreditIdentifierOptions, New SelectList(Model.CreditIdentifierOptions, "TcodId", "TcodDescName"), "SELECT", New With {.Class = "form-control input-sm", .id = "belfius-credit-garanite-breyne-credit-identifier-options", .data_role = "credit-identifier", .data_required = "true", .data_label = "Belfius Credit Garanty 'Breyne': Prod/Line"})
+                                    </td>
+                                    <td><input type="text" class="form-control input-sm credit-card-input" id="belfius-credit-garanite-breyne-credit-number" data-role="credit-number" data-required="true" data-label="Belfius Credit Garanty 'Breyne': Credit Number"></td>
+                                    <td></td>
+                                    <td></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CRE Guidelines Card -->
+            <div class="admin-card">
+                <div class="admin-card-header">
+                    <h4 class="admin-card-title">CRE guidelines</h4>
+                </div>
+                <div class="admin-card-body">
+                    <div class="row">
+                        <div class="col-md-6">                                                                                    
+                            <div class="form-group form-group-sm" id="continuity-of-the-business-model-field">
+                                <Label class="col-sm-5 control-label">Continuity of the business model :</Label>
+                                <div class="col-sm-7">
+                                    @Html.DropDownListFor(Function(m) m.SelectedContinuityOfTheBusinessModel, New SelectList(Model.YesNoOptions, "TcodId", "TcodDescName"), "SELECT", New With {.class = "form-control input-sm", .data_tbd = "true", .id = "continuity-of-the-business-model", .data_label = "Continuity of the Business Model", .data_review_edit = "true"})
+                                </div>
+                            </div>
+
+                            <div class="form-group form-group-sm" id="long-term-tenancy-agreement-field">
+                                <Label class="col-sm-5 control-label">Long Term tenancy agreement :</Label>
+                                <div class="col-sm-7">
+                                    @Html.DropDownListFor(Function(m) m.SelectedLongTermTenancyAgreement, New SelectList(Model.YesNoOptions, "TcodId", "TcodDescName"), "SELECT", New With {.class = "form-control input-sm", .data_tbd = "true", .id = "long-term-tenancy-agreement", .data_label = "Long Term Tenancy Agreement", .data_review_edit = "true"})
+                                </div>
+                            </div>
+
+                            <div class="form-group form-group-sm" id="enough-renting-prospects-field">
+                                <Label class="col-sm-5 control-label">Enough renting prospects :</Label>
+                                <div class="col-sm-7">
+                                    @Html.DropDownListFor(Function(m) m.SelectedEnoughRentingProspects, New SelectList(Model.YesNoOptions, "TcodId", "TcodDescName"), "SELECT", New With {.class = "form-control input-sm", .data_tbd = "true", .id = "enough-renting-prospects", .data_label = "Enough Renting Prospects", .data_review_edit = "true"})
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="form-group form-group-sm" id="fixed-exit-field">
+                                <Label class="col-sm-5 control-label">Fixed Exit :</Label>
+                                <div class="col-sm-7">
+                                    @Html.DropDownListFor(Function(m) m.SelectedFixedExit, New SelectList(Model.YesNoOptions, "TcodId", "TcodDescName"), "SELECT", New With {.class = "form-control input-sm", .data_tbd = "true", .id = "fixed-exit", .data_label = "Fixed Exit", .data_review_edit = "true"})
+                                </div>
+                            </div>
+
+                            <div class="form-group form-group-sm" id="sales-strategy-options-field">
+                                <Label class="col-sm-5 control-label">Sales strategy :</Label>
+                                <div class="col-sm-7">
+                                    @Html.DropDownListFor(Function(m) m.SelectedSalesStrategyID, New SelectList(Model.SalesStrategyOptions, "TcodId", "TcodDescName"), "SELECT", New With {.class = "form-control input-sm", .data_tbd = "true", .id = "sales-strategy-options", .data_label = "Sales Strategy", .data_review_edit = "true"})
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Other Info Card -->
+            <div class="admin-card">
+                <div class="admin-card-header">
+                    <h4 class="admin-card-title">Other info</h4>
+                </div>
+                <div class="admin-card-body">
+                    <div class="row">
+                        <div class="col-md-6">                            
+                            <div class="form-group form-group-sm" id="actual-value-building-ground-field" data-status-id="@Model.ProjectStatusId">
+                                <Label class="col-sm-5 control-label"> Actual Value Building/Ground :</Label>
+                                <div class="col-sm-7">
+                                    @Html.TextBoxFor(Function(m) m.ActualValueBuildingGroundAmount, New With {.class = "form-control input-sm formatted-number", .id = "actual-value-building-ground", .data_tbd = "true", .data_label = "Actual Value Building/Ground", .data_review_edit = "true"})
+                                </div>
+                            </div>
+                            <div class="form-group form-group-sm" id="building-issues-field">
+                                <Label class="col-sm-5 control-label">Building issues (*):</Label>
+                                <div class="col-sm-7">
+                                    @Html.DropDownListFor(Function(m) m.SelectedBuildingIssues, New SelectList(Model.YesNoOptions, "TcodId", "TcodDescName"), "SELECT", New With {.class = "form-control input-sm", .id = "building-issues", .data_required = "true", .data_label = "Building issues", .data_review_edit = "true"})
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group form-group-sm" id="total-credit-charges-field">
+                                <Label class="col-sm-5 control-label">Total Credit charges (C + I):</Label>
+                                <div class="col-sm-7">
+                                    <input type="text" class="form-control input-sm formatted-number" id="total-credit-charges" ReadOnly>
+                                </div>
+                            </div>
+                            <div class="form-group form-group-sm" id="credit-charge-capital-field">
+                                <Label class="col-sm-5 control-label">Credit charge: capital (*):</Label>
+                                <div class="col-sm-7">
+                                    @Html.TextBoxFor(Function(m) m.CreditChargeCapitalAmount, New With {.class = "form-control input-sm formatted-number", .id = "credit-charge-capital", .data_required = "true", .data_label = "Credit charge: capital", .data_review_edit = "true"})
+                                </div>
+                            </div>
+                            <div class="form-group form-group-sm" id="credit-charge-interest-field">
+                                <Label class="col-sm-5 control-label">Credit charge: interest (*):</Label>
+                                <div class="col-sm-7">
+                                    @Html.TextBoxFor(Function(m) m.CreditChargeInterestAmount, New With {.class = "form-control input-sm formatted-number", .id = "credit-charge-interest", .data_required = "true", .data_label = "Credit charge: interest", .data_review_edit = "true"})
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Collaterals Card -->
+            <div class="admin-card">
+                <div class="admin-card-header">
+                    <h4 class="admin-card-title">Collaterals</h4>
+                </div>
+                <div class="admin-card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group form-group-sm">
+                                <label class="col-sm-5 control-label">CRE project as collateral (*):</label>
+                                <div class="col-sm-7">
+                                    @Html.DropDownListFor(Function(m) m.SelectedCREProjectAsCollateral, New SelectList(Model.YesNoOptions, "TcodId", "TcodDescName"), "SELECT", New With {.class = "form-control input-sm", .id = "cre-project-as-collateral", .data_required = "true", .data_label = "CRE project as collateral"})
+                                </div>
+                            </div>
+                            <div class="form-group form-group-sm">
+                                <label class="col-sm-5 control-label">Number of RE as Collaterals :</label>
+                                <div class="col-sm-7">
+                                    @Html.DropDownListFor(Function(m) m.SelectedNumberOfREAsCollaterals, Model.NumberOfREAsCollaterals, New With {.class = "form-control input-sm", .id = "number-of-re-as-collaterals", .data_tbd = "true", .data_label = "Number of RE as Collaterals"})
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group form-group-sm">
+                                <Label class="col-sm-5 control-label">Proposed collateral already used :</Label>
+                                <div class="col-sm-7">
+                                    @Html.DropDownListFor(Function(m) m.SelectedProposedCollateralAlreadyUsed, New SelectList(Model.YesNoOptions, "TcodId", "TcodDescName"), "SELECT", New With {.class = "form-control input-sm", .data_tbd = "true", .id = "proposed-collateral-already-used", .data_label = "Proposed collateral already used"})
+                                </div>
+                            </div>
+                            <div class="form-group form-group-sm">
+                                <Label class="col-sm-5 control-label">Other proposed collaterals :</Label>
+                                <div class="col-sm-7">
+                                    @Html.DropDownListFor(Function(m) m.SelectedOtherProposedCollaterals, New SelectList(Model.YesNoOptions, "TcodId", "TcodDescName"), "SELECT", New With {.class = "form-control input-sm", .data_tbd = "true", .id = "other-proposed-collaterals", .data_label = "Other proposed collaterals"})
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </form>
+        <!-- Project & Credits tab action buttons -->
+        <div class="admin-action-buttons">
+            <div class="admin-action-left">
+                <Button type="button" class="btn btn-primary analyze-btn analyze-btn-save-close" id="save-close-project-credits">
+                    <Span class="glyphicon glyphicon-floppy-saved"></Span>Save And Close file
+                </Button>
+                <Button type="button" class="btn btn-success analyze-btn analyze-btn-save" id="save-project-credits">
+                    <Span class="glyphicon glyphicon-floppy-disk"></Span>Save And Next
+                </Button>
+            </div>
+
+            <div class="admin-action-right">
+                <Button type="button" class="btn btn-default analyze-btn analyze-btn-cancel" id="cancel-project-credits">
+                    <Span class="glyphicon glyphicon-remove"></Span>Cancel
+                </Button>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- Modal for cancel confirmation -->
+@Html.Partial("_CancelConfirmModal")
+<script>
+    window.projectCreditAccess = '@ViewBag.Access';
+    window.userRole = '@ViewBag.UserRole';
+
+</script>
