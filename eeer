@@ -1333,7 +1333,8 @@ function initializeActorTabEvents() {
     applyCreOwnUserRestrictions();
 
     // Highlight CRE-expert mandatory field labels in red on the actors tab
-    applyCreExpertMandatoryHighlight('actors');
+
+    ('actors');
 
 }
 
@@ -1595,7 +1596,7 @@ function applyCreExpertMandatoryHighlight(tabId) {
                 // hidden / disabled / readonly (e.g. RE Collateral = No, or
                 // Number of RE as Collaterals > 1). In that case it is not
                 // mandatory, so skip highlighting that specific column's label.
-                if (!$input.is(':visible') || $input.is(':disabled') || $input.prop('readonly')) {
+                if (!$input.is(':visible') || $input.is(':disabled') ) {
                     return; // continue to next matched input (next column)
                 }
 
@@ -3376,7 +3377,7 @@ registerTabValidator('collaterals', function () {
     var messages = [];
     var fieldErrors = [];
 
-    var isCreExpertBypass = (window.userRole === "CRE EXPERT" ||window.userRole === "Super User")
+    var isCreExpertBypass = (window.userRole === "CRE EXPERT" || window.userRole === "Super User")
     $('[data-required="true"]').each(function () {
         var $el = $(this);
 
@@ -3390,16 +3391,22 @@ registerTabValidator('collaterals', function () {
 
         var datalabel = $el.data('label') || '';
 
-        if (isCreExpertBypass) {
+        var isMandatoryForCreExpert =
 
-            if (CRE_EXPERT_MANDATORY_FIELDS.collaterals.indexOf(datalabel) === -1) {
-                return;
-            }
-            else {   //skipping tbds
-                if ($el.attr("data-tbd") === "true" || $el.data('tbd') === "true") {
-                    return;
-                }
-            }
+            CRE_EXPERT_MANDATORY_FIELDS.collaterals.some(function (field) {
+                return field.data === datalabel;
+            });
+        if (!isMandatoryForCreExpert) {
+            return;
+        }
+        //(datalabel) === -1) {
+        //    return;
+        //skipping tbds
+        if ($el.attr("data-tbd") === "true" || $el.data('tbd') === "true") {
+            return;
+
+        }
+    }
         }
         
         
