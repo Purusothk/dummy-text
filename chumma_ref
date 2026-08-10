@@ -1,443 +1,2948 @@
-@Imports Newtonsoft.Json
-@ModelType ProjectCreditsTabViewModel
-<div class="admin-tab-content" id="project-credits-tab">
-    <div class="container-fluid">
-        <form class="admin-form form-horizontal" id="projectCreditsForm">
-            @*@Html.AntiForgeryToken()*@
-            <!--Hidden JSON for main loaded data & Belfius Credits data-->
-            <input type="hidden" id="re-proj-id" value="@Model.ProjectId" />
-            <input type="hidden" id="re-proj-status-id" value="@Model.ProjectStatusId" />
-            <input type="hidden" id="re-proj-status-flow-id" value="@Model.ProjectStatusFlowId" />
-            <input type="hidden" id="project-credits-data" value="@Html.Raw(HttpUtility.HtmlAttributeEncode(If(Model.JsonForClient, String.Empty)))" />
-            <!-- Project Details Card -->
-            <div class="admin-card">
-                <div class="admin-card-header">
-                    <h4 class="admin-card-title">Project Details</h4>
-                </div>
-                <div class="admin-card-body">
-                    <div class="row">
-                        <div class="col-md-6">
-                            <!--Made CRE Project, CRE Type, Project Goal readonly-->
-                            <div class="form-group form-group-sm">
-                                <label class="col-sm-5 control-label">CRE project (*):</label>
-                                <div class="col-sm-7">
-                                    @Html.DropDownListFor(Function(m) m.SelectedCREProjectID, New SelectList(Model.CREProjectOptions, "TcodId", "TcodDescName"), "", New With {.class = "form-control input-sm prcr-display-only-select", .id = "cre-project-options", .data_required = "true", .data_label = "CRE Project", .disabled = "disabled"})
-                                </div>
-                            </div>
+@import url('bootstrap.min.css');
 
-                            <div class="form-group form-group-sm">
-                                <label class="col-sm-5 control-label">CRE type (*):</label>
-                                <div class="col-sm-7">
-                                    @Html.DropDownListFor(Function(m) m.SelectedCRETypeID, New SelectList(Model.CRETypeOptions, "TcodId", "TcodDescName"), "", New With {.class = "form-control input-sm prcr-display-only-select", .id = "cre-type-options", .data_required = "true", .data_label = "CRE Type", .disabled = "disabled"})
-                                </div>
-                            </div>
-                            <div class="form-group form-group-sm">
-                                <label class="col-sm-5 control-label">Project goal (*):</label>
-                                <div class="col-sm-7">
-                                    @Html.DropDownListFor(Function(m) m.SelectedProjectGoalID, New SelectList(Model.ProjectGoalOptions, "TcodId", "TcodDescName"), "", New With {.class = "form-control input-sm prcr-display-only-select", .id = "project-goal-options", .data_required = "true", .data_label = "Project Goal", .disabled = "disabled"})
-                                </div>
-                            </div>
-                            <div class="form-group form-group-sm">
-                                <label class="col-sm-5 control-label">Environment permit (*):</label>
-                                <div class="col-sm-7">
-                                    @Html.DropDownListFor(Function(m) m.SelectedEnvironmentPermit, New SelectList(Model.YesNoOptions, "TcodId", "TcodDescName"), "SELECT", New With {.Class = "form-control input-sm", .id = "environment-permit", .data_required = "true", .data_label = "Environment Permit", .data_review_edit = "true"})
-                                </div>
-                            </div>
-                        </div>
+/* Hide arrows/spinners for number inputs in Chrome, Safari, Edge, and Opera */
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
 
-                        <div class="col-md-6">
-                            <div class="form-group form-group-sm" id="breyne-law-field">
-                                <Label class="col-sm-5 control-label">Breyne law (*):</Label>
-                                <div class="col-sm-7">
-                                    @Html.DropDownListFor(Function(m) m.SelectedBreyneLaw, New SelectList(Model.YesNoOptions, "TcodId", "TcodDescName"), "SELECT", New With {.class = "form-control input-sm", .id = "breyne-law", .data_required = "true", .data_label = "Breyne Law"})
-                                </div>
-                            </div>
+/* For Firefox */
+input[type="number"] {
+    -moz-appearance: textfield;
+}
 
-                            <div class="form-group form-group-sm" id="ground-building-split-field">
-                                <Label class="col-sm-5 control-label">Ground/Building split (*):</Label>
-                                <div class="col-sm-7">
-                                    @Html.DropDownListFor(Function(m) m.SelectedGroundBuildingSplit, New SelectList(Model.YesNoOptions, "TcodId", "TcodDescName"), "SELECT", New With {.class = "form-control input-sm", .id = "ground-building-split", .data_required = "true", .data_label = "Ground/Building Split"})
-                                </div>
-                            </div>
-                            <div class="form-group form-group-sm">
-                                <Label class="col-sm-5 control-label">Number of products (*):</Label>
-                                <div class="col-sm-7">
-                                    @Html.DropDownListFor(Function(m) m.SelectedNumberOfProducts, Model.NumberOfProducts, New With {.class = "form-control input-sm", .id = "number-of-products", .data_required = "true", .data_label = "Number of Products"})
-                                </div>
-                            </div>
-                            <div class="form-group form-group-sm">
-                                <Label class="col-sm-5 control-label">Environment permit date :</Label>
-                                <div class="col-sm-7">
-                                    @Html.TextBoxFor(Function(m) m.SelectedEnvironmentPermitDate,
-                                  New With {
-                                  .type = "date",
-                                  .class = "form-control input-sm",
-                                  .data_tbd = "true",
-                                  .id = "environment-permit-date",
-                                  .data_label = "Environment Permit Date",
-                                  .data_review_edit = "true"})
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
 
-            <!-- Project Financing Details Card -->
-            <div class="admin-card">
-                <div class="admin-card-header">
-                    <h4 class="admin-card-title">Project financing</h4>
-                </div>
-                <div class="admin-card-body">
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="form-group form-group-sm">
-                                <Label class="col-sm-5 control-label">Project costs (*):</Label>
-                                <div class="col-sm-7">
-                                    <input type="text" class="form-control input-sm formatted-number" id="project-costs" ReadOnly>
-                                </div>
-                            </div>
-                            <div class="form-group form-group-sm">
-                                <label class="col-sm-5 control-label" style="text-align: center; font-size: 14px;">Type Cost</label>
-                                <label class="col-sm-7 control-label" style="text-align: center; font-size: 14px;">Amount</label>
-                            </div>
-                            <div id="project-costs-container" data-project-costs='@Html.Raw(JsonConvert.SerializeObject(Model.ProjectCosts))'></div>
-                            <div class="form-group form-group-sm">
-                                <Label class="col-sm-5 control-label">TOTAL funds - costs:</Label>
-                                <div class="col-sm-7">
-                                    <input type="text" class="form-control input-sm formatted-number" id="total-diff-funds-costs" ReadOnly>
-                                </div>
-                            </div>
-                        </div>
+html, body {
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+}
 
-                        <div class="col-md-6">
-                            <div class="form-group form-group-sm">
-                                <Label class="col-sm-5 control-label">Project funding (*):</Label>
-                            </div>
+.field-with-error{
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+}
 
-                            <div class="form-group form-group-sm">
-                                <Label class="col-sm-5 control-label">Own funds (*):</Label>
-                                <div class="col-sm-7">
-                                    <input type="text" class="form-control input-sm formatted-number" id="own-funds" ReadOnly>
-                                </div>
-                            </div>
-                            <div class="form-group form-group-sm">
-                                <Label class="col-sm-5 control-label">Client contribution (*):</Label>
-                                <div class="col-sm-7">
-                                    @Html.TextBoxFor(Function(m) m.ClientContributionAmount, New With {.class = "form-control input-sm formatted-number", .id = "client-contribution", .data_required = "true", .data_label = "Client Contribution"})
-                                </div>
-                            </div>
-                            <div class="form-group form-group-sm" id="sponsor-contribution-field">
-                                <Label class="col-sm-5 control-label">Sponsor contribution (*):</Label>
-                                <div class="col-sm-7">
-                                    @Html.TextBoxFor(Function(m) m.SponsorContributionAmount, New With {.class = "form-control input-sm formatted-number", .id = "sponsor-contribution", .data_required = "true", .data_label = "Sponsor Contribution"})
-                                </div>
-                            </div>
-                            <div class="form-group form-group-sm" id="pre-sales-field">
-                                <Label class="col-sm-5 control-label">Pre-sales (*):</Label>
-                                <div class="col-sm-7">
-                                    <input type="text" class="form-control input-sm formatted-number" id="pre-sales" ReadOnly>
-                                </div>
-                            </div>
-                            <div class="form-group form-group-sm" id="deposit-pre-sales-field">
-                                <Label class="col-sm-5 control-label">Deposit pre-sales (*):</Label>
-                                <div class="col-sm-7">
-                                    @Html.TextBoxFor(Function(m) m.DepositPreSalesAmount, New With {.class = "form-control input-sm formatted-number", .id = "deposit-pre-sales", .data_required = "true", .data_label = "Deposit Pre-Sales"})
-                                </div>
-                            </div>
-                            <div class="form-group form-group-sm" id="signed-pre-sales-field">
-                                <Label class="col-sm-5 control-label">Signed pre-sales (*):</Label>
-                                <div class="col-sm-7">
-                                    @Html.TextBoxFor(Function(m) m.SignedPreSalesAmount, New With {.class = "form-control input-sm formatted-number", .id = "signed-pre-sales", .data_required = "true", .data_label = "Signed Pre-Sales"})
-                                </div>
-                            </div>
-                            <div class="form-group form-group-sm">
-                                <Label class="col-sm-5 control-label">Other (*):</Label>
-                                <div class="col-sm-7">
-                                    @Html.TextBoxFor(Function(m) m.OtherAmount, New With {.class = "form-control input-sm formatted-number", .id = "other-funds", .data_required = "true", .data_label = "Others"})
-                                </div>
-                            </div>
-                            <div class="form-group form-group-sm">
-                                <Label class="col-sm-5 control-label">Belfius Credits (total) (*):</Label>
-                                <div class="col-sm-7">
-                                    <input type="text" class="form-control input-sm formatted-number" id="belfius-credits-total" ReadOnly>
-                                </div>
-                            </div>
-                            <div class="form-group form-group-sm">
-                                <Label class="col-sm-5 control-label">TOTAL funds (*):</Label>
-                                <div class="col-sm-7">
-                                    <input type="text" class="form-control input-sm formatted-number" id="total-funds" ReadOnly>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+.input-with-button{
+    display: flex;
+    gap: 10px;
+}
 
-            <!-- Belfius Credit Details Card -->
-            <div class="admin-card">
-                <div class="admin-card-header">
-                    <h4 class="admin-card-title">Belfius credits</h4>
-                </div>
-                <div class="admin-card-body">
-                    <div class="row">
-                        <table class="table table-sm">
-                            <thead style="color: #51626F; font-size:12px">
-                                <tr>
-                                    <th></th>
-                                    <th>% (Breyne)</th>
-                                    <th>Amount (*)</th>
-                                    <th>Duration (months) incl. Capital grace (*)</th>
-                                    <th class="capital-grace-column">Capital grace (*)</th>
-                                    <th>Prod/Line (*)</th>
-                                    <th class="credit-number-column">number (*)</th>
-                                    <th>Credit purpose (*)</th>
-                                    <th>Credit type (*)</th>
-                                </tr>
-                            </thead>
-                            <tbody style="font-size:12px">
-                                <!-- Standard Credit Rows -->
-                                <tr id="belfius-credit-1" data-credit-type="standard" data-credit-id="1">
-                                    <td> <Label class="control-label-belfius-credits">Belfius Credit (*):</Label></td>
-                                    <td></td>
-                                    <td> <input type="text" class="form-control input-sm formatted-number" id="belfius-credit-1-amount" data-role="amount" data-required="true" data-label="Belfius Credit 1: Amount"></td>
-                                    <td> <input type="text" class="form-control input-sm duration-input" id="belfius-credit-1-duration" data-role="duration" data-required="true" data-label="Belfius Credit 1: Duration"></td>
-                                    <td> <input type="text" class="form-control input-sm duration-input" id="belfius-credit-1-capital-grace" data-role="capital-grace" data-required="true" data-label="Belfius Credit 1: Capital Grace"></td>
-                                    <td>
-                                        @Html.DropDownListFor(Function(m) m.CreditIdentifierOptions, New SelectList(Model.CreditIdentifierOptions, "TcodId", "TcodDescName"), "SELECT", New With {.Class = "form-control input-sm", .id = "belfius-credit-1-credit-identifier-options", .data_role = "credit-identifier", .data_required = "true", .data_label = "Belfius Credit 1: Prod/Line"})
-                                    </td>
-                                    <td> <input type="text" class="form-control input-sm credit-card-input" id="belfius-credit-1-credit-number" data-role="credit-number" data-required="true" data-label="Belfius Credit 1: Credit Number"></td>
-                                    <td>
-                                        @Html.DropDownListFor(Function(m) m.CreditPurposeOptions, New SelectList(Model.CreditPurposeOptions, "TcodId", "TcodDescName"), "SELECT", New With {.Class = "form-control input-sm", .id = "belfius-credit-1-credit-purpose-options", .data_role = "purpose", .data_required = "true", .data_label = "Belfius Credit 1: Credit Purpose"})
-                                    </td>
-                                    <td>
-                                        @Html.DropDownListFor(Function(m) m.CreditTypeOptions, New SelectList(Model.CreditTypeOptions, "TcodId", "TcodDescName"), "SELECT", New With {.class = "form-control input-sm", .id = "belfius-credit-1-credit-type-options", .data_role = "type", .data_required = "true", .data_label = "Belfius Credit 1: Credit Type"})
-                                    </td>
-                                </tr>
-                                <tr id="belfius-credit-2" data-credit-type="standard" data-credit-id="2">
-                                    <td><Label class="control-label-belfius-credits">Belfius Credit 2 (*):</Label></td>
-                                    <td></td>
-                                    <td><input type="text" class="form-control input-sm formatted-number" id="belfius-credit-2-amount" data-role="amount" data-required="true" data-label="Belfius Credit 2: Amount"></td>
-                                    <td><input type="text" class="form-control input-sm duration-input" id="belfius-credit-2-duration" data-role="duration" data-required="true" data-label="Belfius Credit 2: Duration"></td>
-                                    <td><input type="text" class="form-control input-sm duration-input" id="belfius-credit-2-capital-grace" data-role="capital-grace" data-required="true" data-label="Belfius Credit 2: Capital Grace"></td>
-                                    <td>
-                                        @Html.DropDownListFor(Function(m) m.CreditIdentifierOptions, New SelectList(Model.CreditIdentifierOptions, "TcodId", "TcodDescName"), "SELECT", New With {.Class = "form-control input-sm", .id = "belfius-credit-2-credit-identifier-options", .data_role = "credit-identifier", .data_required = "true", .data_label = "Belfius Credit 2: Prod/Line"})
-                                    </td>
-                                    <td><input type="text" class="form-control input-sm credit-card-input" id="belfius-credit-2-credit-number" data-role="credit-number" data-required="true" data-label="Belfius Credit 2: Credit Number"></td>
-                                    <td>
-                                        @Html.DropDownListFor(Function(m) m.CreditPurposeOptions, New SelectList(Model.CreditPurposeOptions, "TcodId", "TcodDescName"), "SELECT", New With {.class = "form-control input-sm", .id = "belfius-credit-2-credit-purpose-options", .data_role = "purpose", .data_required = "true", .data_label = "Belfius Credit 2: Credit Purpose"})
-                                    </td>
-                                    <td>
-                                        @Html.DropDownListFor(Function(m) m.CreditTypeOptions, New SelectList(Model.CreditTypeOptions, "TcodId", "TcodDescName"), "SELECT", New With {.class = "form-control input-sm", .id = "belfius-credit-2-credit-type-options", .data_role = "type", .data_required = "true", .data_label = "Belfius Credit 2: Credit Type"})
-                                    </td>
-                                </tr>
-                                <tr id="belfius-credit-3" data-credit-type="standard" data-credit-id="3">
-                                    <td><Label class="control-label-belfius-credits">Belfius Credit 3 (*):</Label></td>
-                                    <td></td>
-                                    <td><input type="text" class="form-control input-sm formatted-number" id="belfius-credit-3-amount" data-role="amount" data-required="true" data-label="Belfius Credit 3: Amount"></td>
-                                    <td><input type="text" class="form-control input-sm duration-input" id="belfius-credit-3-duration" data-role="duration" data-required="true" data-label="Belfius Credit 3: Duration"></td>
-                                    <td><input type="text" class="form-control input-sm duration-input" id="belfius-credit-3-capital-grace" data-role="capital-grace" data-required="true" data-label="Belfius Credit 3: Capital Grace"></td>
-                                    <td>
-                                        @Html.DropDownListFor(Function(m) m.CreditIdentifierOptions, New SelectList(Model.CreditIdentifierOptions, "TcodId", "TcodDescName"), "SELECT", New With {.Class = "form-control input-sm", .id = "belfius-credit-3-credit-identifier-options", .data_role = "credit-identifier", .data_required = "true", .data_label = "Belfius Credit 3: Prod/Line"})
-                                    </td>
-                                    <td><input type="text" class="form-control input-sm credit-card-input" id="belfius-credit-3-credit-number" data-role="credit-number" data-required="true" data-label="Belfius Credit 3: Credit Number"></td>
-                                    <td>
-                                        @Html.DropDownListFor(Function(m) m.CreditPurposeOptions, New SelectList(Model.CreditPurposeOptions, "TcodId", "TcodDescName"), "SELECT", New With {.class = "form-control input-sm", .id = "belfius-credit-3-credit-purpose-options", .data_role = "purpose", .data_required = "true", .data_label = "Belfius Credit 3: Credit Purpose"})
-                                    </td>
-                                    <td>
-                                        @Html.DropDownListFor(Function(m) m.CreditTypeOptions, New SelectList(Model.CreditTypeOptions, "TcodId", "TcodDescName"), "SELECT", New With {.class = "form-control input-sm", .id = "belfius-credit-3-credit-type-options", .data_role = "type", .data_required = "true", .data_label = "Belfius Credit 3: Credit Type"})
-                                    </td>
-                                </tr>
-                                <!-- Ground Credit Row -->
-                                <tr id="belfius-credit-ground" data-credit-type="ground" data-credit-id="4">
-                                    <td><Label class="control-label-belfius-credits">Belfius Credit Ground (*):</Label></td>
-                                    <td></td>
-                                    <td><input type="text" class="form-control input-sm formatted-number" id="belfius-credit-ground-amount" data-role="amount" data-required="true" data-label="Belfius Credit Ground: Amount"></td>
-                                    <td><input type="text" class="form-control input-sm duration-input" id="belfius-credit-ground-duration" data-role="duration" data-required="true" data-label="Belfius Credit Ground: Duration"></td>
-                                    <td><input type="text" class="form-control input-sm duration-input" id="belfius-credit-ground-capital-grace" data-role="capital-grace" data-required="true" data-label="Belfius Credit Ground: Capital Grace"></td>
-                                    <td>
-                                        @Html.DropDownListFor(Function(m) m.CreditIdentifierOptions, New SelectList(Model.CreditIdentifierOptions, "TcodId", "TcodDescName"), "SELECT", New With {.Class = "form-control input-sm", .id = "belfius-credit-ground-credit-identifier-options", .data_role = "credit-identifier", .data_required = "true", .data_label = "Belfius Credit Ground: Prod/Line"})
-                                    </td>
-                                    <td><input type="text" class="form-control input-sm credit-card-input" id="belfius-credit-ground-credit-number" data-role="credit-number" data-required="true" data-label="Belfius Credit Ground: Credit Number"></td>
-                                </tr>
-                                <!-- Garanty Breyne Credit Row -->
-                                <tr id="belfius-credit-garanite-breyne" data-credit-type="garanite-breyne" data-credit-id="5">
-                                    <td><Label class="control-label-belfius-credits">Belfius Credit Garanty 'Breyne' (*):</Label></td>
-                                    <td>
-                                        @Html.DropDownListFor(Function(m) m.PercentageGarantyBreyneOptions, New SelectList(Model.PercentageGarantyBreyneOptions, "TcodId", "TcodDescName"), "SELECT", New With {.class = "form-control input-sm", .id = "belfius-credit-garanite-breyne-percentage-options", .data_role = "breyne-percentage", .data_required = "true", .data_label = "Belfius Credit Garanty 'Breyne': Percentage", .data_review_edit = "true"})
-                                    </td>
-                                    <td><input type="text" class="form-control input-sm formatted-number" id="belfius-credit-garanite-breyne-amount" data-role="amount" data-required="true" data-label="Belfius Credit Garanty 'Breyne': Amount" data-review-edit="true"></td>
-                                    <td></td>
-                                    <td></td>
-                                    <td>
-                                        @Html.DropDownListFor(Function(m) m.CreditIdentifierOptions, New SelectList(Model.CreditIdentifierOptions, "TcodId", "TcodDescName"), "SELECT", New With {.Class = "form-control input-sm", .id = "belfius-credit-garanite-breyne-credit-identifier-options", .data_role = "credit-identifier", .data_required = "true", .data_label = "Belfius Credit Garanty 'Breyne': Prod/Line"})
-                                    </td>
-                                    <td><input type="text" class="form-control input-sm credit-card-input" id="belfius-credit-garanite-breyne-credit-number" data-role="credit-number" data-required="true" data-label="Belfius Credit Garanty 'Breyne': Credit Number"></td>
-                                    <td></td>
-                                    <td></td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
+/* CRE Expert mandatory field labels (Rule for CRE expert = mandatory).
+   Displayed in red so the CRE expert can identify the data that must be
+   completed to move the file to 'Ready for analysis'. Applied via JS
+   (applyCreExpertMandatoryHighlight) in analysis.js. */
+label.control-label.cre-mandatory-label,
+.cre-mandatory-label {
+    color: #d9534f !important;
+}
+.cre-mandatory-label::after {
+    content: " *";
+    color: red;
+    font-weight: bold;
+}
+.inline-error{
+    color: #d9534f;
+    font-size: 12px;
+    margin-top: 6px;
+}
 
-            <!-- CRE Guidelines Card -->
-            <div class="admin-card">
-                <div class="admin-card-header">
-                    <h4 class="admin-card-title">CRE guidelines</h4>
-                </div>
-                <div class="admin-card-body">
-                    <div class="row">
-                        <div class="col-md-6">                                                                                    
-                            <div class="form-group form-group-sm" id="continuity-of-the-business-model-field">
-                                <Label class="col-sm-5 control-label">Continuity of the business model :</Label>
-                                <div class="col-sm-7">
-                                    @Html.DropDownListFor(Function(m) m.SelectedContinuityOfTheBusinessModel, New SelectList(Model.YesNoOptions, "TcodId", "TcodDescName"), "SELECT", New With {.class = "form-control input-sm", .data_tbd = "true", .id = "continuity-of-the-business-model", .data_label = "Continuity of the Business Model", .data_review_edit = "true"})
-                                </div>
-                            </div>
 
-                            <div class="form-group form-group-sm" id="long-term-tenancy-agreement-field">
-                                <Label class="col-sm-5 control-label">Long Term tenancy agreement :</Label>
-                                <div class="col-sm-7">
-                                    @Html.DropDownListFor(Function(m) m.SelectedLongTermTenancyAgreement, New SelectList(Model.YesNoOptions, "TcodId", "TcodDescName"), "SELECT", New With {.class = "form-control input-sm", .data_tbd = "true", .id = "long-term-tenancy-agreement", .data_label = "Long Term Tenancy Agreement", .data_review_edit = "true"})
-                                </div>
-                            </div>
 
-                            <div class="form-group form-group-sm" id="enough-renting-prospects-field">
-                                <Label class="col-sm-5 control-label">Enough renting prospects :</Label>
-                                <div class="col-sm-7">
-                                    @Html.DropDownListFor(Function(m) m.SelectedEnoughRentingProspects, New SelectList(Model.YesNoOptions, "TcodId", "TcodDescName"), "SELECT", New With {.class = "form-control input-sm", .data_tbd = "true", .id = "enough-renting-prospects", .data_label = "Enough Renting Prospects", .data_review_edit = "true"})
-                                </div>
-                            </div>
-                        </div>
 
-                        <div class="col-md-6">
-                            <div class="form-group form-group-sm" id="fixed-exit-field">
-                                <Label class="col-sm-5 control-label">Fixed Exit :</Label>
-                                <div class="col-sm-7">
-                                    @Html.DropDownListFor(Function(m) m.SelectedFixedExit, New SelectList(Model.YesNoOptions, "TcodId", "TcodDescName"), "SELECT", New With {.class = "form-control input-sm", .data_tbd = "true", .id = "fixed-exit", .data_label = "Fixed Exit", .data_review_edit = "true"})
-                                </div>
-                            </div>
+.main-container {
+    width: 100%;
+    padding: 0;
+    margin: 0;
+    height: calc(100vh - 130px); /* Account for title bar and header */
+    display: flex;
+    flex-direction: column;
+}
 
-                            <div class="form-group form-group-sm" id="sales-strategy-options-field">
-                                <Label class="col-sm-5 control-label">Sales strategy :</Label>
-                                <div class="col-sm-7">
-                                    @Html.DropDownListFor(Function(m) m.SelectedSalesStrategyID, New SelectList(Model.SalesStrategyOptions, "TcodId", "TcodDescName"), "SELECT", New With {.class = "form-control input-sm", .data_tbd = "true", .id = "sales-strategy-options", .data_label = "Sales Strategy", .data_review_edit = "true"})
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+h1:focus {
+    outline: none;
+}
 
-            <!-- Other Info Card -->
-            <div class="admin-card">
-                <div class="admin-card-header">
-                    <h4 class="admin-card-title">Other info</h4>
-                </div>
-                <div class="admin-card-body">
-                    <div class="row">
-                        <div class="col-md-6">                            
-                            <div class="form-group form-group-sm" id="actual-value-building-ground-field" data-status-id="@Model.ProjectStatusId">
-                                <Label class="col-sm-5 control-label"> Actual Value Building/Ground :</Label>
-                                <div class="col-sm-7">
-                                    @Html.TextBoxFor(Function(m) m.ActualValueBuildingGroundAmount, New With {.class = "form-control input-sm formatted-number", .id = "actual-value-building-ground", .data_tbd = "true", .data_label = "Actual Value Building/Ground", .data_review_edit = "true"})
-                                </div>
-                            </div>
-                            <div class="form-group form-group-sm" id="building-issues-field">
-                                <Label class="col-sm-5 control-label">Building issues (*):</Label>
-                                <div class="col-sm-7">
-                                    @Html.DropDownListFor(Function(m) m.SelectedBuildingIssues, New SelectList(Model.YesNoOptions, "TcodId", "TcodDescName"), "SELECT", New With {.class = "form-control input-sm", .id = "building-issues", .data_required = "true", .data_label = "Building issues", .data_review_edit = "true"})
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="form-group form-group-sm" id="total-credit-charges-field">
-                                <Label class="col-sm-5 control-label">Total Credit charges (C + I):</Label>
-                                <div class="col-sm-7">
-                                    <input type="text" class="form-control input-sm formatted-number" id="total-credit-charges" ReadOnly>
-                                </div>
-                            </div>
-                            <div class="form-group form-group-sm" id="credit-charge-capital-field">
-                                <Label class="col-sm-5 control-label">Credit charge: capital (*):</Label>
-                                <div class="col-sm-7">
-                                    @Html.TextBoxFor(Function(m) m.CreditChargeCapitalAmount, New With {.class = "form-control input-sm formatted-number", .id = "credit-charge-capital", .data_required = "true", .data_label = "Credit charge: capital", .data_review_edit = "true"})
-                                </div>
-                            </div>
-                            <div class="form-group form-group-sm" id="credit-charge-interest-field">
-                                <Label class="col-sm-5 control-label">Credit charge: interest (*):</Label>
-                                <div class="col-sm-7">
-                                    @Html.TextBoxFor(Function(m) m.CreditChargeInterestAmount, New With {.class = "form-control input-sm formatted-number", .id = "credit-charge-interest", .data_required = "true", .data_label = "Credit charge: interest", .data_review_edit = "true"})
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+a, .btn-link {
+    color: #0071c1;
+}
 
-            <!-- Collaterals Card -->
-            <div class="admin-card">
-                <div class="admin-card-header">
-                    <h4 class="admin-card-title">Collaterals</h4>
-                </div>
-                <div class="admin-card-body">
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="form-group form-group-sm">
-                                <label class="col-sm-5 control-label">CRE project as collateral (*):</label>
-                                <div class="col-sm-7">
-                                    @Html.DropDownListFor(Function(m) m.SelectedCREProjectAsCollateral, New SelectList(Model.YesNoOptions, "TcodId", "TcodDescName"), "SELECT", New With {.class = "form-control input-sm", .id = "cre-project-as-collateral", .data_required = "true", .data_label = "CRE project as collateral"})
-                                </div>
-                            </div>
-                            <div class="form-group form-group-sm">
-                                <label class="col-sm-5 control-label">Number of RE as Collaterals :</label>
-                                <div class="col-sm-7">
-                                    @Html.DropDownListFor(Function(m) m.SelectedNumberOfREAsCollaterals, Model.NumberOfREAsCollaterals, New With {.class = "form-control input-sm", .id = "number-of-re-as-collaterals", .data_tbd = "true", .data_label = "Number of RE as Collaterals"})
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="form-group form-group-sm">
-                                <Label class="col-sm-5 control-label">Proposed collateral already used :</Label>
-                                <div class="col-sm-7">
-                                    @Html.DropDownListFor(Function(m) m.SelectedProposedCollateralAlreadyUsed, New SelectList(Model.YesNoOptions, "TcodId", "TcodDescName"), "SELECT", New With {.class = "form-control input-sm", .data_tbd = "true", .id = "proposed-collateral-already-used", .data_label = "Proposed collateral already used"})
-                                </div>
-                            </div>
-                            <div class="form-group form-group-sm">
-                                <Label class="col-sm-5 control-label">Other proposed collaterals :</Label>
-                                <div class="col-sm-7">
-                                    @Html.DropDownListFor(Function(m) m.SelectedOtherProposedCollaterals, New SelectList(Model.YesNoOptions, "TcodId", "TcodDescName"), "SELECT", New With {.class = "form-control input-sm", .data_tbd = "true", .id = "other-proposed-collaterals", .data_label = "Other proposed collaterals"})
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </form>
-        <!-- Project & Credits tab action buttons -->
-        <div class="admin-action-buttons">
-            <div class="admin-action-left">
-                <Button type="button" class="btn btn-primary analyze-btn analyze-btn-save-close" id="save-close-project-credits">
-                    <Span class="glyphicon glyphicon-floppy-saved"></Span>Save And Close file
-                </Button>
-                <Button type="button" class="btn btn-success analyze-btn analyze-btn-save" id="save-project-credits">
-                    <Span class="glyphicon glyphicon-floppy-disk"></Span>Save And Next
-                </Button>
-            </div>
+* {
+    border-radius: 0 !important
+}
 
-            <div class="admin-action-right">
-                <Button type="button" class="btn btn-default analyze-btn analyze-btn-cancel" id="cancel-project-credits">
-                    <Span class="glyphicon glyphicon-remove"></Span>Cancel
-                </Button>
-            </div>
-        </div>
-    </div>
-</div>
-<!-- Modal for cancel confirmation -->
-@Html.Partial("_CancelConfirmModal")
-<script>
-    window.projectCreditAccess = '@ViewBag.Access';
-    window.userRole = '@ViewBag.UserRole';
+.page-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
 
-</script>
+
+/*-----Header Bar Section-----*/
+.app-header-bar {
+    padding: 15px 15px;
+    display: flex;
+    align-items: center;
+    background-color: #C30045;
+    color: #FFFFFF;
+}
+
+.app-logo {
+    height: 100px;
+    margin-right: 40px;
+    /*margin-top: -20px;*/
+}
+
+.app-title-text {
+    display: flex;
+    flex-direction: column;
+    /*justify-content: space-between;*/
+    gap: 10px;
+    /*line-height: 4;*/
+    width: 100%;
+}
+
+.app-main-title {
+    font-size: 18px;
+    font-weight: normal;
+}
+
+.app-subtitle-bar {
+    display: flex;
+    justify-content: space-between;
+    /*align-items: center;*/
+    width: 100%;
+}
+
+.app-subtitle-left {
+    font-size: 12px;
+    opacity: 0.9;
+}
+
+.app-subtitle-right {
+    font-size: 12px;
+    opacity: 0.9;
+    margin-left: auto;
+}
+
+/*-----Tool Bar-----*/
+.tool-bar {
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background-color: #51626F;
+    color: #FFFFFF;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+}
+
+.tool-bar-title {
+    font-size: 14px;
+    font-weight: normal;
+    /*color: #FFFFFF;*/
+    margin-right: 10px;
+}
+
+/*.profile-label {
+    font-size: 14px;
+    font-weight: normal;*/
+    /*color: white;*/
+    /*margin-left: 160vh;*/
+/*}*/
+
+/*-----Profile select in 'welcome' page-----*/
+/*#profileSelect {
+    background-color: #F1F2F2;
+    color: #000000;
+    padding: 5px 8px;
+    text-align: left;
+    font-size: 14px;
+    cursor: pointer;
+    margin-right: 40px;
+}
+
+    #profileSelect option {
+        background-color: #FFFFFF;
+        color: #000000;
+    }
+
+        #profileSelect option:hover {
+            background-color: #51626F;
+            color: #FFFFFF;
+        }*/
+
+.options-label {
+    font-weight: bold;
+    /*color: white;*/
+    margin-right: 5px;
+    margin-left: 5px;
+}
+
+.options-dropdown {
+    background-color: #FFFFFF;
+    color: #000000;
+    padding: 2px;
+    border-radius: 4px;
+    margin-left: -5px;
+    width: 100px;
+    height: 22px;
+    text-align: left;
+}
+
+    .options-dropdown option {
+        background-color: #FFFFFF;
+        color: #000000;
+    }
+
+        .options-dropdown option:hover {
+            background-color: #51626F;
+            color: #FFFFFF;
+        }
+
+/*.actorName-input {
+    width: 100px;
+    height: 22px;
+    font-size: 12px;
+    color: black;
+    padding: 2px;
+    border-radius: 4px;
+    background-color: white;
+    text-align: left;
+}*/
+
+
+/*-----FILTER SECTION STYLES-----*/
+
+.filter-section {
+    width: 100%;
+    padding: 6px 15px;
+    background-color: #51626F;
+    border-bottom: 1px solid #000000;
+    margin: 0;
+    flex-shrink: 0;
+}
+
+.filter-layout {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    /*white-space: nowrap;*/
+    /*padding-right: 20px;*/
+}
+
+.filter-task-list-label {
+    font-weight: 600;
+    color: white;
+    font-size: 13px;
+}
+
+.filter-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.filter-group {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.filter-label {
+    font-weight: 600;
+    color: #FFFFFF;
+    font-size: 11px;
+    margin: 0;
+}
+
+.filter-label-project-id {
+    min-width: 60px;
+}
+
+.filter-label-user-id {
+    min-width: 50px;
+}
+
+.filter-label-actor-name {
+    min-width: 70px;
+}
+
+.filter-label-cre-project {
+    min-width: 70px;
+}
+
+.filter-label-status {
+    min-width: 45px;
+}
+
+.filter-control {
+    height: 22px;
+    font-size: 10px;
+    background-color: #FFFFFF;
+    border: 1px solid #F1F2F2;
+    padding: 2px 4px;
+}
+
+.filter-control-project-id {
+    width: 90px;
+}
+
+.filter-control-user-id {
+    width: 90px;
+}
+
+.filter-control-actor-name {
+    width: 120px;
+}
+
+.filter-control-cre-project {
+    width: 110px;
+}
+
+.filter-control-status {
+    min-width: 110px;
+}
+
+.filter-action-buttons {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: 15px;
+}
+
+.filter-action-btn {
+    height: 22px;
+    font-size: 9px;
+    padding: 2px 6px;
+}
+
+    .filter-action-btn .glyphicon {
+        margin-right: 3px;
+    }
+/*---------*/
+
+.table .btn {
+    /*min-width: 90px;*/
+    padding: 2px 6px;
+}
+
+#filter-action-buttons .btn {
+    background-color: #F1F2F2 !important;
+    color: #000000 !important;
+    border: 1px solid #000000 !important;
+}
+
+    #filter-action-buttons .btn:hover {
+        background-color: #e0e0e0 !important;
+        color: black !important;
+    }
+
+.revaluation-banner {
+    width: 100%;
+    background: var(--brand-gris-clair);
+    border: 1px solid var(--brand-gris);
+    padding: 8px 15px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--brand-gris);
+    display: flex;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.revaluation-icon {
+    margin-right: 8px;
+    font-size: 14px;
+}
+
+#footer-action-btns .btn {
+    background-color: #F1F2F2 !important;
+    color: #000000 !important;
+    border: 1px solid #000000 !important;
+}
+
+#footer-action-btns .btn:hover {
+    background-color: #e0e0e0 !important;
+    color: black !important;
+}
+
+.content-area {
+    flex: 1;
+}
+
+/*-----Custom table Section-----*/
+.custom-table {
+    width: 100%;
+    /*min-height: 68vh;*/
+    border: 1px solid var(--brand-gris-clair);
+    border-collapse: collapse;
+    margin-top: 20px;
+    text-size-adjust: auto;
+    padding: 0px 4px;
+}
+
+    .custom-table th, .custom-table td {
+        text-align: center;
+        vertical-align: middle;
+        height: 35px;
+    }
+
+    .custom-table th {
+        height: 35px;
+    }
+
+    .custom-table td {
+        height: 35px;
+    }
+
+        .custom-table th:nth-child(9),
+        .custom-table td:nth-child(9) {
+            width: 80px;
+        }
+
+
+
+.table-container {
+    /*max-height: 67vh;
+    overflow-y: auto;*/
+    flex: 1;
+    overflow: auto;
+    /*max-height: calc(100vh - 230px);*/
+}
+
+.dynamic-table {
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+.dynamic-table thead th {
+    position: sticky;
+    top: 0;
+    background: var(--brand-gris-clair);
+    z-index: 10;
+}
+
+.dynamic-table tbody tr:hover {
+    background: var(--brand-gris-clair);
+}
+
+.dynamic-table tbody tr:hover .actions-cell{
+    opacity: 1;
+}
+
+.status-date {
+    width: 100px;
+    white-space: nowrap;
+}
+
+.actions-cell{
+    width: 60px;
+    opacity: 0.6;
+}
+
+    .actions-cell .dropdown-toggle{
+        font-size: 18px;
+        padding: 2px 8px;
+    }
+
+.action-menu-btn {
+    background: transparent;
+    border: none;
+    font-size: 18px;
+    color: var(--brand-gris);
+    padding: 2px 8px;
+}
+
+.action-menu-btn:hover {
+    background: var(--brand-gris);
+    color: var(--brand-blanc);
+    border-radius: 4px;
+}
+
+.dropdown-menu{
+    /*border-radius: 4px;
+    border: 1px solid var(--brand-noir);*/
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+    min-width: 180px;
+}
+
+.dropdown-menu li a {
+    font-size: 12px;
+    padding: 8px 14px;
+}
+
+.dropdown-menu li a:hover{
+    background: var(--brand-gris-clair);
+    color: var(--brand-magenta);
+}
+/*-----Popup Section-----*/
+.samerow {
+    display: flex;
+    margin-bottom: 8px;
+    align-items: center;
+    gap: 10px;
+}
+
+    .samerow label {
+        min-width: 100px;
+        margin-right: 6px;
+        font-weight: 500;
+    }
+
+    .samerow input,
+    .samerow select,
+    .samerow textarea {
+        flex: 1;
+    }
+
+    .samerow .btn {
+        color: #F1F2F2;
+    }
+
+.form-container {
+    max-width: 420px;
+    padding: 10px;
+    background-color: #FFFFFF;
+}
+
+.modal-dialog {
+    max-width: 450px;
+    width: 90%;
+}
+
+.modal-backdrop {
+    background-color: transparent !important;
+    opacity: 0 !important;
+}
+
+.modal-header {
+    cursor: grab;
+    background-color: #C30045;
+    color: #FFFFFF;
+    display: flex;
+    flex-direction: row;
+}
+
+    .modal-header:active {
+        cursor: grabbing;
+    }
+
+.modal-xxl{
+    max-width: 95% !important;
+    width: 95% !important;
+}
+
+.modal-logo {
+    height: 20px;
+    width: 20px;
+    margin-right: 4px;
+    margin-top: -2px;
+}
+
+.modal-title {
+    font-size: 14px;
+}
+
+.modal-close-btn {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    margin-left: auto;
+}
+
+    .modal-close-btn:hover {
+        background-color: #8C193C;
+    }
+
+.modal-body {
+    padding: 20px;
+}
+
+.modal-footer {
+    text-align: center !important;
+    justify-content: center !important;
+}
+
+    .modal-footer .btn {
+        width: 120px;
+        color: #F1F2F2;
+    }
+
+.btn-check {
+    background-color: var(--brand-gris);
+}
+
+.btn-save{
+    background-color: var(--brand-rouge);
+}
+
+@media (max-width:768px) {
+    .custom-table {
+        font-size: 12px;
+    }
+}
+
+.btn-primary {
+    color: #FFFFFF;
+    /*background-color: #1b6ec2;
+    border-color: #1861ac;*/
+}
+
+/*-----Footer Section-----*/
+.footer-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    /*border: 1px dashed #5f5858;*/
+    background-color: #F1F2F2;
+    border-radius: 4px;
+}
+
+.footer-left button {
+    min-width: 110px;
+    margin-right: 40px;
+}
+
+.footer-bar button:last-child {
+    margin-right: 0;
+}
+
+.footer-right button {
+    min-width: 110px;
+}
+
+.navbar {
+    background-color: #B0B0B0;
+    padding: 10px;
+    text-align: center;
+}
+
+    .navbar a {
+        color: #000000;
+        text-decoration: none;
+        padding: 10px;
+    }
+
+.management-section {
+    margin: 20px;
+    padding: 10px;
+    border: 1px solid #D3D3D3;
+}
+
+.module {
+    display: inline-block;
+    width: 100px;
+    text-align: center;
+    margin: 10px;
+}
+
+    .module img {
+        width: 50px;
+        height: 50px;
+    }
+
+    .module a {
+        display: block;
+        margin-top: 5px;
+        color: #2E2E2E;
+        text-decoration: none;
+    }
+
+        .module a:hover {
+            text-decoration: underline;
+        }
+
+
+.formatted-number,
+.duration-input{
+    text-align: right !important;
+}
+
+/* ====================================
+    Under development screen css 
+====================================== */
+
+.under-dev-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 60vh;
+}
+
+.under-dev-card {
+    text-align: center;
+    padding: 40px;
+    border: 1px solid var(--brand-noir);
+    background: #fafafa;
+    width: 420px;
+}
+
+.under-dev-icon {
+    font-size: 40px;
+    color: #C30045;
+    margin-bottom: 15px;
+}
+
+/* ====================================
+    Common classes shared across pages 
+====================================== */
+
+/* Brand Color Variables */
+:root {
+    --brand-rubis: #C3004D; /* primay red */
+    --brand-blanc: #FFFFFF; /* white */
+    --brand-magenta: #DC007B; /* secondary magenta */
+    --brand-rouge: #D80F3C; /* secondary red */
+    --brand-merlot: #8C193C; /* secondary dark red */
+    --brand-gris-clair: #F1F2F2; /* light gray */
+    --brand-gris: #51626F; /* medium gray */
+    --brand-noir: #000000; /* black */
+}
+
+/* =======================
+    ANALYZE PAGE STAYLES
+==========================*/
+
+.analyze-tab.disabled-tab {
+    pointer-events: none;
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.analyze-tab {
+    /*display: flex;*/
+    align-items: center;
+    gap: 4px;
+}
+
+    .analyze-tab .tick {
+        display: none;
+        color: green;
+        flex-shrink: 0;
+    }
+
+    .analyze-tab.saved .tick {
+        display: inline-block;
+    }
+
+
+.analyze-tab-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background-color: white;
+    /*margin: 0;*/
+    margin-top: 4px; /* small space between filter section and tabcontatiner*/
+    padding: 0;
+    border-top: 1px solid #e0e0e0;
+}
+
+/* Tab Navigation styles -Brand Colors */
+.analyze-tab-navigation {
+    background-color: var(--brand-gris-clair);
+    /*background: linear-gradient(to bottom, #f8f9fa, #e9ecef);*/
+    border-bottom: 2px solid #D0D0D0;
+    padding: 0;
+    margin: 0;
+    box-shadow: 0 1px 3px rgba(195, 0, 77, 0.1);
+    flex-shrink: 0;
+}
+
+.analyze-tabs {
+    display: flex;
+    align-items: center;
+    /*align-items: stretch;*/
+    justify-content: flex-start;
+    padding: 0 15px;
+    margin: 0;
+    gap: 0;
+    min-height: 36px;
+    /*height: 28px;*/
+}
+
+.analyze-tab {
+    background-color: transparent;
+    border: none;
+    border-bottom: 3px solid transparent;
+    /*border-bottom: none;
+    border-top: none;*/
+    color: var(--brand-gris);
+    cursor: pointer;
+    font-size: 10px;
+    font-weight: 500;
+    /*padding: 12px 16px;*/
+    padding: 8px 14px;
+    transition: all 0.3s ease;
+    white-space: nowrap;
+    position: relative;
+    margin: 0;
+    height: 100%;
+    width: 120px;
+    min-width: 120px;
+    max-width: 120px;
+    text-overflow: ellipsis;
+    overflow: hidden;
+}
+
+    .analyze-tab:hover {
+        background-color: rgb(195,0,77,0.05);
+        color: var(--brand-rubis);
+        transform: translateY(-1px);
+    }
+
+    .analyze-tab:focus {
+        outline: none;
+        box-shadow: none;
+    }
+
+    .analyze-tab.active {
+        background-color: var(--brand-blanc);
+        border-bottom-color: var(--brand-rubis);
+        color: var(--brand-rubis);
+        font-weight: 600;
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(195, 0, 77, 0.1)
+    }
+
+        .analyze-tab.active::after {
+            content: '';
+            position: absolute;
+            bottom: -1px;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background-color: var(--brand-blanc);
+            z-index: 1;
+        }
+
+/* content area styles - brand colors */
+.analyze-content-area {
+    flex: 1;
+    background-color: var(--brand-blanc);
+    padding: 20px;
+    overflow-y: auto;
+    position: relative;
+}
+
+.tab-placeholder,
+.admin-tab-placeholder {
+    text-align: center;
+    padding: 40px 20px;
+    color: #6c757d;
+}
+
+    .tab-placeholder h4,
+    .admin-tab-placeholder h4 {
+        color: #495057;
+        margin-bottom: 15px;
+        font-size: 18px;
+        font-weight: 600;
+    }
+
+    .tab-placeholder p,
+    .admin-tab-placeholder p {
+        font-size: 14px;
+        line-height: 1.5;
+        margin: 0;
+    }
+
+/* action buttons styles */
+.analyze-action-buttons {
+    background-color: #f8f9fa;
+    border-top: 1px solid #dee2e6;
+    padding: 12px 20px;
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+
+/* =============================================
+    COMMON CLASSES - SHARED ACROSS ANALYZE TABS
+================================================ */
+/*tab content style*/
+.analyze-tab-content {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    opacity: 1;
+    transition: opacity 0.3s ease-in-out;
+}
+
+    .analyze-tab-content.fade-out {
+        opacity: 0;
+    }
+
+    .analyze-tab-content.fade-in {
+        opacity: 1;
+    }
+
+
+/* Common button styles - resusable across analyze pages */
+.analyze-btn {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 5px 12px;
+    border-radius: 3px;
+    transition: all 0.3s ease;
+    min-width: 90px;
+    text-transform: uppercase;
+    letter-spacing: 0.2px;
+    border-width: 1px;
+    border-style: solid;
+}
+
+    .analyze-btn .glyphicon {
+        margin-right: 4px;
+    }
+
+/* cancel button light gray */
+.analyze-btn-cancel {
+    background-color: var(--brand-gris-clair);
+    border-color: var(--brand-gris);
+    color: var(--brand-gris);
+}
+
+    .analyze-btn-cancel:hover {
+        background-color: #e9ecef;
+        border-color: var(--brand-noir);
+        color: var(--brand-noir);
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(81, 98, 111, 0.2);
+    }
+/*save button */
+.analyze-btn-save {
+    background-color: var(--brand-magenta);
+    border-color: var(--brand-magenta);
+    color: var(--brand-blanc);
+}
+
+    .analyze-btn-save:hover {
+        background-color: var(--brand-rouge);
+        border-color: var(--brand-rouge);
+        color: var(--brand-blanc);
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(220, 0, 123, 0.3);
+    }
+
+.analyze-btn-save-close {
+    background-color: var(--brand-rubis);
+    border-color: var(--brand-rubis);
+    color: var(--brand-blanc);
+}
+
+    .analyze-btn-save-close:hover {
+        background-color: var(--brand-merlot);
+        border-color: var(--brand-merlot);
+        color: var(--brand-blanc);
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(195, 0, 77, 0.3);
+    }
+/* focus and active status */
+.analyze-btn:focus,
+.analyze-btn:active:focus,
+.analyze-btn.focus,
+.analyze-btn:active.focus {
+    outline: none !important;
+    box-shadow: 0 0 0 2px rgba(195, 0, 77, 0.25) !important
+}
+
+.analyze-btn:active {
+    transform: translateY(0);
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Ensure text color stays consistent on hover for colored buttons */
+.analyze-btn-save:hover,
+.analyze-btn-save:focus,
+.analyze-btn-save:active {
+    color: var(--brand-blanc) !important;
+}
+
+.analyze-btn-save-close:hover,
+.analyze-btn-save-close:focus,
+.analyze-btn-save-close:active {
+    color: var(--brand-blanc) !important;
+}
+
+/* Analyze-alert styles */
+.analyze-alert {
+    margin-bottom: 15px;
+    border-radius: 4px;
+    font-size: 12px;
+    position: relative;
+    z-index: 100;
+}
+
+    .analyze-alert .close {
+        font-size: 18px;
+        font-weight: bold;
+        line-height: 1;
+        color: inherit;
+        opacity: 0.6;
+    }
+
+        .analyze-alert .close:hover {
+            opacity: 1;
+        }
+
+/*==================================
+    Analyze Page - Admin tab styles
+==================================== */
+
+/* Admin Tab action buttons */
+.admin-action-buttons {
+    background-color: #f8f9fa;
+    border-top: 1px solid #dee2e6;
+    padding: 10px 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    margin-top: 15px;
+}
+
+/* admin Button group */
+.admin-action-left {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.admin-action-right {
+    display: flex;
+    gap: 8px;
+    align-items: center
+}
+
+/* validation error styles */
+.validation-error {
+    color: #d9534f;
+    font-size: 10px;
+    margin-top: 5px;
+    display: block;
+    font-weight: 500;
+}
+
+.has-error .form-control {
+    border-color: #d9534f;
+    box-shadow: 0 0 0 2px rgba(217, 83, 79, 0.1);
+}
+
+.has-error .control-label {
+    color: #d9534f;
+
+}
+
+.admin-card-body .validation-error {
+    margin-top: 5px;
+    margin-bottom: 10px;
+    padding: 5px 10px;
+    background-color: #f2dede;
+    border: 1px solid #ebccd1;
+    border-radius: 3px;
+    color: #a94442;
+    font-size: 11px;
+    font-weight: normal;
+    display: block;
+    animation: fadeInError 0.3s ease-in;
+}
+
+
+
+    .admin-card-body .validation-error .glyphicon {
+        margin-right: 5px;
+        font-size: 10px;
+    }
+
+.admin-card-body .has-error .form-control {
+    border-color: #a94442;
+    box-shadow: inset 0 1px rgba(0,0,0,.075), 0 0 6px #ce8483;
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+.admin-card-body .has-error .control-label {
+    color: #a94442;
+    font-weight: 600;
+}
+
+.admin-card-body .has-error {
+    position: relative;
+}
+
+/* Error Animation */
+@keyframes fadeInError {
+    from {
+        opacity: 0;
+        transform: translateY(-5px)
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0)
+    }
+}
+
+/* Focus styles for error fields */
+.admin-card-body .has-error .form-control:focus {
+    border-color: #843534;
+    box-shadow: inset 0 1px 1px rgba(0,0,0,.075), 0 0 8px rgba(169,68,66,0.6);
+    outline: 0;
+}
+
+/*Error field hover effect */
+.admin-card-body .has-error .form-control:hover {
+    border-color: #953b39;
+}
+
+/* Form state indicator */
+.form-dirty::before {
+    content: '';
+    color: var(--brand-magenta);
+    margin-right: 5px;
+    font-size: 12px;
+}
+
+ /*NO*/
+.actor-analysis-form {
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+    padding: 0;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+
+
+/* Admin tab content contaier */
+.admin-tab-content {
+    padding: 15px 20px;
+    background-color: var(--brand-gris-clair);
+    min-height: 450px;
+    overflow-y: auto;
+}
+
+/* admin from styling - horizontal layout */
+.admin-form.form-horizontal {
+    max-width: 100%;
+}
+
+/* check
+.admin-form .form-group-sm {
+    margin-bottom: 8px;
+}
+*/
+
+/* Admin card styling */
+.admin-card {
+    background-color: var(--brand-blanc);
+    border: 1px solid #E0E0E0;
+    border-radius: 6px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 4px rgba(195, 0, 77, 0.1);
+    /*overflow: hidden;*/
+    position: relative;
+}
+
+.admin-card-header {
+    background: transparent;
+    border: none;
+    padding: 0;
+    margin: 0;
+    position: relative;
+    top: -8px;
+    left: 15px;
+    z-index: 1
+    /*background: #DC0078;
+    border-bottom: 1px solid #B8005F;
+    padding: 8px 16px;
+    min-height: 32px;
+    display: flex;
+    align-items: center;*/
+}
+
+.admin-card-title {
+    background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+    color: #495057;
+    margin: 0;
+    font-size: 10px;
+    font-weight: 600;
+    /*color: var(--brand-blanc);*/
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    /*text-shadow: 0 1px 1px rgba(0,0,0,0.3);*/
+    padding: 6px 12px;
+    border-radius: 6px;
+    border: 1px solid #dee2e6;
+    display: inline-block;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    line-height: 1.2;
+}
+
+.admin-card-body {
+    /*padding: 12px 16px;*/
+    padding: 20px 16px 12px 16px;
+}
+
+/* from group styling */
+.admin-form .form-group-sm {
+    margin-bottom: 10px;
+}
+
+.admin-form .control-label {
+    font-weight: 600;
+    color: var(--brand-gris);
+    font-size: 9px;
+    text-align: right;
+    padding-top: 6px;
+    padding-right: 8px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+
+
+.admin-form .input-sm {
+    /*height: 30px;
+    padding: 5px 10px;
+    font-size: 12px;
+    line-height: 1.5;
+    border-radius: 3px;*/
+    height: 24px;
+    padding: 4px 6px;
+    font-size: 11px;
+    line-height: 1.4;
+    border-radius: 4px;
+}
+
+.admin-form .form-control {
+    /*height: 34px;
+    padding: 6px 12px;
+    font-size: 13px;
+    line-height: 1.42857143;*/
+    color: var(--brand-noir);
+    background-color: var(--brand-blanc);
+    border: 1px solid #D0D0D0;
+    /*border-radius: 4px;*/
+    box-shadow: inset 0 1px 1px rgba(195,0,77,0.075);
+    transition: border-color ease-in-out .15s, box-shadow ease-in-out .15s;
+    height: 24px;
+    padding: 4px 6px;
+    font-size: 11px;
+}
+
+    .admin-form .form-control:focus {
+        border-color: var(--brand-rubis);
+        outline: 0;
+        box-shadow: inset 0 1px 1px rgba(195,0,77,0.075), 0 0 6px rgba(195, 0, 77, 0.3);
+    }
+
+    /* read only field styling*/
+    .admin-form .form-control[readonly] {
+        background-color: var(--brand-gris-clair);
+        opacity: 1;
+        cursor: not-allowed;
+        color: var(--brand-gris);
+        border-color: #E0E0E0;
+    }
+/*Interactive field styling*/
+.admin-form select.from-control {
+    cursor: pointer;
+    height: 24px;
+    font-size: 11px;
+    padding: 2px 6px;
+}
+
+    .admin-form select.from-control:not([readonly]) {
+        background-color: var(--brand-blanc);
+        border-color: var(--brand-rubis);
+    }
+/* column spacing for horizontal form*/
+.admin-form .col-sm-5 {
+    padding-right: 8px;
+}
+
+.admin-form .col-sm-7 {
+    padding-left: 8px;
+}
+
+
+/* form row spacing */
+.admin-form .row {
+    margin-left: -10px;
+    margin-right: -10px;
+}
+
+.admin-form .col-md-6 {
+    padding-left: 10px;
+    padding-right: 10px;
+}
+
+
+/* card spacing and layout */
+
+.admin-card {
+    margin-bottom: 20px;
+}
+    /* card spcing and laout */
+    .admin-card:last-child {
+        margin-bottom: 10px;
+    }
+/* ensure form fits without scrolling*/
+.admin-form {
+    height: auto;
+}
+    /*compact spacing for better fit*/
+    .admin-form .form-group-sm {
+        margin-bottom: 8px;
+    }
+
+    /*label truncation for long labels*/
+    .admin-form .control-label {
+        max-width: 100%;
+    }
+
+/* card hover effect with brand colors */
+.admin-card:hover {
+    box-shadow: 0 4px 8px rgba(195,0,77,0.2);
+    transition: box-shadow 0.3s ease;
+}
+
+
+/* Interactive field highlight with brand colors */
+.admin-form select.form-control:focus {
+    border-color: var(--brand-rubis);
+    box-shadow: inset 0 1px 1px rgba(195, 0, 77, 0.075), 0 0 6px rgba(195, 0, 77, 0.4);
+}
+
+/* option styling for drop down*/
+.admin-form select.form-control option {
+    color: var(--brand-noir);
+    background-color: var(--brand-blanc);
+}
+
+/*Enhanced interactive elements */
+.admin-form select.form-control:hover:not([readonly]) {
+    border-color: var(--brand-magenta);
+    box-shadow: 0 0 4px rgba(222, 0, 123, 0.2)
+}
+
+
+
+
+/* moderan sponsor selection styles */
+.sponsor-selection-modern {
+    min-height: 140px;
+    display: flex;
+    flex-direction: column;
+    border: 2px solid #e8ecef;
+    border-radius: 8px;
+    background: #ffffff;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+    .sponsor-selection-modern .actor-fieldset-header {
+        background: var(--brand-rubis);
+        color: var(--brand-blanc);
+        text-align: center;
+        padding: 8px;
+        border-radius: 6px 6px 0 0;
+        margin: 0;
+        border: none;
+    }
+
+        .sponsor-selection-modern .actor-fieldset-header h4 {
+            margin: 0;
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+.sponsor-body-modern {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 15px 10px;
+}
+
+.sponsor-form-wrapper {
+    width: 100%;
+    text-align: center;
+}
+
+.sponsor-question-wrapper {
+    margin-bottom: 12px;
+}
+
+.sponsor-label-modern {
+    display: block;
+    font-size: 9px;
+    font-weight: 600;
+    color: #2c3e50;
+    margin-bottom: 0;
+    text-align: center;
+}
+
+.sponsor-select-wrapper {
+    width: 100%;
+}
+
+.sponsor-select-modern {
+    width: 100%;
+    height: 24px;
+    font-size: 11px;
+    font-weight: 500;
+    text-align: center;
+    border: 2px solid #dee2e6;
+    border-radius: 6px;
+    background: #ffffff;
+    color: #495057;
+    transition: all 0.2s ease;
+    cursor: pointer;
+    padding: 3px 8px;
+    line-height: 1.3;
+}
+
+    .sponsor-select-modern:focus {
+        border-color: var(--brand-rubis);
+        box-shadow: 0 0 0 3px rgba(195, 0, 77, 0.1);
+        outline: none;
+    }
+
+    .sponsor-select-modern:hover {
+        border-color: #adb5bd;
+    }
+
+    /* option styling */
+    .sponsor-select-modern option {
+        padding: 4px 8px;
+        font-weight: 500;
+        font-size: 11px;
+        line-height: 1.3;
+    }
+
+        .sponsor-select-modern option[value="Yes"] {
+            color: var(--brand-rubis);
+        }
+
+        .sponsor-select-modern option[value="No"] {
+            color: var(--brand-gris);
+        }
+
+/* Actor tab content styling Match analyze content area */
+.actor-tab-content {
+    padding: 15px 20px;
+    background-color: var(--brand-gris-clair);
+    min-height: 450px;
+    overflow-y: auto;
+    width: 100%;
+    height: 100%;
+    position: relative;
+    opacity: 1;
+    transition: opacity 0.3s ease-in-out;
+}
+
+    .actor-tab-content .container-fluid {
+        background-color: transparent;
+        padding: 20px;
+        min-height: 100%;
+        margin: 0;
+    }
+
+/* sponser details fieldset height matching */
+.sponsor-fieldset {
+    min-height: 400px;
+}
+
+    .sponsor-fieldset .actor-fieldset-body {
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-start;
+        min-height: 350px;
+    }
+
+/* section subtitles styling */
+.section-subtitle {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--brand-gris);
+    margin: 15px 0 10px 0;
+    padding-bottom: 5px;
+    border-bottom: 1px solid #e9ecef;
+}
+
+/* sponsor details card styling */
+.sponsor-details-card {
+    /*margin-top: 20px;*/
+    margin-top: 0;
+    margin-bottom: 20px;
+}
+
+    .sponsor-details-card .admin-card-body {
+        padding: 15px;
+    }
+
+    .sponsor-details-card .form-group {
+        margin-bottom: 12px;
+    }
+
+    .sponsor-details-card .control-label {
+        font-size: 9px;
+        font-weight: 600;
+        color: var(--brand-gris);
+        text-align: right;
+        padding-right: 10px;
+        margin-bottom: 0;
+        line-height: 1.4;
+    }
+
+    .sponsor-details-card .form-control {
+        font-size: 11px;
+        height: 24px;
+        border-radius: 3px;
+        border: 1px solid #ced4da;
+        transition: border-color 0.3s ease;
+        padding: 2px 6px;
+        line-height: 1.2;
+    }
+
+    .sponsor-details-card select.form-control {
+        height: 24px;
+        padding: 2px 6px;
+        line-height: 1.3;
+    }
+
+/* main debtor card styling */
+.main-debtor-card {
+    margin-bottom: 20px;
+}
+
+/* actor row card styling */
+.actors-row-card {
+    margin-bottom: 20px;
+}
+
+.other-actors-card {
+    margin-top: 20px;
+    margin-bottom: 20px;
+}
+
+.other-actor-details input:-webkit-autofill,
+.other-actor-details input:-webkit-autofill:hover,
+.other-actor-details input:-webkit-autofill:focus,
+.other-actor-details input:-webkit-autofill:active {
+    -webkit-box-shadow: 0 0 0 1000px #fff inset !important;
+    box-shadow: 0 0 0 1000px #fff inset !important;
+    -webkit-text-fill-color: #000 !important;
+    caret-color: #000;
+    transition: background-color 5000s ease-in-out 0s;
+}
+/* sponsor assesment section styling */
+.sponsor-assessment-section {
+    margin-top: 15px;
+    margin-bottom: 15px;
+}
+
+.sponsor-section-divider {
+    border-top: 1px solid #dee2e6;
+    margin: 15px 0 10px 0;
+}
+
+.sponsor-section-title {
+    color: var(--brand-gris);
+    font-size: 10px;
+    font-weight: 600;
+    margin: 0 0 10px 0;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+/* capactiy and willingness section spacing */
+.capacity-assessment-section,
+.willingness-assessment-section {
+    margin-bottom: 15px;
+}
+
+    .capacity-assessment-section:last-child,
+    .willingness-assessment-section:last-child {
+        margin-bottom: 0;
+    }
+
+/* willingness header styling */
+.willingness-header-row {
+    margin-bottom: 10px;
+}
+
+.willingness-header {
+    font-weight: 600;
+    color: var(--brand-gris);
+    font-size: 11px;
+    padding-top: 6px;
+}
+
+/* capacity section labels- ensure they don't wrap */
+.capacity-assessment-section .control-label,
+.willingness-assessment-section .control-label {
+    white-space: nowrap;
+    overflow: visible;
+    text-overflow: none;
+    font-size: 10px;
+    line-height: 1.2;
+}
+
+/* adjust sponsor fieldset column spacing for longer labels */
+.sponsor-fieldset .co-sm-9 {
+    padding-right: 5px;
+}
+
+.sponsor-fieldset .co-sm-3 {
+    padding-left: 5px;
+}
+
+/* Make select dropdown small to fit the content */
+.capacity-assessment-section select,
+.willingness-assessment-section select {
+    max-width: 100px;
+    height: 24px;
+    font-size: 11px;
+    padding: 2px 6px;
+    line-height: 1.3;
+}
+
+.capacity-assessment-section input,
+.willingness-assessment-section input {
+    max-width: 100px;
+}
+
+/* cancel confirmation modeal styles */
+#cancelConfirmModal .modal-content {
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    border: none;
+    overflow: hidden;
+}
+
+#cancelConfirmModal .modal-header {
+    background-color: var(--brand-rubis);
+    border: none;
+    padding: 20px;
+    position: relative;
+}
+
+#cancelConfirmModal .modal-title {
+    color: var(--brand-blanc);
+    font-weight: 600;
+    font-size:18px;
+    margin: 0;
+    padding-right: 50px;
+}
+
+#cancelConfirmModal .modal-header .close {
+    position: absolute;
+    right: 20px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--brand-blanc);
+    opacity: 0.8;
+    font-size: 28px;
+    font-weight: 300;
+    background: none;
+    border: none;
+    padding: 0;
+    margin: 0;
+    cursor: pointer;
+    transition: opacity 0.2s ease;
+}
+
+#cancelConfirmModal .modal-header .close:hover {
+    opacity: 1;
+}
+
+#cancelConfirmModal .modal-body {
+    padding: 30px 25px;
+    text-align: center;
+    color: var(--brand-gris);
+    font-size: 16px;
+    line-height: 1.6;
+}
+#cancelConfirmModal .modal-footer {
+    background: var(--brand-gris-clair);
+    border-top: 1px solid #dee2e6;
+    padding: 25px;
+    text-align: center;
+}
+
+#cancelConfirmModal .modal-footer .btn {
+    min-width: 140px;
+    padding: 12px 24px;
+    font-weight: 500;
+    border-radius: 6px;
+    margin: 0 10px;
+    transition: all 0.2s ease;
+    border: none;
+}
+
+#cancelConfirmModal .modal-footer .btn span {
+    margin-right: 8px;
+}
+
+#cancelConfirmModal .modal-footer .btn-success{
+    background: var(--brand-gris);
+    color: var(--brand-blanc);
+}
+
+#cancelConfirmModal .modal-footer .btn-success:hover {
+    background-color: var(--brand-merlot);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(81, 98, 111, 0.3);
+}
+
+#cancelConfirmModal .modal-footer .btn-danger {
+    background: var(--brand-magenta);
+    color: var(--brand-blanc);
+}
+
+#cancelConfirmModal .modal-footer .btn-danger:hover {
+    background-color: var(--brand-rouge);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(220, 15, 60, 0.3);
+}
+
+/* leave confirmation modeal styles */
+#leaveConfirmModal .modal-content {
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    border: none;
+    overflow: hidden;
+}
+
+#leaveConfirmModal .modal-header {
+    background-color: var(--brand-rubis);
+    border: none;
+    padding: 20px;
+    position: relative;
+}
+
+#leaveConfirmModal .modal-title {
+    color: var(--brand-blanc);
+    font-weight: 600;
+    font-size: 18px;
+    margin: 0;
+    padding-right: 50px;
+}
+
+#leaveConfirmModal .modal-header .close {
+    position: absolute;
+    right: 20px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--brand-blanc);
+    opacity: 0.8;
+    font-size: 28px;
+    font-weight: 300;
+    background: none;
+    border: none;
+    padding: 0;
+    margin: 0;
+    cursor: pointer;
+    transition: opacity 0.2s ease;
+}
+
+#leaveConfirmModal .modal-header .close:hover {
+    opacity: 1;
+}
+
+#leaveConfirmModal .modal-body {
+    padding: 30px 25px;
+    text-align: center;
+    color: var(--brand-gris);
+    font-size: 16px;
+    line-height: 1.6;
+}
+
+#leaveConfirmModal .modal-footer {
+    background: var(--brand-gris-clair);
+    border-top: 1px solid #dee2e6;
+    padding: 25px;
+    text-align: center;
+}
+
+#leaveConfirmModal .modal-footer .btn {
+    min-width: 140px;
+    padding: 12px 24px;
+    font-weight: 500;
+    border-radius: 6px;
+    margin: 0 10px;
+    transition: all 0.2s ease;
+    border: none;
+}
+
+#leaveConfirmModal .modal-footer .btn span {
+    margin-right: 8px;
+}
+
+#leaveConfirmModal .modal-footer .btn-success {
+    background: var(--brand-gris);
+    color: var(--brand-blanc);
+}
+
+#leaveConfirmModal .modal-footer .btn-success:hover {
+    background-color: var(--brand-merlot);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(81, 98, 111, 0.3);
+}
+
+#leaveConfirmModal .modal-footer .btn-danger {
+    background: var(--brand-magenta);
+    color: var(--brand-blanc);
+}
+
+#leaveConfirmModal .modal-footer .btn-danger:hover {
+    background-color: var(--brand-rouge);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(220, 15, 60, 0.3);
+}
+
+/* Not implemented message styles */
+.not-implemented-message {
+    padding: 40px 20px;
+    text-align: center;
+}
+
+.not-implemented-message .alert {
+    border: 2px solid #17a2b8;
+    border-radius: 8px;
+    padding: 30px;
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.not-implemented-message .alert h3 {
+    color: #17a2b8;
+    margin-bottom: 15px;
+    font-weight: 600;
+}
+.not-implemented-message .alert p {
+    margin-bottom: 10px;
+    color: #6c757D;
+    font-size: 16px
+}
+.not-implemented-message .alert p strong {
+    color: #17a2b8;
+    font-size: 18px;
+}
+
+
+/* Editable field styling for file reference value */
+.editable-field {
+    background-color: #fff3cd !important;
+    border-color: #ffc107 !important;
+    border-width: 2px !important;
+    box-shadow: 0 0 0 0.2rem rgba(255, 193, 7, 0.25) !important
+}
+.editable-field:focus {
+    background-color: #fff3cd !important;
+    border-color: #ffc107 !important;
+    border-width: 2px !important;
+    box-shadow: 0 0 0 0.2rem rgba(255, 193, 7, 0.5) !important
+}
+
+.control-label-belfius-credits {
+    font-weight: 600;
+    color: var(--brand-gris);
+    font-size: 12px;
+    text-align: right;
+    padding-top: 6px;
+    padding-right: 8px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Tasklist project id cell*/
+.project-id-cell {
+    cursor: pointer;
+    color: #007bff;
+    text-decoration: underline;
+    padding: 8px;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+}
+
+.project-id-cell:hover {
+    background-color: #f8f9fa;
+    color: #0056b3;
+}
+
+
+/*Project-Credits tab Revaluation mode css*/
+#project-credits-tab input:disabled,
+#project-credits-tab select:disabled {
+    background-color: var(--brand-gris-clair);
+    cursor: not-allowed;
+}
+/**/
+
+.prcr-display-only-select {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background-image: none !important;
+    padding-top: 0px !important;
+    padding-bottom: 0px !important;
+}
+
+    .prcr-display-only-select::-ms-expand {
+        display: none;
+    }
+
+.capital-grace-column,
+.credit-number-column {
+    width: 120px;
+}
+
+/*/* Collateral tab tables*/
+.collateral-form .control-label {
+    font-weight: 600;
+    color: var(--brand-gris) !important;
+    font-size: 12px;
+    text-align: right;
+    padding-top: 6px;
+    padding-right: 8px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.collateral-form .label-cell {
+    width: 25%;
+    white-space: nowrap;
+}
+
+.placeholder-cell{
+    background: #fafafa;
+    width: 150px;
+}
+
+
+
+/*.collateral-form .collateral-table td {
+    vertical-align: middle;
+    padding: 5px;
+}
+
+.collateral-form .collateral-table .label-cell:first-child {
+    width: 10% !important;*/ /* Decrease this value as needed */
+    /*white-space: nowrap;
+    vertical-align: middle;
+    padding-right: 6px;
+}
+
+.collateral-form .collateral-table td:not(.label-cell):first-child {
+    width: 20% !important;*/ /* Increase this value as needed */
+/*}*/
+
+
+.coverage-table {
+    table-layout: fixed;
+    width: 100%;
+    border-collapse: collapse;
+}
+
+    .coverage-table th,
+    .coverage-table td {
+        padding: 8px;
+        border: 1px solid #ddd;
+        text-align: center;
+        vertical-align: middle;
+    }
+
+    .coverage-table th {
+        background-color: #f8f9fa;
+        text-align: center;
+    }
+
+    /* Set fixed column widths */
+    /*.coverage-table colgroup col:nth-child(1) {
+        width: 15%;
+    }
+
+    .coverage-table colgroup col:nth-child(2) {
+        width: 25%;
+    }
+
+    .coverage-table colgroup col:nth-child(3) {
+        width: 20%;
+    }
+
+    .coverage-table colgroup col:nth-child(4) {
+        width: 20%;
+    }
+
+    .coverage-table colgroup col:nth-child(5) {
+        width: 20%;
+    }*/
+
+    .coverage-table .label-cell {
+        text-align: left;
+        padding-right: 8px;
+    }
+
+        .coverage-table .label-cell label {
+            display: block;
+            text-align: left;
+            font-weight: 600;
+            color: var(--brand-gris) !important;
+            font-size: 12px;
+            padding-top: 6px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+    /* Ensure inputs take full width of their cells */
+    .coverage-table .form-control {
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    /* Remove border for specific rows if needed */
+    .coverage-table tr.no-border td {
+        border-bottom: none !important;
+    }
+
+    .coverage-table input[readonly] {
+        cursor:not-allowed;
+    }
+
+.is-invalid {
+    background-color: #fdecea !important;
+}
+
+
+/*.coverage-table {
+    table-layout: fixed;
+    width: 100%;
+
+}
+
+    .coverage-table th {
+        text-align: center;
+        background-color: #f8f9fa;
+        padding: 8px;
+    }
+
+    .coverage-table td {
+        text-align: center;
+        padding: 8px;
+    }
+
+    .coverage-table .label-cell {
+        vertical-align: middle;
+        text-align: center;
+    }
+
+        .coverage-table .label-cell label {
+            display: inline-block;
+            vertical-align: middle;
+            text-align: left;
+            width: 100%;
+        }
+
+    .coverage-table tr:nth-child(4) td {
+        border-bottom: none !important;
+    }*/
+
+.notary-table {
+    table-layout: fixed;
+    width: 100%;
+}
+
+.notary-btn {
+    width: 55px;
+    height: 26px;
+    border-radius: 3px;
+    padding: 2px 4px;
+    background-color: var(--brand-rouge);
+    border-color: var(--brand-rouge);
+    color: var(--brand-blanc);
+    transition: all 0.3s ease;
+    box-shadow: none;
+    margin-top:10px;
+    margin-right: 32px; /* small gap only */
+    float:right;
+
+}
+
+    .notary-btn:hover,
+    .notary-btn:focus {
+        background-color: var(--brand-magenta);
+        border-color: var(--brand-magenta);
+        color: var(--brand-blanc);
+        transform: scale(1.05);
+        box-shadow: 0 4px 8px rgba(220, 0, 123, 0.3);
+    }
+
+.notary-table th {
+    text-align: center;
+    background-color: #f8f9fa;
+    padding: 8px;
+}
+
+.notary-table td {
+    text-align: center;
+    padding: 8px;
+}
+
+.notary-table .label-cell {
+    vertical-align: top !important;
+    text-align: left !important;
+    padding-top: 6px;
+}
+
+    .notary-table .label-cell label {
+        display: inline-block;
+        vertical-align: middle;
+        text-align: left;
+        width: auto; /* Changed from 100% to auto */
+    }
+
+/* Adjust column widths */
+.notary-table td:first-child {
+    width: 33%;
+}
+
+.notary-table td:nth-child(2) {
+    width: 34%;
+}
+
+.notary-table td:last-child {
+    width: 33%;
+}
+
+/* Adjust column widths */
+.notary-table td:first-child {
+    width: 33%;
+}
+
+.notary-table td:nth-child(2) {
+    width: 34%;
+}
+
+.notary-table td:last-child {
+    width: 33%;
+}
+
+/* Adjust column widths */
+.notary-table td:first-child {
+    width: 33%;
+}
+
+.notary-table td:nth-child(2) {
+    width: 34%;
+}
+
+.notary-table td:last-child {
+    width: 33%;
+}
+
+.other-Collaterals-table {
+    table-layout: fixed;
+    width: 100%;
+}
+
+    /* Adjust column widths */
+    .other-Collaterals-table td:first-child {
+        width: 33%;
+    }
+
+    .other-Collaterals-table td:nth-child(2) {
+        width: 34%;
+    }
+
+    .other-Collaterals-table td:last-child {
+        width: 33%;
+    }
+
+.krwg-btn {
+    width: 55px;
+    height: 28px;
+    border-radius: 3px;
+    min-width: auto !important;
+    padding: 2px 4px; 
+    background-color: var(--brand-rouge);
+    border-color: var(--brand-rouge);
+    color: var(--brand-blanc);
+    transition: all 0.3s ease;
+    box-shadow: 0 0 0 rgba(220, 0, 123, 0);
+}
+
+.krwg-search-btn {
+    width: 55px;
+    height: 26px;
+    border-radius: 3px;
+    padding: 2px 4px;
+    background-color: var(--brand-rouge);
+    border-color: var(--brand-rouge);
+    color: var(--brand-blanc);
+    transition: all 0.3s ease;
+    box-shadow: none;
+    margin-top: 10px;
+    margin-right: 32px; /* small gap only */
+    float: right;
+}
+
+.new-krwg-btn {
+    width: 55px;
+    height: 28px;
+    border-radius: 3px;
+    padding: 2px 4px;
+    background-color: var(--brand-rouge);
+    border-color: var(--brand-rouge);
+    color: var(--brand-blanc);
+    transition: all 0.3s ease;
+    box-shadow: 0 0 0 rgba(220, 0, 123, 0);
+    margin-bottom: 17px;
+    align-self: flex-end;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.new-notary-search-btn {
+    width: 55px;
+    height: 28px;
+    border-radius: 3px;
+    padding: 2px 4px;
+    background-color: var(--brand-rouge);
+    border-color: var(--brand-rouge);
+    color: var(--brand-blanc);
+    transition: all 0.3s ease;
+    box-shadow: 0 0 0 rgba(220, 0, 123, 0);
+    align-self: flex-end;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+
+    .krwg-btn:hover,
+    .krwg-btn:focus {
+        background-color: var(--brand-magenta);
+        border-color: var(--brand-magenta);
+        color: var(--brand-blanc);
+        transform: scale(1.05);
+        box-shadow: 0 4px 8px rgba(220, 0, 123, 0.3);
+    }
+
+.krwg-ref-table {
+    margin-left: auto;
+    width: 70%;
+    table-layout: fixed;
+}
+
+.krwg-ref-table td {
+    width: 45%;
+    padding: 8px;
+    vertical-align: middle;
+}
+
+.krwg-ref-table .label-cell-krwg {
+    width: 36%;
+    text-align: left;
+    padding-right: 25px;
+    vertical-align: middle;
+}
+
+.label-cell-krwg:first-child {
+    
+    padding-right:8px;
+}
+
+
+.krwg-ref-table .control-label {
+    display: block;
+    font-weight: 600;
+    color: var(--brand-gris) !important;
+    font-size: 12px;
+    text-align:left;
+    white-space: nowrap;
+}
+.krwg-ref-table .input-group {
+    width: 100%;
+}
+
+
+.krwg-search-container {
+    padding: 10px 15px;
+}
+
+.krwg-search-filter {
+    background-color: aliceblue;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 10px 15px;
+    margin-bottom: 15px;
+}
+
+.krwg-ref-table .form-control {
+    width: 100%;
+}
+
+.krwg-ref-table .input-group-addon,
+.krwg-ref-table .input-group-btn {
+    width: auto;
+}
+
+.krwg-search-button {
+    width: 70px; /* More reasonable width */
+    height: 28px;
+    border-radius: 3px;
+    padding: 2px 4px; /* Reduced padding */
+    background-color: var(--brand-rouge);
+    border-color: var(--brand-rouge);
+    color: var(--brand-blanc);
+    transition: all 0.3s ease;
+    box-shadow: 0 0 0 rgba(220, 0, 123, 0);
+}
+
+/* Interactive field highlight with brand colors */
+.collateral-form select.form-control:focus {
+    border-color: var(--brand-rubis);
+    box-shadow: inset 0 1px 1px rgba(195, 0, 77, 0.075), 0 0 6px rgba(195, 0, 77, 0.4);
+}
+
+/* option styling for drop down*/
+.collateral-form select.form-control option {
+    color: var(--brand-noir);
+    background-color: var(--brand-blanc);
+}
+
+/*Enhanced interactive elements */
+.collateral-form select.form-control:hover:not([readonly]) {
+    border-color: var(--brand-magenta);
+    box-shadow: 0 0 4px rgba(222, 0, 123, 0.2)
+}
+
+.no-border {
+    width: 1px;
+    border: none;
+    background: none;
+}
+
+/*KRWG search modal popup*/
+.modal-search-form {
+    margin-bottom: 15px;
+}
+
+.modal-form-group {
+    display: inline-block;
+    margin-right: 15px;
+}
+
+.modal-label {
+    display: inline-block;
+    margin-right: 5px;
+}
+
+.modal-input {
+    width: 180px;
+    display: inline-block;
+}
+
+.modal-search-button {
+    display: inline-block;
+    margin-left: 15px; /* Add margin to the left of the search button */
+}
+
+.modal-table-responsive {
+    max-height: 350px;
+    overflow-y: auto;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+.modal-table-header {
+    background-color: #f8f9fa;
+}
+
+.modal-table-header-cell {
+    width: 12%;
+}
+
+.krwg-popup-header {
+    background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+    color: #495057;
+    margin: 0;
+    font-size: 10px;
+    font-weight: 600;
+    /* color: var(--brand-blanc); */
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    /* text-shadow: 0 1px 1px rgba(0, 0, 0, 0.3); */
+    padding: 6px 12px;
+    border-radius: 6px;
+    border: 1px solid #dee2e6;
+    /*display: inline-block;*/
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    line-height: 1.2;
+}
+
+/* Hover highlight using brand light gray */
+
+#notaryResults tr:hover {
+    background-color: var(--brand-gris-clair) !important;
+    cursor: pointer;
+}
+
+/* Selected row highlight using brand dark red */
+
+#notaryResults tr.table-active, 
+#krwgResultsTable tbody tr.table-active {
+    background-color: var(--brand-merlot) !important;
+    color: var(--brand-blanc) !important;
+    font-weight: 600;
+}
+ 
+.readonly-select{
+    pointer-events:none;
+    background-color: #eee;
+    cursor: not-allowed;
+}
+
+.readonly-select:focus{
+    outline: none;
+}
+
+.format-hint {
+    display: block;
+    font-size: 11px;
+    color: #6c757d;
+    margin-top: 3px;
+    font-style: italic
+}
+
+/* Invalid Actor ID styling */
+
+input.invalid-actor-id,
+input.form-control.invalid-actor-id,
+input.input-sm.invalid-actor-id {
+    border-color: #dc3545 !important;
+    border-width: 2px !important;
+    background-color: #fff5f5 !important;
+    box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25) !important;
+}
+input.invalid-actor-id:focus,
+input.form-control.invalid-actor-id:focus,
+input.input-sm.invalid-actor-id:focus {
+    border-color: #dc3545 !important;
+    box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.5) !important;
+    background-color: #fff5f5 !important;
+    outline: none !important;
+}
+
+.field-invalid {
+    border-color: #a94442 !important;
+    box-shadow: inset 0 1px rgba(0,0,0,0.075);
+}
+.field-error-message {
+    display: none;
+    color: #a94442;
+    font-size: 12px;
+    margin-top: 4px;
+}
+
+input.form-control.field-invalid,
+select.form-control.field-invalid,
+textarea.form-control.field-invalid,
+.form-control.field-invalid {
+    border-color: #a94442 !important;
+}
+.form-control.field-invalid:focus {
+    border-color: #a94442 !important;
+    box-shadow: 0 0 0 2px rgba(169, 68, 66, 0.15) !important;
+}
+/*.field-error-message {
+    color: #a94442 !important;
+}*/
+
+/*Project-Credits table CSS*/
+.disabled-dropdown {
+    background-color: var(--brand-gris-clair) !important; /* Light gray background */
+    color: var(--brand-gris) !important; /* Gray text */
+    cursor: not-allowed; /* Change cursor to indicate it's not clickable */
+}
+
+/* =========================================
+
+   FOLLOW-UP CARD (Scoped Only)
+
+========================================= */
+
+.followup-card {
+    background: var(--brand-blanc);
+    border: 1px solid #dee2e6;
+}
+
+    /* Override admin card ONLY inside followup */
+
+    .followup-card .admin-card-header {
+        background: transparent;
+        border: none;
+        padding: 20px 25px;
+        margin: 0;
+        position: relative;
+        top: -8px;
+        left: 0;
+        z-index: 1;
+    }
+
+    .followup-card .admin-card-body {
+        padding: 20px 16px 12px 16px;
+    }
+
+/* =========================================
+
+   HEADER LAYOUT
+
+========================================= */
+
+.followup-header-wrapper {
+    display: flex;
+    align-items: flex-start;
+    justify-content: flex-start;
+    gap:1%;
+    max-width: 1400px;
+    margin-bottom:20px;
+}
+
+.followup-header-left {
+    min-width: 12%;
+}
+
+/* =========================================
+
+   BUILDING / ENVIRONMENT SMALL CARDS
+
+========================================= */
+
+.summary-block-env {
+    min-width: 280px;
+    background: var(--brand-gris-clair);
+    border: 1px solid #dcdcdc;
+    padding: 12px;
+    border-radius: 4px;
+    font-size: 11px;
+}
+
+    .summary-block-env h6 {
+        margin: 0 0 10px 0;
+        color: var(--brand-rubis);
+        font-weight: 700;
+        font-size: 12px;
+    }
+
+/* =========================================
+
+   ROW INSIDE SMALL CARDS
+
+========================================= */
+
+.env-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    gap: 60px;
+}
+
+    .env-row span {
+        flex: 1;
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--brand-gris);
+    }
+
+    .env-row select,
+    .env-row input[type="date"] {
+        font-size: 11px;
+        padding: 3px 6px;
+        min-width: 120px;
+    }
+
+/* =========================================
+
+   BUILDING CARD
+
+========================================= */
+
+.building-dropdown {
+    width: 120px;
+}
+
+.building-options {
+    display: none;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid #dcdcdc;
+    flex-wrap: wrap;
+    gap: 10px 20px;
+}
+
+    .building-options.active {
+        display: flex;
+    }
+
+/* =========================================
+
+   SUMMARY SECTION (3 CARDS)
+
+========================================= */
+
+.followup-summary {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 15px;
+}
+
+    .followup-summary .summary-block {
+        background: var(--brand-gris-clair);
+        border: 1px solid #dcdcdc;
+        padding: 10px;
+        border-radius: 4px;
+        font-size: 11px;
+    }
+
+        .followup-summary .summary-block h6 {
+            margin: 0 0 6px 0;
+            color: var(--brand-rubis);
+            font-weight: 700;
+            font-size: 11px;
+        }
+
+/* =========================================
+
+   TABLE
+
+========================================= */
+
+.followup-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    table-layout:fixed;
+}
+
+.followup-table-wrapper {
+   width: 100%;
+   overflow-x: auto;
+}
+
+    .followup-table th {
+        background: var(--brand-gris);
+        color: #fff;
+        padding: 6px 5px;
+        border: 1px solid #adb5bd;
+        font-weight: 600;
+    }
+
+    .followup-table td {
+        border: 1px solid #dee2e6;
+        padding: 6px 8px;
+        text-align: center;
+        vertical-align: middle;
+    }
+
+    .followup-table .col-phase,
+    .followup-table .phase-name {
+        width: 240px;
+        max-width: 240px;
+        white-space: nowrap;
+        text-align: left;
+        font-weight: 500;
+    }
+
+    .followup-table thead th {
+        text-align: center;
+    }
+
+    /* Total row */
+
+    .followup-table .row-total td {
+        background: #f1f2f2;
+        font-weight: 700;
+    }
+
+    /* Muted rows */
+
+    .followup-table .row-muted td {
+        background: #fafafa;
+        color: #999;
+    }
+
+    /* Inline select */
+
+    .followup-table .inline-select {
+        width: 100%;
+        min-width: 120px;
+    }
+/* =========================================
+
+   RESPONSIVE – FOLLOWUP HEADER
+
+========================================= */
+
+@media (max-width: 1200px) {
+
+    .followup-header-wrapper {
+        flex-wrap: wrap;
+        justify-content: flex-start;
+    }
+
+    .followup-header-left {
+        width: 100%;
+        margin-bottom: 15px;
+    }
+
+    .summary-block-env {
+        flex: 1 1 300px;
+    }
+}
+
+@media (max-width: 768px) {
+
+    .followup-header-wrapper {
+        flex-direction: column;
+        gap: 20px;
+    }
+
+    .summary-block-env {
+        width: 100%;
+    }
+
+    .followup-summary {
+        grid-template-columns: 1fr;
+    }
+}
+/* =========================================
+
+   FOLLOW-UP – Amount Input (Editable Cells)
+
+========================================= */
+
+/* =========================================
+
+   FOLLOW-UP – Highlighted Editable Amount
+
+========================================= */
+
+.followup-card .amount-input {
+    text-align: right;
+    font-size: 13px;
+    height: 30px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    border: 1px solid #cfd4da;
+    background-color: #ffffff;
+    transition: all 0.2s ease;
+}
+
+    /* Hover – slight highlight */
+
+    .followup-card .amount-input:hover {
+        border-color: var(--brand-gris);
+        background-color: #fafbfc;
+    }
+
+    /* Focus – strong visual feedback */
+
+    .followup-card .amount-input:focus {
+        border-color: var(--brand-rubis);
+        background-color: #fff;
+        box-shadow: 0 0 0 2px rgba(180, 0, 0, 0.08);
+        outline: none;
+    }
+
+    /* Disabled / readonly */
+
+    .followup-card .amount-input[readonly],
+    .followup-card .amount-input[disabled] {
+        background-color: var(--brand-gris-clair);
+        border: 1px solid #cfd4da;
+        cursor: not-allowed;
+    }
+
+.followup-card .followup-table input[type="date"] {
+    width: 100%;
+    min-width: 0;
+    height: 26px;
+    padding: 2px 6px;
+    font-size: 11px;
+    font-weight: 500;
+}
+
+/* =========================================
+
+   FOLLOW-UP – Professional Date Styling
+
+========================================= */
+
+.followup-card .followup-table input[type="date"] {
+    width: 100%;
+    height: 30px;
+    padding: 4px 8px;
+    font-size: 11px;
+    font-weight: 500; /* Stronger text */
+
+    color: #2c2c2c;
+    border-radius: 4px;
+    border: 1px solid #c8ced4; /* Stronger border */
+
+    background-color: #ffffff;
+    transition: all 0.2s ease;
+}
+
+    /* Hover */
+
+    .followup-card .followup-table input[type="date"]:hover {
+        border-color: #9aa3ab;
+    }
+
+    /* Focus */
+
+    .followup-card .followup-table input[type="date"]:focus {
+        border-color: var(--brand-rubis);
+        box-shadow: 0 0 0 2px rgba(180, 0, 0, 0.08);
+        outline: none;
+    }
+
+.followup-card .preconstruction-total input[type="date"]{
+    font-weight: 600;
+    color: #1f2933;
+}
+/* =========================================
+
+   CALCULATED TOTAL FIELD (Reusable)
+
+========================================= */
+
+.followup-card .calculated-total {
+    background-color: #f1f5f9; /* soft light background */
+    border: 1px solid #cfd6dd; /* subtle clean border */
+    font-weight: 700; /* strong but clean */
+    color: #1f2933; /* dark readable text */
+    text-align: right; /* numbers aligned properly */
+    letter-spacing: 0.3px;
+    cursor: default;
+}
+
+/* Remove dull readonly grey look */
+
+.followup-card .calculated-total:read-only {
+    background-color: #f1f5f9;
+}
+
+/* Optional: slight inset effect */
+
+.followup-card .calculated-total {
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.03);
+}
+/* =========================================
+
+   FOLLOW-UP TOOLTIP (Brand Rubis)
+
+========================================= */
+
+.followup-tooltip .tooltip-inner {
+    background-color: #C3004D; /* brand rubis */
+
+    color: #ffffff;
+    font-size: 12px;
+    padding: 6px 10px;
+    border-radius: 6px;
+}
+
+.followup-tooltip.top .tooltip-arrow {
+    border-top-color: #C3004D;
+}
+
+.followup-tooltip.bottom .tooltip-arrow {
+    border-bottom-color: #C3004D;
+}
+
+.followup-tooltip.left .tooltip-arrow {
+    border-left-color: #C3004D;
+}
+
+.followup-tooltip.right .tooltip-arrow {
+    border-right-color: #C3004D;
+}
+
+.readonly-field {
+    background-color: #f5f5f5 !important;
+    color: #666 !important;
+    cursor: not-allowed !important;
+    border-color: #ddd !important;
+}
+
+    .readonly-field:focus {
+        background-color: #f5f5f5 !important;
+        box-shadow: none !important;
+    }
+
+.justification-dropdown {
+    width: 100%;
+    height: 26px;
+    font-size: 10px;
+    font-weight: 500;
+    padding: 2px 4px;
+    outline: none;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+    background-color: #fff;
+}
+
+.justification-dropdown:focus {
+    border-color: #843534;
+    box-shadow: inset 0 1px 1px rgba(0,0,0,.075), 0 0 8px rgba(169,68,66,0.6);
+    outline: 0;
+}
+
+
+.followup-summary {
+    display: flex;
+    margin-left: 180px; /* Phase column width */
+}
+
+.summary-block {
+    padding: 10px 15px;
+}
+
+    .summary-block:nth-child(1) {
+        width: 330px; /* EXPECTED */
+    }
+
+    .summary-block:nth-child(2) {
+        width: 320px; /* COMMITTED */
+    }
+
+    .summary-block:nth-child(3) {
+        width: 320px; /* EFFECTIVE */
+    }
+
+.readonly-date {
+    display: inline-block;
+    padding: 4px 6px;
+    font-size: 12px;
+    min-height: 26px;
+}
+
