@@ -1,798 +1,1162 @@
-@ModelType CollateralScreenViewModel
+// Function to initialize Project Credits Tab
+function initializeProjectCreditsTab() {
 
-<div class="admin-tab-content" id="collateralForm">
-    <div class="container-fluid">
-        <form class="collateral-form form-horizontal" id="collateralForm">
-            <!-- Collateral card -->
-            <div class="admin-card">
-                <div class="admin-card-header">
-                    <h4 class="admin-card-title">Collateral</h4>
-                </div>
-                <div class="admin-card-body">
-                    <div class="admin-card-body">
-                        @Code
-                            Dim dropdowns = Model.Dropdowns
-                            Dim numColumns As Integer = Model.NumColumns
-                            Dim access As String = If(ViewBag.Access, "NO_ACCESS")
-                        End Code
-                        <input type="hidden" id="numColumns" value="@numColumns" />
-                        <!-- KRWG And Collateral Ref Table -->
-                        <table class="table table-bordered table-condensed coverage-table table-responsive">
-                            <tbody>
-                                <!-- KRWG ref -->
-                                <tr>
-                                    <td class="label-cell">
-                                        <label class="control-label" rowspan="2">Ref</label>
-                                    </td>
-                                    <td class="label-cell">
-                                        <label class="control-label">KRWG ref</label>
-                                    </td>
-                                    @Code
-                                        For i As Integer = 1 To numColumns
-                                            @<td>
-                                                <div class="input-group">
-                                                    <input type="text" id="krwg_ref_@i"
-                                                           class="form-control input-sm readonly-select"
-                                                           data-label="KRWG Refrence" data-index="@i" />
-                                                    <span class="input-group-btn">
-                                                        <button type="button" class="btn krwg-btn open-krwg-modal" data-field-index="@i">
-                                                            <span class="glyphicon glyphicon-search"></span>
-                                                        </button>
-                                                    </span>
-                                                </div>
-                                            </td>
-                                        Next
-                                    End Code
-                                </tr>
+    AnalysisScreen.isProjectCreditsDataDirty = false;
+    AnalysisScreen.isProjectCreditsInitializing = true;
+    AnalysisScreen.isProjectCreditsSaving = false;
+    AnalysisScreen.originalGaraniteBreyne = null;
 
-                                <!-- Immotool RE Collateral Ref -->
-                                <tr>
-                                    <td class="label-cell"></td>
-                                    <td class="label-cell">
-                                        <label class="control-label">Immotool RE Collateral Ref</label>
-                                    </td>
-                                    @For i As Integer = 1 To numColumns
-                                        @<td>
-                                            <input type="text"
-                                                   class="form-control input-sm readonly-select"
-                                                   id="immotoolRef@(i)"
-                                                   @*value="@($"{coll.RE_PROJ_ID}-{i}")"*@
-                                                   value=""
-                                                   data-required="true" data-label="Collateral Refrence" data-index="@i" />
-                                        </td>
-                                    Next
-                                </tr>
+    // Number Formatting (shared helpers from currencyformatter.js)
+    var formatNumber = NumberFormat.formatNumber;
+    var parseNumber = NumberFormat.parseNumber;
 
-                            </tbody>
-                        </table>
+    // Initialize formatted number inputs
+    new FormattedNumberInput('.formatted-number');
 
-                        @Html.Action("KRWGSearchModal", "Analysis")
+    // Class to handle calculated fields
+    class CalculatedField {
+        constructor(selector, calculationFunction) {
+            this.selector = selector;
+            this.calculationFunction = calculationFunction;
+        }
 
+        update() {
+            let result = this.calculationFunction();
+            $(this.selector).val(formatNumber(result));
+        }
+    }
 
-                        <table class="table table-bordered table-condensed coverage-table table-responsive">
-                            @*<colgroup>
-                            <col>
-                            <col>
-                            <col>
-                            <col>
-                            <col>
-                        </colgroup>*@
-                            <tbody>
+    // Class to handle duration inputs (only numbers, no decimals, range 0 to 999)
+    class DurationInput {
+        constructor(selector) {
+            this.selector = selector;
+            this.initialize();
+        }
 
-                                <!-- Real Estate-->
-                                @* Project / Collateral *@
-                                <tr>
-                                    <td class="label-cell" rowspan="6">
-                                        <label class="control-label">Real Estate</label>
-                                    </td>
-                                    <td class="label-cell">
-                                        <label class="control-label">Project / Collateral</label>
-                                    </td>
+        initialize() {
+            $(this.selector).on('input', (e) => {
+                let value = $(e.target).val();
+                // Remove any non-numeric characters
+                let sanitizedValue = value.replace(/[^0-9]/g, '');
+                $(e.target).val(sanitizedValue);
+            });
 
-                                    @For i As Integer = 1 To numColumns
-                                        @<td>
-                                            <select class="form-control input-sm readonly-select"
-                                                    id="projectCollateral@(i)"
-                                                    data-required="true" data-label="Project / Collateral" data-index="@i">
-                                                <option value="">Select</option>
+            $(this.selector).on('blur', (e) => {
+                let value = $(e.target).val();
+                let parsedValue = parseInt(value, 10);
+                if (!isNaN(parsedValue)) {
+                    // Ensure the value is within the range of 0 to 999
+                    if (parsedValue < 0) {
+                        parsedValue = 0;
+                    } else if (parsedValue > 999) {
+                        parsedValue = 999;
+                    }
+                    $(e.target).val(parsedValue);
+                    // Trigger the change event to update dependent fields
+                    $(e.target).trigger('change');
+                }
+            });
 
-                                                @If dropdowns IsNot Nothing AndAlso dropdowns.ProjectCollateralOptions IsNot Nothing Then
-                                                    For Each item In dropdowns.ProjectCollateralOptions
-                                                        @<option value="@item.TcodId">@item.TcodDescName</option>
-                                                    Next
-                                                End If
-                                            </select>
-                                        </td>
-                                    Next
-                                </tr>
+            // Format the initial value
+            $(this.selector).each((index, element) => {
+                let initialValue = $(element).val();
+                if (initialValue) {
+                    let parsedValue = parseInt(initialValue, 10);
+                    if (!isNaN(parsedValue)) {
+                        // Ensure the value is within the range of 0 to 999
+                        if (parsedValue < 0) {
+                            parsedValue = 0;
+                        } else if (parsedValue > 999) {
+                            parsedValue = 999;
+                        }
+                        $(element).val(parsedValue);
+                    }
+                }
+            });
+        }
+    }
 
+    // Initialize duration inputs
+    new DurationInput('.duration-input');
 
-                                @* RE Collateral Owner *@
-                                <tr>
-                                    <td Class="label-cell">
-                                        <Label for="reCollateralOwner" class="control-label">RE Collateral Owner</Label>
-                                    </td>
-                                    @For i As Integer = 1 To numColumns
-                                        @<td>
-                                            <input type="text"
-                                                   class="form-control input-sm"
-                                                   id="reCollateralOwner@(i)"
-                                                   data-required="true" data-label="Collateral Owner" data-index="@i" />
-                                        </td>
-                                    Next
-                                </tr>
+    // Class to handle credit card number inputs (format xxx-xxxxxxx-xx)
+    class CreditCardInput {
+        constructor(selector) {
+            this.selector = selector;
+            this.initialize();
+        }
 
-                                @* Pari Passu / Full Rights *@
-                                <tr>
-                                    <td class="label-cell">
-                                        <label for="pariPassu" class="control-label">Pari Passu / Full Rights</label>
-                                    </td>
-                                    @For i As Integer = 1 To numColumns
-                                        @<td>
-                                            <select class="form-control input-sm" id="pariPassu@(i)"
-                                                    data-required="true" data-label="Pari Passu / Full Rights" data-index="@i">
-                                                <option value="">SELECT</option>
-                                                @For Each item In dropdowns.PariPassuOptions
-                                                    @<option value="@item.TcodId">@item.TcodDescName</option>
-                                                Next
-                                            </select>
-                                        </td>
-                                    Next
-                                </tr>
+        initialize() {
+            $(this.selector).on('input', (e) => {
+                const $el = $(e.target);
+                clearSpecificFieldErrors($el);
+                let value = $el.val();
+                // Remove any non-numeric characters
+                let sanitizedValue = value.replace(/[^0-9]/g, '');
 
-                                @* Nature *@
-                                <tr>
-                                    <td class="label-cell">
-                                        <label for="nature" class="control-label">Nature</label>
-                                    </td>
-                                    @For i As Integer = 1 To numColumns
-                                        @<td>
-                                            <select class="form-control input-sm" id="nature@(i)"
-                                                    data-required="true" data-field="Nature" data-label="Nature" data-index="@i">
-                                                <option value="">SELECT</option>
-                                                @For Each item In dropdowns.NatureOptions
-                                                    @<option value="@item.TcodId">@item.TcodDescName</option>
-                                                Next
-                                            </select>
-                                        </td>
-                                    Next
-                                </tr>
+                // Apply the credit card format xxx-xxxxxxx-xx
+                let formattedValue = this.formatCreditCardNumber(sanitizedValue);
+                $el.val(formattedValue);
+            });
 
+            $(this.selector).on('blur', (e) => {
+                const $el = $(e.target);
+                let value = $el.val();
+                // Remove hyphens for validation
+                let sanitizedValue = value.replace(/[^0-9]/g, '');
 
-                                @* Attribute *@
-                                <tr>
-                                    <td class="label-cell">
-                                        <label for="attribute" class="control-label">Attribute</label>
-                                    </td>
-                                    @For i As Integer = 1 To numColumns
-                                        @<td>
-                                            <select class="form-control input-sm" id="attribute@(i)"
-                                                    data-required="true" data-label="Attribute" data-index="@i">
-                                                <option value="">SELECT</option>
-                                                @For Each item In dropdowns.AttributeOptions
-                                                    @<option value="@item.TcodId">@item.TcodDescName</option>
-                                                Next
-                                            </select>
-                                        </td>
-                                    Next
+                // Check if the sanitized value has the correct length (12 digits for xxx-xxxxxxx-xx)
+                if (sanitizedValue.length >0 && sanitizedValue.length!== 12) {
+                    // If the length is not correct, clear the field or show an error                    
+                    setFieldError($el, 'Please enter a valid number (format: XXX-XXXXXXX-XX)');
+                    $el.val('');
+                } else {
+                    // Reformat the value to ensure it follows the xxx-xxxxxxx-xx format
+                    let formattedValue = this.formatCreditCardNumber(sanitizedValue);
+                    $el.val(formattedValue);
+                }
+            });
 
-                                </tr>
+            // Format the initial value
+            $(this.selector).each((_, element) => {
+                const $el = $(element);
+                let initialValue = $el.val();
+                if (initialValue) {
+                    let sanitizedValue = initialValue.replace(/[^0-9]/g, '');
+                    let formattedValue = this.formatCreditCardNumber(sanitizedValue);
+                    $el.val(formattedValue);
+                }
+            });
+        }
 
-                                @* Address *@
-                                <tr>
-                                    <td class="label-cell">
-                                        <label class="control-label">Address</label>
-                                    </td>
-                                    @For i As Integer = 1 To numColumns
-                                        @<td>
-                                            <input type="text" class="form-control input-sm" id="street@(i)" data-required="true" data-label="Street" data-index="@i" placeholder="Street" />
-                                            <input type="text" class="form-control input-sm" id="streetNr@(i)" data-required="true" data-label="Street Number" data-index="@i" placeholder="Street Nr" />
-                                            <input type="text" class="form-control input-sm" id="postalCode@(i)" data-required="true" data-label="Postal Code" data-index="@i" placeholder="Postal Code" />
-                                            <input type="text" class="form-control input-sm" id="city@(i)" data-required="true" data-label="City" data-index="@i" placeholder="City" />
-                                            <select class="form-control input-sm" id="location@(i)" data-required="true" data-label="Location" data-index="@i">
-                                                <option value="">SELECT</option>
-                                                @For Each item In dropdowns.ProjectLocationOptions
-                                                    @<option value="@item.TcodId">
-                                                        @item.TcodDescName
-                                                    </option>
-                                                Next
-                                            </select>
-                                        </td>
+        formatCreditCardNumber(value) {
+            // Remove any non-numeric characters
+            let sanitizedValue = value.replace(/[^0-9]/g, '');
 
-                                    Next
-                                </tr>
+            // Apply the credit card format xxx-xxxxxxx-xx
+            let formattedValue = '';
+            if (sanitizedValue.length > 0) {
+                formattedValue += sanitizedValue.substring(0, 3);
+            }
+            if (sanitizedValue.length > 3) {
+                formattedValue += '-' + sanitizedValue.substring(3, 10);
+            }
+            if (sanitizedValue.length > 10) {
+                formattedValue += '-' + sanitizedValue.substring(10, 12);
+            }
 
-                                <!-- Valuation Before Expertise-->
-                                <tr>
-                                    <td class="label-cell" rowspan="2">
-                                        <label class="control-label">Valuation Before Expertise</label>
-                                    </td>
-                                    <!-- Market Value (deduced) -->
-                                    <td class="label-cell">
-                                        <label for="marketValueDeduced" class="control-label">Market value (deduced)</label>
-                                    </td>
-                                    @For i As Integer = 1 To numColumns
-                                        @<td>
-                                            <input type="text" Class="form-control input-sm numeric-field text-right readonly-select" id="marketValueDeduced@(i)"
-                                                    data-label="Market Value Before Expertise" data-index="@i" />
-                                        </td>
-                                    Next
-                                </tr>
-                                <!-- Forced Sale (computed) -->
-                                <tr>
-                                    <td Class="label-cell">
-                                        <Label for="forcedSaleComputed" class="control-label">Forced Sale (computed)</Label>
-                                    </td>
-                                    @For i As Integer = 1 To numColumns
-                                        @<td>
-                                            <input type="text" Class="form-control input-sm numeric-field text-right readonly-select" id="forcedSaleComputed@(i)"
-                                                    data-label="Forced Sale Before Expertise" data-index="@i" />
-                                        </td>
-                                    Next
-                                </tr>
+            return formattedValue;
+        }
+    }
 
-                                <!-- Valuation after expertise -->
-                                <tr>
-                                    <td class="label-cell" rowspan="3">
-                                        <label class="control-label">Valuation After Expertise</label>
-                                    </td>
-                                    <td class="label-cell">
-                                        <label class="control-label">Expertise methodology</label>
-                                    </td>
-                                    @For i As Integer = 1 To numColumns
-                                        @<td>
-                                            <!-- Expertise Methodology -->
-                                            <select class="form-control input-sm"
-                                                    id="expertiseMethodology@(i)"
-                                                    data-required="true" data-label="Expertise Methodology" data-index="@i">
-                                                <option value="">SELECT</option>
-                                                @For Each item In dropdowns.ExpertiseMethodologyOptions
-                                                    @<option value="@item.TcodId">@item.TcodDescName</option>
-                                                Next
-                                            </select>
-                                            <!-- Expertise Methodology Conformity -->
-                                            <select class="form-control input-sm"
-                                                    id="expertiseMethodologyConformity@(i)"
-                                                    data-required="true" data-label="Expertise Methodology Conformity" data-index="@i">
-                                                <option value="">
-                                                    SELECT
-                                                </option>
-                                                @For Each item In dropdowns.ExpertiseMethodologyConformityOptions
-                                                    @<option value="@item.TcodId">@item.TcodDescName</option>
-                                                Next
-                                            </select>
-                                        </td>
-                                    Next
-                                </tr>
+    // Initialize credit card number inputs
+    new CreditCardInput('.credit-card-input');
 
+    class LineCreditInput {
+        constructor(selector) {
+            this.selector = selector;
+            this.initialize();
+        }
 
-                                <!-- Market value (after expertise) -->
-                                <tr>
-                                    <td class="label-cell">
-                                        <label class="control-label">Market value</label>
-                                    </td>
-                                    @For i As Integer = 1 To numColumns
-                                        @<td>
-                                            <input type="text"
-                                                   class="form-control input-sm numeric-field text-right"
-                                                   id="marketValue@(i)"
-                                                   data-required="true" data-label="Market Value After Expertise" data-index="@i"
-                                                   data-max-int="9" />
-                                        </td>
-                                    Next
-                                </tr>
+        initialize() {
 
-                                <!-- Forced sale (after expertise) -->
-                                <tr>
-                                    <td class="label-cell">
-                                        <label class="control-label">Forced sale</label>
-                                    </td>
-                                    @For i As Integer = 1 To numColumns
-                                        @<td>
-                                            <input type="text"
-                                                   class="form-control input-sm numeric-field text-right"
-                                                   id="forcedSale@(i)"
-                                                   data-label="Forced Sale After Expertise" data-required-if="expertiseMethodology=1" data-index="@i" />
-                                        </td>
-                                    Next
-                                </tr>
+            $(this.selector).on('input', (e) => {
 
+                const $el = $(e.target);
+                clearSpecificFieldErrors($el);
+                let value = $el.val();
+                let digits = value.replace(/[^0-9]/g, '');
+                digits = digits.substring(0, 11);
+                let formatted = '';
+
+                if (digits.length > 0) {
+                    formatted += digits.substring(0, 8);
+                }
+
+                if (digits.length > 8) {
+                    formatted += '/' + digits.substring(8, 11);
+                }
+
+                $el.val(formatted);
+            });
+
+            $(this.selector).on('blur', (e) => {
+
+                const $el = $(e.target);
+                let digits = $el.val().replace(/[^0-9]/g, '');
+
+                if (digits.length > 0 && digits.length !== 11) {
+
+                    setFieldError(
+                        $el,
+                        'Please enter a valid number (format: XXXXXXXX/XXX)'
+                    );
+
+                    $el.val('');
+                } else {
+                    let formatted = '';
+
+                    if (digits.length > 0) {
+                        formatted += digits.substring(0, 8);
+                    }
+
+                    if (digits.length > 8) {
+                        formatted += '/' + digits.substring(8, 11);
+                    }
+                    $el.val(formatted);
+                }
+            });
+
+            $(this.selector).each((_, element) => {
+
+                const $el = $(element);
+                let initialValue = $el.val();
+
+                if (initialValue) {
+
+                    let digits = initialValue.replace(/[^0-9]/g, '');
+                    digits = digits.substring(0, 11);
+
+                    let formatted = '';
+
+                    if (digits.length > 0) {
+                        formatted += digits.substring(0, 8);
+                    }
+
+                    if (digits.length > 8) {
+                        formatted += '/' + digits.substring(8, 11);
+                    }
+
+                    $el.val(formatted);
+                }
+            });
+        }
+    }
+
+    new LineCreditInput('.line-credit-input');
+
+    // Format the date to dd-mm-yyyy format to store in db
+    function formatDateToOracle(input) {
+        if (!input) return null;
+        let d = new Date(input);
+        if (isNaN(d)) return null;
+
+        let dd = String(d.getDate()).padStart(2, '0');
+        let mm = String(d.getMonth() + 1).padStart(2, '0');
+        let yyyy = d.getFullYear();
+
+        return `${dd}-${mm}-${yyyy}`;
+    }
+
+    function formatDdMmYyDateTimeToInputDate(input) {
+        if (!input) return '';
+
+        // Expected format: "13-02-2026 19:05:46"
+        var datePart = input.split(' ')[0]; // "13-02-2026"
+        var parts = datePart.split('-');
+
+        if (parts.length !== 3) {
+            return '';
+        }
+
+        var dd = parts[0];
+        var mm = parts[1];
+        var yyyy = parts[2];
+
+        return yyyy + '-' + mm + '-' + dd; // "2026-02-13"
+    }
+
+    function prefillFromServer() {
+
+        var raw = $('#project-credits-data').val();
+        if (!raw) return;
+
+        var data;
+        
+        try {
+            data = JSON.parse(raw);
+        } catch (e) {
+            console.error('Invalid JSON in project-credits-data', e);
+            //showWarningMessage('Data Invalid', e || 'Invalid JSON in project-credits-data');
+            return;
+        }
+
+        var sponsorId = data.SponsorID
+        // Create dynamic rows (without wiping prefilled values). Ensure toggleFields(true) does not call resetAllValues().
+        toggleFields(sponsorId);
+        
+        // --- Project costs: fill by data-cost-id ---
+        if (Array.isArray(data.BelfiusProjectCostsData)) {
+            data.BelfiusProjectCostsData.forEach(function (cost) {
+                var selector = '.project-cost-input[data-cost-id="' + cost.CostId + '"]';
+                var $input = $(selector);
+                if ($input.length) {
+                    $input.val(cost.CostAmount).data('prefilled', true).trigger('blur');
+                }
+            });
+        }
 
 
-                                <!-- Registration (Current Rank) -->
-                                <tr>
-                                    <td class="label-cell" rowspan="3">
-                                        <label class="control-label">Registration (Current Rank)</label>
-                                    </td>
-                                    <td class="label-cell">
-                                        <label class="control-label">OFI</label>
-                                    </td>
-                                    @For i As Integer = 1 To numColumns
-                                        @<td>
-                                            <input type="text"
-                                                   class="form-control input-sm numeric-field text-right"
-                                                   id="ofi@(i)"
-                                                   data-required="true" data-label="Registration Current Rank" data-index="@i" />
-                                        </td>
-                                    Next
-                                </tr>
-                                <tr>
-                                    <td class="label-cell">
-                                        <label class="control-label">Belfius</label>
-                                    </td>
-                                    @For i As Integer = 1 To numColumns
-                                        @<td>
-                                            <input type="text"
-                                                   class="form-control input-sm numeric-field text-right"
-                                                   id="belfius@(i)"
-                                                   data-required="true" data-label="Belfius" data-index="@i" />
-                                        </td>
-                                    Next
-                                </tr>
-                                <tr>
-                                    <td class="label-cell">
-                                        <label class="control-label">Outstanding Credit Belfius</label>
-                                    </td>
-                                    @For i As Integer = 1 To numColumns
-                                        @<td>
-                                            <input type="text"
-                                                   class="form-control input-sm numeric-field text-right"
-                                                   id="outstandingCreditBelfius@(i)"
-                                                   data-required="true" data-label="Outstanding Credit Belfius" data-index="@i" />
-                                        </td>
-                                    Next
-                                </tr>
+        var credits = Array.isArray(data.BelfiusCreditData) ? data.BelfiusCreditData : [];
+        var rows = [
+            $('#belfius-credit-1'),
+            $('#belfius-credit-2'),
+            $('#belfius-credit-3'),
+            $('#belfius-credit-ground'),
+            $('#belfius-credit-garanite-breyne')
+        ];
+
+        function fillRow($row, cred) {
+            if (!$row || !$row.length || !cred) return;
+            var slotId = cred.CreditId || cred.RE_CRED_ID || cred.RE_CRED_ID;
+            if (slotId)
+                $row.attr('data-credit-id', slotId).data('credit-id', slotId);
+            //if (cred.CreditId) $row.attr('data-credit-id', cred.CreditId).data('credit-id', cred.CreditId);
+            var r = function (sel, val, isSelect) {
+                var $el = $row.find(sel);
+                if (!$el.length) return;
+                if (val == null || val === '') return;
+                $el.val(val).data('prefilled', true);
+                if (isSelect) $el.trigger('change'); else $el.trigger('blur');
+            };
+
+            r('[data-role="breyne-percentage"]', cred.PercentageGarantyBreyneId, true);
+            r('[data-role="amount"]', cred.CreditAmount);
+            r('[data-role="duration"]', cred.CreditDuration);
+            r('[data-role="capital-grace"]', cred.CredCapitalGrace);
+            r('[data-role="credit-identifier"]', cred.CreditIdentifier, true);
+            r('[data-role="credit-number"]', cred.CreditCardNumber);
+            r('[data-role="purpose"]', cred.CreditPurposeId, true);
+            r('[data-role="type"]', cred.CreditTypeId, true);
+        }
+
+        var unmatched = [];
+        credits.forEach(function (cred) {
+            var slot = cred.CreditId || cred.RE_CRED_ID || null;
+            if (slot) {
+                var $match = $('[data-credit-id="' + slot + '"]').first();
+                if ($match.length) { fillRow($match, cred); return; }
+            }
+
+            unmatched.push(cred);
+        });
+
+        var ri = 0;
+
+        unmatched.forEach(function (cred) {
+            while (ri < rows.length && rows[ri].length && rows[ri].data('credit-id')) ri++;
+            if (ri >= rows.length) { console.warn('Extra Belfius credit ignored:', cred); return; }
+            fillRow(rows[ri], cred);
+            ri++;
+        });
+
+        // --- Final recalculations ---
+        calculateTotalSum();
+        updateBelfiusTotalCredit();
+        updateOwnFunds();
+        updatePreSales();
+        updateTotalFunds();
+        updateTotalCreditCharges();
+        updateTotalFundsMinusCosts();
+    }
+
+   
+    // Function to toggle the dropdowns based on CRE Project selection
+    function toggleFields(sponsorId) {
+
+        // Keep track of fields that are allowed to be visible
+        var allowedFields = new Set();
+
+        //Getting CRE Project dropdown value
+        var creProjectValue = $('#cre-project-options').val();
+        var creTypeValue = $('#cre-type-options').val();
+        var projectGoalValue = $('#project-goal-options').val();
+        
+        function allow(fieldId) {
+            allowedFields.add(fieldId);
+            $('#' + fieldId).show();
+        }
+
+        // Enable fields based on conditions
+        if (creProjectValue != 1 && creProjectValue != 2 && creProjectValue != 3) {
+            $('#number-of-products').prop('disabled', true).addClass('disabled-dropdown').val('1');
+        }
+        if (creProjectValue == 2 || creProjectValue == 3) {
+            allow('breyne-law-field');
+            allow('ground-building-split-field');
+            allow('pre-sales-field');
+            allow('deposit-pre-sales-field');
+            allow('signed-pre-sales-field');
+            allow('building-issues-field');
+            $('#number-of-products').prop('disabled', false).removeClass('disabled-dropdown');
+        }
+        if (creProjectValue == 1) {
+            allow('total-credit-charges-field');
+            allow('credit-charge-capital-field');
+            allow('credit-charge-interest-field');
+            $('#number-of-products').prop('disabled', false).removeClass('disabled-dropdown');
+        }
+        if ((creProjectValue == 2 || creProjectValue == 3) && (creTypeValue == 3)) {
+            allow('sales-strategy-options-field');
+        }
+        if ((creProjectValue == 1) && (creTypeValue == 4 || creTypeValue == 8)) {
+            allow('continuity-of-the-business-model-field');
+            allow('long-term-tenancy-agreement-field');
+        }
+        if (creTypeValue == 1) {
+            allow('enough-renting-prospects-field');
+        }
+        if ((creProjectValue == 2 || creProjectValue == 3) && (creTypeValue == 3 || creTypeValue == 4 || creTypeValue == 8)) {
+            allow('fixed-exit-field');
+        }
+        if (projectGoalValue == 5 || projectGoalValue == 6) {
+            allow('actual-value-building-ground-field');
+        }
+        if (sponsorId == 1) {
+            allow('sponsor-contribution-field');
+        }
+        $('[id$="-field"]').each(function () {
+            var fieldId = this.id;
+            var $field = $(this);
+
+            if (!allowedFields.has(fieldId)) {
+                // Only reset if it was visible before
+                if ($field.is(':visible')) {
+                    $field.find('input, select, textarea')
+                        .val('')
+                        .removeData('prefilled');
+                }
+                $field.hide();
+            }
+        });
+
+        updateBelfiusCreditRows();
+        updateTotalCreditCharges();
+    };
+    
+    function getAnalysisCreationDate() {
+        var rawJson = $('#project-credits-data').val();
+
+        if (!rawJson) {
+            return '';
+        }
+
+        try {
+            var savedData = JSON.parse(rawJson);
+
+            if (!savedData || !savedData.BelfiusCreditData || savedData.BelfiusCreditData.length === 0) {
+                return '';
+            }
+            return savedData.BelfiusCreditData[0].AnalysisCreationDate || '';
+        } catch (e) {
+            console.log('Invalid project credits JSON', e);
+            return '';
+        }
+    }
+
+    function applyEnvironmentPermitDateRules() {
+        var analysisCreationDateRaw = getAnalysisCreationDate();
+        var maxDate = formatDdMmYyDateTimeToInputDate(analysisCreationDateRaw);
+
+        if (maxDate) {
+            $('#environment-permit-date').attr('max', maxDate);
+        }
+        // Enable date selection only when Yes = 1
+        if ($('#environment-permit').val() === '1') {
+            $('#environment-permit-date').prop('disabled', false);
+        } else {
+            $('#environment-permit-date').val('').prop('disabled', true);
+        }
+    }
+
+    applyEnvironmentPermitDateRules();
+
+    $('#environment-permit').on('change', function () {
+        applyEnvironmentPermitDateRules();
+    });
+
+    //Dynamically showing Belfius Credit Rows
+    function updateBelfiusCreditRows() {
+        var numberOfProducts = $('#number-of-products').val();
+        var groundBuildingSplit = $('#ground-building-split').val();
+        var breyneLaw = $('#breyne-law').val();
+
+        $('[data-credit-type]').each(function () {
+            var $row = $(this);
+            var shouldShow = false;
+
+            var id = $row.attr('id');
+
+            if (id.startsWith('belfius-credit-')) {
+                if (id === 'belfius-credit-ground') {
+                    shouldShow = (groundBuildingSplit === '1');
+                } else if (id === 'belfius-credit-garanite-breyne') {
+                    shouldShow = (breyneLaw === '1');
+                } else {
+                    var idx = parseInt(id.replace('belfius-credit-', ''), 10);
+                    shouldShow = idx <= numberOfProducts;
+                }
+            }
+            if (shouldShow) {
+                $row.show();
+            } else {
+                if ($row.is(':visible')) {
+                    // row is transitioning from visible -> hidden
+                    resetCreditRow($row);
+                }
+                $row.hide();
+            }
+        });
+        updateBelfiusTotalCredit();
+    };
+
+    // Initialize the credit rows based on the initial values
+    updateBelfiusCreditRows();
+
+    // Update credit rows when the relevant fields change
+    $('#number-of-products, #ground-building-split, #breyne-law').on('change', updateBelfiusCreditRows);
+
+    function resetCreditRow($row) {
+        $row.find('input, select').each(function () {
+            $(this).val('').removeData('prefilled');
+        });
+    }
 
 
-                                <!-- Registration (New) -->
-                                <tr>
-                                    <td class="label-cell" rowspan="2">
-                                        <label class="control-label">Registration (New)</label>
-                                    </td>
-                                    <td class="label-cell">
-                                        <label class="control-label">Mortgage</label>
-                                    </td>
+    function updateCreditIdentifierMode($row) {
 
-                                    @For i As Integer = 1 To numColumns
-                                        @<td>
-                                            <input type="text"
-                                                   Class="form-control input-sm numeric-field text-right"
-                                                   id="mortgage@(i)"
-                                                   data-required="true" data-label="Mortgage" data-index="@i" />
-                                        </td>
-                                    Next
-                                </tr>
-                                <tr>
-                                    <td class="label-cell">
-                                        <label class="control-label">Mortgage Mandate</label>
-                                    </td>
+        var identifier = parseInt($row.find('[data-role="credit-identifier"]').val(), 10);
+        var $creditNumber = $row.find('[data-role="credit-number"]');
 
-                                    @For i As Integer = 1 To numColumns
-                                        @<td>
-                                            <input type="text"
-                                                   class="form-control input-sm numeric-field text-right"
-                                                   id="mortgageMandate@(i)"
-                                                   data-required="true" data-label="Mortgage Mandate" data-index="@i" />
-                                        </td>
-                                    Next
-                                </tr>
+        $creditNumber.val('');
 
+        if (!identifier) {
+            $creditNumber.prop('readonly', true).off('input blur');
+            return;
+        }
 
-                                <!-- Basel II -->
-                                <tr>
-                                    <td class="label-cell" rowspan="3">
-                                        <label class="control-label">Basel II</label>
-                                    </td>
-                                    <td class="label-cell">
-                                        <label class="control-label">Mortgage</label>
-                                    </td>
-                                    @For i As Integer = 1 To numColumns
-                                        @<td>
-                                            <input type="text"
-                                                   class="form-control input-sm numeric-field readonly-select text-right"
-                                                   id="baselMortgage@(i)"
-                                                   data-required="true" data-label="Basel II Mortgage" data-index="@i" />
-                                        </td>
-                                    Next
-                                </tr>
-                                <tr>
-                                    <td class="label-cell">
-                                        <label class="control-label">Mortgage Mandate</label>
-                                    </td>
-                                    @For i As Integer = 1 To numColumns
-                                        @<td>
-                                            <input type="text"
-                                                   class="form-control input-sm numeric-field readonly-select text-right"
-                                                   id="baselMortgageMandate@(i)"
-                                                   data-required="true" data-label="Basel II Mortgage Mandate" data-index="@i" />
-                                        </td>
-                                    Next
-                                </tr>
-                                <tr>
-                                    <td class="label-cell">
-                                        <label class="control-label">Building</label>
-                                    </td>
-                                    @For i As Integer = 1 To numColumns
-                                        @<td>
-                                            <input type="text"
-                                                   class="form-control input-sm numeric-field readonly-select text-right"
-                                                   id="baselBuilding@(i)"
-                                                   data-required="true" data-label="Basel II Building" data-index="@i" />
-                                        </td>
-                                    Next
-                                </tr>
+        $creditNumber.prop('readonly', false);
 
-                            </tbody>
-                        </table>
+        // PROD
+        if (identifier === 1) {
+            $creditNumber.off('input blur').removeClass('line-credit-input').addClass('credit-card-input');
+            new CreditCardInput('#' + $creditNumber.attr('id'));
+        }
 
-                    </div>
-                </div>
+        // LINE
+        else if (identifier === 2) {
+            $creditNumber.off('input blur').removeClass('credit-card-input').addClass('line-credit-input');
+            new LineCreditInput('#' + $creditNumber.attr('id'));
+        }
+    }
 
-            </div>
+    $(document)
+        .off('change', '[data-role="credit-identifier"]')
+        .on('change', '[data-role="credit-identifier"]', function () {
+            updateCreditIdentifierMode(
+                $(this).closest('tr')
+            );
+        });
 
-            @*@Code
-            Dim coverage = Model.Coverage
-        End Code*@
-            <!-- Coverage Details Card -->
-            <div Class="admin-card">
-                <div Class="admin-card-header">
-                    <h4 Class="admin-card-title">Coverage Details</h4>
-                </div>
-                <div Class="admin-card-body">
-                    <div Class="admin-card-body">
-                        <!--Coverage Table-->
-                        <table Class="table table-bordered table-condensed coverage-table">
-                            <thead>
-                                <tr>
-                                    <th> Topic</th>
-                                    <th> Item</th>
-                                    <th> Amount / %</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td Class="label-cell" rowspan="3">
-                                        <label Class="control-label">Coverage before project</label>
-                                    </td>
-                                    <td Class="label-cell">
-                                        <label for="labeltotalCreditExposureBefore" class="control-label">Total credit exposure (*)</label>
-                                    </td>
-                                    <td>
-                                        <input type="text"
-                                               Class="form-control input-sm numeric-field text-right"
-                                               id="totalCreditExposureBefore"
-                                               placeholder="Enter value"
-                                               step="0.01"
-                                               value=""
-                                               data-required="true" data-label="Total Credit Exposure (Coverage Before Project)" />
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td Class="label-cell">
-                                        <label for="baselTwoValueBefore" class="control-label">Basel II value (*)</label>
-                                    </td>
-                                    <td>
-                                        <input type="text"
-                                               Class="form-control input-sm numeric-field text-right"
-                                               id="baselTwoValueBefore"
-                                               placeholder="Enter Value"
-                                               step="0.01"
-                                               value=""
-                                               data-required="true" data-label="Basel II Value" />
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td Class="label-cell">
-                                        <label for="labelcoverageRatioBefore" class="control-label">Coverage ratio (%) </label>
-                                    </td>
-                                    <td>
-                                        <input type="text"
-                                               Class="form-control input-sm numeric-field text-right"
-                                               id="coverageRatioBefore" ReadOnly />
-                                    </td>
-                                </tr>
+    // Function to update Project Costs table dynamically
+    function updateProjectCostsTable() {
+        var projectGoalId = $('#project-goal-options').val();
+        var creProjectOption = $('#cre-project-options').val();
+        var breyneLaw = $('#breyne-law').val();
 
-                                <tr>
-                                    <td></td>
-                                    <td Class="label-cell">
-                                        <label for="baselValue" class="control-label">Basel II value (other) (New) </label>
-                                    </td>
-                                    <td>
-                                        <input type="text" Class="form-control input-sm numeric-field text-right" id="newItem1" value=""
-                                               placeholder="Enter Value" data-tbd="true" data-label="Basel II Value (Other) (new)" />
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td></td>
-                                    <td Class="label-cell">
-                                        <label for="totalBelfiusCredit" class="control-label">Total Belfius Credit (New)</label>
-                                    </td>
-                                    <td>
-                                        <input type="text"
-                                               class="form-control input-sm numeric-field text-right"
-                                               id="totalBelfiusCredit"
-                                               @*value="@(If(Model.Coverage IsNot Nothing, Model.Coverage.TotalBelfiusCredit.ToString("N2", System.Globalization.CultureInfo.InvariantCulture).Replace(",", " "), ""))"*@
-                                               value=""
-                                               readonly />
-                                    </td>
-                                </tr>
+        // Capture existing values before clearing DOM
+        var existingValues = {};
+        $('.project-cost-input').each(function () {
+            var id = $(this).data('cost-id');
+            existingValues[id] = $(this).val();
+        });
 
+        // Clear the container
+        var $container = $('#project-costs-container');
+        $container.empty();
+                
+        // Get all project costs from the model
+        var projectCostsData = $container.attr('data-project-costs');
+        var allProjectCosts = [];
+        try {
+            allProjectCosts = typeof projectCostsData === 'string' ? JSON.parse(projectCostsData) : [];
+        } catch (e) {
+            console.error("Error parsing project costs:", e);
+        }
 
-                                <tr>
-                                    <td Class="label-cell" rowspan="3">
-                                        <label Class="control-label">Coverage after project</label>
-                                    </td>
-                                    <td Class="label-cell">
-                                        <label for="grossExposure" class="control-label">Gross exposure</label>
-                                    </td>
-                                    <td>
-                                        <input type="text" Class="form-control input-sm numeric-field text-right" id="grossExposure" ReadOnly />
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td Class="label-cell">
-                                        <label for="netExposure" class="control-label">Net exposure</label>
-                                    </td>
-                                    <td>
-                                        <input type="text" Class="form-control input-sm numeric-field text-right" id="netExposure" value="" ReadOnly />
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td Class="label-cell">
-                                        <label for="coverageRatio2" class="control-label">Coverage ratio (%)</label>
-                                    </td>
-                                    <td>
-                                        <input type="text" Class="form-control input-sm numeric-field text-right" id="coverageRatio2" value="" ReadOnly />
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
+        var allowedCostIds = new Set();
+        switch (projectGoalId) {
+            case '1': // Buying
+                [1, 2, 3, 8].forEach(id => allowedCostIds.add(id));
+                break;
+            case '2': // Buying + transformations
+                [1, 2, 3, 4, 5, 8].forEach(id => allowedCostIds.add(id));
+                break;
+            case '3': // Ground buying + building
+                [1, 2, 3, 4, 5, 8].forEach(id => allowedCostIds.add(id));
+                break;
+            case '4': // Buying via public sale
+                [2, 3, 8].forEach(id => allowedCostIds.add(id));
+                break;
+            case '5': // Building
+                [3, 4, 5, 8].forEach(id => allowedCostIds.add(id));
+                break;
+            case '6': // Trasnformations
+                [2, 3, 4, 5, 8].forEach(id => allowedCostIds.add(id));
+                break
+            case '7': // Renovation with architect
+                [4, 5, 6, 7, 8].forEach(id => allowedCostIds.add(id));
+                break
+            default:
+                // Handle default case or do nothing
+                break;
+        }
 
-            <!--Notary Card -->
-            <div class="admin-card">
-                <div class="admin-card-header">
-                    <h4 class="admin-card-title">Notary</h4>
-                </div>
-                <button class="btn notary-btn" data-toggle="modal" data-target="#notaryModal" type="button">
-                    <span class="glyphicon glyphicon-search"></span>
-                </button>
-                <div class="admin-card-body">
-                    <div class="admin-card-body">
-                        <table class="table table-bordered table-condensed coverage-table">
-                            <tbody>
-                                <!-- Notary Table-->
-                                <tr>
-                                    <td class="label-cell" rowspan="3">
-                                        <label class="control-label">Notary</label>
-                                    </td>
-                                    <td class="label-cell">
-                                        <label for="actorId" class="control-label">Actor ID</label>
-                                    </td>
-                                    <td>
-                                        <input type="text" class="form-control input-sm readonly-select" id="actorId"
-                                               data-required="true" data-label="Notary Actor ID" />
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td class="label-cell">
-                                        <label for="name" class="control-label">Name</label>
-                                    </td>
-                                    <td>
-                                        <input type="text" class="form-control input-sm readonly-select" id="name" />
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td class="label-cell">
-                                        <label for="postalCode" class="control-label">Postal Code</label>
-                                    </td>
-                                    <td>
-                                        <input type="text" class="form-control input-sm readonly-select" id="postalCode" />
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
+        // Add additional TCOD_IDs based on cre-project-options when CRE PROJECT is 'PROPERTY PROMOTION' or 'DEVELOPMENT'
+        if (creProjectOption == '2' || creProjectOption == '3') {
+            [6, 7].forEach(id => allowedCostIds.add(id));
+        }
+
+        // Add additional TCOD_ID based on breyne-law
+        if (breyneLaw == '1') {
+            allowedCostIds.add(4);
+        }
+
+        var fields = allProjectCosts.filter(cost => allowedCostIds.has(cost.RE_TCOD_ID));
+        
+        //// Generate the form fields dynamically
+        fields.forEach(function (cost) {
+            var formGroup = $('<div class="form-group form-group-sm"></div>');
+            var labelText = cost.RE_TCOD_DESC_NM;
+            var label = $('<label class="col-sm-5 control-label">' + labelText + ':</label>');
+            var inputDiv = $('<div class="col-sm-7"></div>');
+            var input = $('<input>', {
+                type: 'text',
+                id: 'project-cost-'+cost.RE_TCOD_ID,
+                class: 'form-control input-sm project-cost-input formatted-number',
+                'data-cost-id': cost.RE_TCOD_ID,
+                'data-required': 'true',
+                'data-label': 'Project Costs: '+ labelText,
+            });
+
+            if (existingValues.hasOwnProperty(cost.RE_TCOD_ID)) {
+                input.val(existingValues[cost.RE_TCOD_ID]).data('prefilled', true);
+            }
+
+            inputDiv.append(input);
+            formGroup.append(label);
+            formGroup.append(inputDiv);
+            $container.append(formGroup);
+        });
+
+        // Reinitialize the FormattedNumberInput class for the dynamically generated fields
+        new FormattedNumberInput('.formatted-number');
+
+        // Add event listeners to recalculate the sum whenever an input changes
+        $('.project-cost-input').on('change', calculateTotalSum);
+    };
+
+    // Initialize the form fields based on the initial project goal
+    updateProjectCostsTable();
+
+    //Update form fields when the project goal changes
+    $('#project-goal-options, #cre-project-options, #breyne-law').on('change', updateProjectCostsTable);
+
+    function updateBreyneAmount() {
+        var percentageId = $('#belfius-credit-garanite-breyne-percentage-options').val();
+        var amountField = $('#belfius-credit-garanite-breyne-amount');
+
+        if (!percentageId) {
+            amountField.val('');
+            amountField.prop('readonly', true);
+            return;
+        }
+
+        if (percentageId == 1) {
+            amountField.val('');
+            amountField.prop('readonly', false);
+            return;
+        }
+
+        var multiplier = 1;
+
+        if (percentageId == 2) {
+            multiplier = 1.05;
+        }
+        if (percentageId == 3) {
+            multiplier = 1.10;
+        }
+
+        var totalProjectCosts = parseNumber($('#project-costs').val()) || 0;
+        var calculatedAmount = totalProjectCosts * multiplier;
+        amountField.val(formatNumber(calculatedAmount));
+        amountField.prop('readonly', true);
+    }
+
+    $('#belfius-credit-garanite-breyne-percentage-options').on('change', updateBreyneAmount);
+        
+    function updateNumberOfREAsCOllaterals() {
+        var collateralVal = $('#cre-project-as-collateral').val(); // 1 = Yes, 0 = No
+
+        var $ddl = $('#number-of-re-as-collaterals');
+        var currentVal = $ddl.val() || '';
+
+        // Remove options > 2 first
+        $ddl.find('option').each(function () {
+            var v = parseInt($(this).val(), 10);
+            if (!isNaN(v) && v > 2) {
+                $(this).remove();
+            }
+        });
+
+        // If YES -> allow 3
+        if (collateralVal === '1') {
+            if ($ddl.find('option[value="3"]').length === 0) {
+                $ddl.append('<option value="3">3</option>');
+            }
+        }
+
+        // Restore previous values if still valid
+        if ($ddl.find('option[value="' + currentVal + '"]').length > 0) {
+            $ddl.val(currentVal);
+        } else {
+            $ddl.val('SELECT'); // reset if invalid
+        }
+    }
+
+    // reattach the change event to update the dropdown dynamically
+    //updateNumberOfREAsCOllaterals();
+    
+    //$('#cre-project-as-collateral').on('change', updateNumberOfREAsCOllaterals);
 
 
-            @*@code
-            Dim other = Model.OtherCollateral
-            Dim isSponsorClient As Boolean = If(other IsNot Nothing, other.IsSponserClient, False)
+    prefillFromServer(); // Calling Prefill function after the page completely loads
 
-        End Code*@
-            <!-- Other Collateral Card -->
-            <div Class="admin-card">
-                <div Class="admin-card-header">
-                    <h4 Class="admin-card-title">Other Collaterals</h4>
-                </div>
-                <div Class="admin-card-body">
-                    <div Class="admin-card-body">
-                        <!--Other Collateral Table-->
-                        <table Class="table table-bordered table-condensed coverage-table">
-                            <thead>
-                                <tr>
-                                    <th> Other Collaterals</th>
-                                    <th></th>
-                                    <th> Owner</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td class="label-cell">
-                                        <label class="control-label">
-                                            Joint and personal surety
-                                        </label>
-                                    </td>
-                                    <td>
-                                        <input type="text" 
-                                               class="form-control input-sm numeric-field amount-field text-right"
-                                               data-tbd="true"
-                                               id="jointAndPersonalSurety"
-                                               data-label="Joint And Personal Surety" />
-                                    </td>
-                                    <td>
-                                        <!-- Owner column intentionally empty for Row 1 -->
-                                    </td>
-                                </tr>
+    function applyProjectCreditAccess() {
+        if (!window.projectCreditAccess) return;
+        console.log("Access:", window.projectCreditAccess);
+        if (window.projectCreditAccess === "VIEW") {
+            $('#project-credits-tab input, #project-credits-tab select, #project-credits-tab textarea')
+                .prop('disabled', true);
+        }
+    }
+    applyProjectCreditAccess();
 
-                                <tr>
-                                    <td Class="label-cell">
-                                        <label Class="control-label">Saving/Term acc</label>
-                                    </td>
-                                    <td>
-                                        <input type="text" Class="form-control input-sm numeric-field amount-field text-right" data-tbd="true" id="savingTermAcc"
-                                               data-label="Saving / Term Account Amount" />
-                                    </td>
-                                    <td>
-                                        <select class="form-control input-sm owner-field"
-                                                id="savingTermAccOwner" data-tbd="true"
-                                                data-label="Saving / Term Account Owner">
-                                            <option value="">Select owner</option>
-                                        </select>
-                                    </td>
+    function applyReviewMode() {
+        console.log(window.analysisMode);
+        if (window.analysisMode !== "revaluation") {
+            return;
+        }
+        
+        // disable all
+        $('#project-credits-tab input, #project-credits-tab select, #project-credits-tab textarea')
+            .prop('disabled', true);
 
-                                </tr>
-                                <tr>
-                                    <td Class="label-cell">
-                                        <label Class="control-label">Securities acc</label>
-                                    </td>
-                                    <td>
-                                        <input type="text" Class="form-control input-sm numeric-field amount-field text-right" data-tbd="true" id="securitiesAcc" min="0"
-                                               data-label="Securities Account Amount" />
-                                    </td>
-                                    <td>
-                                        <select class="form-control input-sm owner-field"
-                                                id="securitiesAccOwner" data-tbd="true"
-                                                data-label="Securities Account Owner">
-                                            <option value="">Select owner</option>
-                                        </select>
+        // enable only allowed
+        $('#project-credits-tab [data-review-edit="true"]')
+            .prop('disabled', false);
 
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td Class="label-cell">
-                                        <label Class="control-label">Insurance</label>
-                                    </td>
-                                    <td>
-                                        <input type="text" Class="form-control input-sm numeric-field amount-field text-right" data-tbd="true" id="insurance"
-                                               data-label="Insurance Amount" />
-                                    </td>
-                                    <td>
-                                        <select class="form-control input-sm owner-field"
-                                                id="insuranceOwner" data-tbd="true"
-                                                data-label="Insurance Owner">
-                                            <option value="">Select owner</option>
-                                        </select>
-                                    </td>
-                                </tr>
-                                <tr id="rowAdditionalContribution">
-                                    <td Class="label-cell" data-tbd="true">
-                                        <label Class="control-label">covenant sponsor - Additional Contribution</label>
-                                    </td>
-                                    <td>
-                                        <input type="text" Class="form-control input-sm numeric-field text-right" data-tbd="true" id="covenantSponsorAdditionalContribution"
-                                               data-label="Covenant Sponser Additional Contribution" />
-                                    </td>
+        AnalysisScreen.originalGaraniteBreyne = parseNumber($('#belfius-credit-garanite-breyne-amount').val()) || 0;
 
-                                </tr>
-                                <tr id="rowCashDeficiency" data-tbd="true">
-                                    <td Class="label-cell">
-                                        <label Class="control-label">covenant sponsor - Cash deficiency</label>
-                                    </td>
-                                    <td>
-                                        <select Class="form-control input-sm" id="covenantSponsorCashDeficiency" data-tbd="true"
-                                                data-label="Covenant Sponser Cash Deficiency">
-                                            @If dropdowns?.YesNoOptions IsNot Nothing Then
-                                                @<option value="">SELECT</option>
-                                                @For Each item In dropdowns.YesNoOptions
-                                                    @<option value="@item.TcodId">@item.TcodDescName</option>
-                                                Next
-                                            End If
-                                        </select>
-                                    </td>
+    }
+    applyReviewMode();
 
-                                </tr>
-                                <tr id="rowCostOverrun" data-tbd="true">
-                                    <td Class="label-cell">
-                                        <label Class="control-label">covenant sponsor - Cost overrun</label>
-                                    </td>
-                                    <td>
-                                        <select Class="form-control input-sm" id="covenantSponsorCostOverrun" data-tbd="true"
-                                                data-label="Covenant Sponser Cost Overrun">
-                                            @If dropdowns?.YesNoOptions IsNot Nothing Then
-                                                @<option value="">SELECT</option>
-                                                @For Each item In dropdowns.YesNoOptions
-                                                    @<option value="@item.TcodId">@item.TcodDescName</option>
-                                                Next
-                                            End If
-                                        </select>
-                                    </td>
+    function applyReadOnlyMode() {
+        if (window.projectStatusId < 6) {
+            return;
+        }
 
-                                </tr>
-                                <tr>
-                                    <td Class="label-cell">
-                                        <label Class="control-label">Covenant - Environment permit</label>
-                                    </td>
-                                    <td>
-                                        <select Class="form-control input-sm" id="covenantEnvironmentPermit" data-tbd="true"
-                                            data-label="Covenant Environment Permit" >
-                                            @If dropdowns?.YesNoOptions IsNot Nothing Then
-                                                @<option value="">SELECT</option>
-                                                @For Each item In dropdowns.YesNoOptions
-                                                    @<option value="@item.TcodId">@item.TcodDescName</option>
-                                                Next
-                                            End If
-                                        </select>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
+        if (window.analysisMode === "revaluation") {
+            return;
+        }
 
-        </form>
+        if (window.projectCreditAccess === "EDIT") return;
 
-        <!--Collateral tab action button-->
-        <div Class="admin-action-buttons">
-            <div Class="admin-action-left">
-                <Button type="button" Class="btn btn-primary analyze-btn analyze-btn-save-close" id="collateralSaveCloseBtn">
-                    <Span Class="glyphicon glyphicon-floppy-saved"></Span>Save Close file
-                </Button>
-                <Button type="button" Class="btn btn-success analyze-btn analyze-btn-save" id="collateralSaveBtn">
-                    <Span Class="glyphicon glyphicon-floppy-disk"></Span>Save And Next
-                </Button>
-            </div>
+        // disable all
+        $('#project-credits-tab input, #project-credits-tab select, #project-credits-tab textarea')
+            .prop('disabled', true);
+    }
+    applyReadOnlyMode();
 
-            <div Class="admin-action-right">
-                <Button type="button" Class="btn btn-default analyze-btn analyze-btn-cancel" id="collateralCancelBtn">
-                    <Span Class="glyphicon glyphicon-remove"></Span>Cancel
-                </Button>
-            </div>
-        </div>
+    // Calculations Section
 
-    </div>
-</div>
+    // Calculation of Belfius Credits Total Except Breyne
+    function updateBelfiusTotalCredit() {
+        var totalAmount = 0;
 
-@Code
+        // Sum amounts from visible standard credit rows
+        for (var i = 1; i <= 3; i++) {
+            var creditRow = $('#belfius-credit-' + i);
+            if (creditRow.is(':visible')) {
+                var amount = parseNumber(creditRow.find('input[id^="belfius-credit-"][id$="-amount"]').val()) || 0;
+                totalAmount += amount;
+            }
+        }
 
-    Dim notaryModal = New ViewDataDictionary()
-    notaryModal.Add("ModalId", "notaryModal")
-    notaryModal.Add("Title", "Search Notary")
-    notaryModal.Add("ShowSaveButton", False)
-    notaryModal.Add("ModalSize", "modal-xxl")
-    ' Load BODY from partial
-    notaryModal.Add("ModalBody", Html.Partial("_NotarySearchModal", "Analysis").ToHtmlString())
-End Code
+        // Add amount from ground credit row if visible
+        var groundCreditRow = $('#belfius-credit-ground');
+        if (groundCreditRow.is(':visible')) {
+            var groundAmount = parseNumber(groundCreditRow.find('#belfius-credit-ground-amount').val()) || 0;
+            totalAmount += groundAmount;
+        }
 
-@Html.Partial("_GenericModal", notaryModal)
-@Html.Partial("_CancelConfirmModal")
+        // updating total amount
+        new CalculatedField('#belfius-credits-total', () => totalAmount).update();
+        updateTotalFunds();
 
-<script>
-    window.tabAccess = "@(If(ViewBag.Access, "NO_ACCESS"))";
-    //window.userRole = "@(If(ViewBag.UserRole, ""))";
-</script>
+    }
+
+    updateBelfiusTotalCredit();
+
+    // Update total amount when any of the amount fields change
+    $('input[id^="belfius-credit-"][id$="-amount"], input[id^="belfius-credit-ground-amount"]').on('change', updateBelfiusTotalCredit);
+
+    // Calculation of Own Funds
+    function updateOwnFunds() {
+        var ownFundsTotal = 0;
+        var clientContribution = parseNumber($('#client-contribution').val()) || 0;
+        var sponsorContribution = parseNumber($('#sponsor-contribution').val()) || 0;
+        ownFundsTotal = clientContribution + sponsorContribution;
+        new CalculatedField('#own-funds', () => ownFundsTotal).update();
+        updateTotalFunds();
+
+    }
+
+    updateOwnFunds();
+
+    // Update pre-sales when deposit-pre-sales or signed-pres-sales changes
+    $('#client-contribution, #sponsor-contribution').on('change', updateOwnFunds);
+
+    // Calculation of Pre-Sales
+    function updatePreSales() {
+        // Checking if all relevant fields are visible
+        if ($('#deposit-pre-sales-field').is(':visible') &&
+            $('#signed-pre-sales-field').is(':visible') &&
+            $('#pre-sales-field').is(':visible')) {
+            var preSalesTotal = 0;
+            var depositPreSales = parseNumber($('#deposit-pre-sales').val()) || 0;
+            var signedPreSales = parseNumber($('#signed-pre-sales').val()) || 0;
+            preSalesTotal = depositPreSales + signedPreSales;
+            new CalculatedField('#pre-sales', () => preSalesTotal).update();
+        } else {
+            // Resetting the pre-sales value if any of the fields are not visible
+            $('#pre-sales').val('');
+        }
+    }
+
+    updatePreSales();
+
+    // Updating pre-sales when deposit-pre-sales or signed-pres-sales changes
+    $('#deposit-pre-sales, #signed-pre-sales').on('change', updatePreSales);
+
+    function updateTotalFunds() {
+
+        var belfiusCreditsTotal = parseNumber($('#belfius-credits-total').val()) || 0;
+        var ownFunds = parseNumber($('#own-funds').val()) || 0;
+        var depositPreSales = 0;
+        var signedPreSales = 0;
+        var otherFunds = parseNumber($('#other-funds').val()) || 0;
+        var creProject = $('#cre-project-options').val();
+
+        // Check if the deposit-pre-sales field is visible before getting its value
+        if (creProject !== '1' && $('#deposit-pre-sales').is(':visible')) {
+            depositPreSales = parseNumber($('#deposit-pre-sales').val()) || 0;
+        }
+
+        if (creProject !== '1' && $('#signed-pre-sales').is(':visible')) {
+            signedPreSales = parseNumber($('#signed-pre-sales').val()) || 0;
+        }
+
+        var totalFunds = belfiusCreditsTotal + ownFunds + depositPreSales + signedPreSales + otherFunds;
+        new CalculatedField('#total-funds', () => totalFunds).update();
+        updateTotalFundsMinusCosts();
+    }
+
+    // Call this function whenever any of the relevant fields change
+    $('#belfius-credits-total, #own-funds, #deposit-pre-sales, #signed-pre-sales, #other-funds').on('change', updateTotalFunds);
+
+    // Call this function initially to set the correct value when the page loads
+    updateTotalFunds();
+
+    // Update Total Credit charges (C + I) when Credit charge: capital or interest changes
+    function updateTotalCreditCharges() {
+        var totalCreditCharges = 0;
+
+        var creditChargeCapital = 0;
+        var creditChargeInterest = 0;
+
+        // checking the visibility of fields and fetching values
+        if ($('#credit-charge-capital').is(':visible')) {
+            creditChargeCapital = parseNumber($('#credit-charge-capital').val()) || 0;
+        }
+        if ($('#credit-charge-interest').is(':visible')) {
+            creditChargeInterest = parseNumber($('#credit-charge-interest').val()) || 0;
+        }
+        totalCreditCharges = creditChargeCapital + creditChargeInterest;
+
+        // updating total amount
+        new CalculatedField('#total-credit-charges', () => totalCreditCharges).update();
+
+    }
+
+    // Call this function whenever any of the relevant fields change
+    $('#credit-charge-capital, #credit-charge-interest').on('change', updateTotalCreditCharges);
+
+    // Call this function initially to set the correct value when the page loads
+    updateTotalCreditCharges();
+
+    // Function to calculate the total sum of all project cost fields
+    function calculateTotalSum() {
+        var sum = 0;
+        $('.project-cost-input').each(function () {
+            var value = parseNumber($(this).val()) || 0;
+            sum += value;
+        });
+        //console.log("Total sum:", sum); // Add this line for debugging
+        new CalculatedField('#project-costs', () => sum).update();
+        updateTotalFundsMinusCosts();
+        updateBreyneAmount();
+    }
+
+
+    // Initialize the form fields based on the initial project goal
+    calculateTotalSum();
+
+    function updateTotalFundsMinusCosts() {
+        var totalFundsMinusCosts = 0;
+
+        var totalFunds = parseNumber($('#total-funds').val()) || 0;
+        var projectCosts = parseNumber($('#project-costs').val()) || 0;
+
+        totalFundsMinusCosts = totalFunds - projectCosts;
+
+        // updating total amount
+        new CalculatedField('#total-diff-funds-costs', () => totalFundsMinusCosts).update();
+    }
+
+    // Call this function whenever any of the relevant fields change
+    $('#total-funds, #project-costs').on('change', updateTotalFundsMinusCosts);
+
+    // Call this function initially to set the correct value when the page loads
+    updateTotalFundsMinusCosts();
+        
+    AnalysisScreen.isProjectCreditsInitializing = false;
+
+    // Highlight CRE-expert mandatory field labels in red (Initiated status only)
+    if (typeof applyCreExpertMandatoryHighlight === 'function') {
+        applyCreExpertMandatoryHighlight('project-credits');
+    }
+
+
+    // Collecting data from screen
+    function collectSavePayload() {
+        var payload = {};
+
+        if ($('#environment-permit').val() !== '1') {
+            $('#environment-permit-date').val('');
+        }
+        
+        // Input - RE_PRCR
+        payload.RE_PRCR = {
+            RE_PRCR_COMMERCIAL_RE_PRJ_ID: $('#cre-project-options').val() ? parseInt($('#cre-project-options').val(), 10) : null,
+            RE_PRCR_RE_TYPE_ID: $('#cre-type-options').val() ? parseInt($('#cre-type-options').val(), 10) : null,
+            RE_PRCR_GOAL_ID: $('#project-goal-options').val() ? parseInt($('#project-goal-options').val(), 10) : null,
+            RE_PRCR_ENVIRONMENT_PERMIT_SW: $('#environment-permit').val() ? parseInt($('#environment-permit').val(), 10) : null,
+            RE_PRCR_BREYNE_LAW_SW: $('#breyne-law').val() ? parseInt($('#breyne-law').val(), 10) : null,
+            RE_PRCR_GROUND_BUILD_SPLIT_SW: $('#ground-building-split').val() ? parseInt($('#ground-building-split').val(), 10) : null,
+            RE_PRCR_NUMBER_PRODUCTS_NR: $('#number-of-products').val() ? parseInt($('#number-of-products').val(), 10) : null,
+            RE_PRCR_ENVIRONMENT_PERMIT_DATE_DT: formatDateToOracle($('#environment-permit-date').val()),
+            RE_PRCR_CRE_PROJECT_COLLATERAL_ID: $('#cre-project-as-collateral').val() ? parseInt($('#cre-project-as-collateral').val(), 10) : null,
+            RE_PRCR_RE_AS_COLLATERALS_NR: $('#number-of-re-as-collaterals').val() ? parseInt($('#number-of-re-as-collaterals').val(), 10) : null,
+            RE_PRCR_PROPOSED_COLL_ALREADY_SW: $('#proposed-collateral-already-used').val() ? parseInt($('#proposed-collateral-already-used').val(), 10) : null,
+            RE_PRCR_OTHER_PROPOSED_COLLATERALS_SW: $('#other-proposed-collaterals').val() ? parseInt($('#other-proposed-collaterals').val(), 10) : null
+        };
+
+        
+        payload.RE_CROI = {
+            RE_CROI_ACTUAL_VALUE_BUILDING_GROUND_AM: parseNumber($('#actual-value-building-ground').val(), false),
+            RE_CROI_CREDIT_CHARGE_CAPITAL_AM: parseNumber($('#credit-charge-capital').val(), false),
+            RE_CROI_CREDIT_CHARGE_INTEREST_AM: parseNumber($('#credit-charge-interest').val(), false),
+        }
+
+
+        payload.RE_CRGU = {
+            RE_CRGU_BUILDING_ISSUE_SW: $('#building-issues').val() ? parseInt($('#building-issues').val(), 10) : null,
+            RE_CRGU_SALES_STRATEGY_ID: $('#sales-strategy-options').val() ? parseInt($('#sales-strategy-options').val(), 10) : null,
+            RE_CRGU_CONTINU_BUSS_MODEL_SW: $('#continuity-of-the-business-model').val() ? parseInt($('#continuity-of-the-business-model').val(), 10) : null,
+            RE_CRGU_LT_TENANCY_AGREEMENT_SW: $('#long-term-tenancy-agreement').val() ? parseInt($('#long-term-tenancy-agreement').val(), 10) : null,
+            RE_CRGU_RENTING_PROSPECTS_SW: $('#enough-renting-prospects').val() ? parseInt($('#enough-renting-prospects').val(), 10) : null,
+            RE_CRGU_FIXED_EXIT_SW: $('#fixed-exit').val() ? parseInt($('#fixed-exit').val(), 10) : null
+        }
+
+        payload.RE_PRFU = {
+            RE_PRFU_CLIENT_CONTRIBUTION_AM: parseNumber($('#client-contribution').val(), false),
+            RE_PRFU_SPONSOR_CONTRIBUTION_AM: parseNumber($('#sponsor-contribution').val(), false),
+            RE_PRFU_DEPOSIT_PRESALES_AM: parseNumber($('#deposit-pre-sales').val(), false),
+            RE_PRFU_SIGNED_PRESALES_AM: parseNumber($('#signed-pre-sales').val(), false),
+            RE_PRFU_OTHER_AM: parseNumber($('#other-funds').val(), false),
+            RE_PRFU_BELFIUS_CREDITS_TOTAL_AM: parseNumber($('#belfius-credits-total').val(), false)
+        }
+
+
+        // Belfius Credit Details Card - User Inputs
+        payload.RE_CRED = [];
+        var creditRows = $('#belfius-credit-1, #belfius-credit-2, #belfius-credit-3, #belfius-credit-ground, #belfius-credit-garanite-breyne');
+        creditRows.each(function () {
+            var $r = $(this);
+            // Skip if invisble and empty
+            var hasAny = $r.find('input').filter(function () { return $(this).val(); }).length > 0;
+            if (!$r.is(':visible') && !hasAny) return;
+            var cred = {};
+            var creditId = $r.data('credit-id');
+            if (creditId)
+                cred.RE_CRED_ID = creditId;
+            if (creditId == 5) {
+                var breynePercentageId = $r.find('[data-role="breyne-percentage"]').val();
+                if (breynePercentageId) {
+                    cred.RE_CRED_BELFIUS_CREDIT_PERC_ID = parseInt(breynePercentageId, 10);
+                }
+            }            
+            var creditAmount = parseNumber($r.find('[data-role="amount"]').val(), true);
+            if (creditAmount !== null)
+                cred.RE_CRED_BELFIUS_CREDIT_AM = creditAmount;
+            var creditDuration = $r.find('[data-role="duration"]').val();
+            if (creditDuration)
+                cred.RE_CRED_DURATION_AM = parseInt(creditDuration, 10);
+            var capGrace = $r.find('[data-role="capital-grace"]').val();
+            if (capGrace !== null)
+                cred.RE_CRED_CAPITALGRACE_AM = parseInt(capGrace, 10);
+            var creditIdentifier = $r.find('[data-role="credit-identifier"]').val();
+            if (creditIdentifier) {
+                cred.RE_CRED_BELFIUS_CREDIT_IDENTIFIER = parseInt(creditIdentifier, 10);
+            }
+            var creditCardNum = $r.find('[data-role="credit-number"]').val();
+            if (creditCardNum)
+                cred.RE_CRED_BELFIUS_CREDIT_ID = creditCardNum;
+            var creditPurpose = $r.find('[data-role="purpose"]').val();
+            if (creditPurpose)
+                cred.RE_CRED_PURPOSE_ID = parseInt(creditPurpose, 10);
+            var creditType = $r.find('[data-role="type"]').val();
+            if (creditType)
+                cred.RE_CRED_TYPE_ID = parseInt(creditType, 10);
+            if (Object.keys(cred).length > 0)
+                payload.RE_CRED.push(cred);
+        });
+
+        // Project Financing Details Card - User Inputs
+        payload.RE_COST = [];
+        $('.project-cost-input[data-cost-id]').each(function () {
+            var id = $(this).data('cost-id');
+            var val = parseNumber($(this).val(), false);
+            payload.RE_COST.push({
+                RE_COST_ID: id,
+                RE_COST_AMOUNT_AM: (val === null ? 0 : val)
+            });
+        });
+
+        // Return payload object
+        return payload;
+    }
+
+    AnalysisScreen.saveProjectCreditsDataToServer = function (closeAfterSave, callback, isTabSwitch) {
+
+        isTabSwitch = isTabSwitch || false;
+                
+        // Prevent double / triple submit
+        if (AnalysisScreen.isProjectCreditsSaving) return;
+
+        AnalysisScreen.isProjectCreditsSaving = true;
+
+        // Environment date validation
+        var permitDate = $('#environment-permit-date').val();
+        var maxDate = $('#environment-permit-date').attr('max');
+
+        if ($('#environment-permit').val() === '1' && maxDate && permitDate && permitDate > maxDate) {
+            showErrorMessage('Validation Failed', 'Environment Permit Date cannot be later than Analysis Receiving Date.');
+            scrollTopShowErrorMessage();
+            AnalysisScreen.isProjectCreditsSaving = false;
+            return;
+        }
+
+        if (!closeAfterSave && !isTabSwitch && !validateFormData()) {
+            AnalysisScreen.isProjectCreditsSaving = false;
+            return;
+        }
+
+        // Do nothing if no changes
+        if (!AnalysisScreen.isProjectCreditsDataDirty) {
+            AnalysisScreen.isProjectCreditsSaving = false;
+            if (isTabSwitch) {
+                if (typeof callback === 'function') {
+                    callback();
+                }
+            } else if (closeAfterSave) {
+                markTabAsSaved('project-credits', closeAfterSave);
+                // Return to tasklist
+                setTimeout(function () {
+                    returnToTaskList();
+                }, 1000);
+            } else {
+                markTabAsSaved('project-credits', closeAfterSave);
+                navigateToNextTab();
+            }  
+            return;
+        }        
+                
+        var payload = collectSavePayload();
+
+        $.ajax({
+            url: '/Analysis/SaveProjectCreditsData',
+            type: 'POST',
+            contentType: 'application/json; charset=utf-8',
+            data: JSON.stringify(payload),
+            success: function (res) {
+                if (res && res.success) {
+                    showSuccessMessage('Data saved successfully');
+                    AnalysisScreen.isProjectCreditsDataDirty = false;
+                    markDataAsClean();
+                    if (isTabSwitch) {
+                        if (typeof callback === 'function') {
+                            callback();
+                        }
+                    } else if (closeAfterSave) {
+                        markTabAsSaved('project-credits', closeAfterSave);
+                        // Return to tasklist
+                        setTimeout(function () {
+                            returnToTaskList();
+                        }, 1000);
+                    } else {
+                        markTabAsSaved('project-credits', closeAfterSave);
+                        navigateToNextTab();
+                    }                 
+                } else {
+                    showErrorMessage('Save failed: ' + res.message);
+                    scrollTopShowErrorMessage();
+                }
+            },
+            error: function (xhr) {
+                showErrorMessage('Save Failed', xhr.statusText || 'Failed to save data');
+                scrollTopShowErrorMessage();
+            },
+            complete: function () {
+                AnalysisScreen.isProjectCreditsSaving = false;
+            }
+        });
+    };
+    
+    // Action buttons for save
+    $(document).off('click', '#save-project-credits').on('click', '#save-project-credits', function () {
+        AnalysisScreen.saveProjectCreditsDataToServer(false);
+    });
+    $(document).off('click', '#save-close-project-credits').on('click', '#save-close-project-credits', function () {
+            AnalysisScreen.saveProjectCreditsDataToServer(true);        
+    });    
+    $(document).off('input change blur', '#project-credits-tab [data-required="true"]').on('input change blur', '#project-credits-tab [data-required="true"]', function () {
+        clearSpecificFieldErrors(this);
+    })
+    $(document).off('input change', "#project-credits-tab input, #project-credits-tab select").on('input change', "#project-credits-tab input, #project-credits-tab select", function () {
+        if (!AnalysisScreen.isProjectCreditsInitializing) {
+            AnalysisScreen.isProjectCreditsDataDirty = true;
+        }
+    })
+}
