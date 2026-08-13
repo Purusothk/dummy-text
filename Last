@@ -1,0 +1,29 @@
+case "0":
+    // Created - only the CRE expert can promote the file directly to 'Ready for analysis'.
+    // For all other roles, behavior stays identical to the previous default/unhandled case.
+    if ((window.userRole || '').trim().toUpperCase() === 'CRE EXPERT') {
+        document.getElementById('btnReadyAnalysis').style.display = 'inline-block';
+        document.getElementById('btnReadyDeci').style.display = 'none';
+        document.getElementById('btnPDFsynth').style.display = 'none';
+        document.getElementById('btnDeciTaken').style.display = 'none';
+        document.getElementById('btnPDFminut').style.display = 'none';
+        document.getElementById('btnReadyCS').style.display = 'none';
+        document.getElementById("blockDecision").style.display = 'none';
+        document.getElementById('btnReviewed').style.display = 'none';
+        document.getElementById('btnPDFreview').style.display = 'none';
+    } else {
+        // Preserve existing behavior for non-CRE-expert users at status 0
+        alert("Status: " + projStatus);
+        document.getElementById('saveCloseBtnGuid').style.display = 'none';
+        document.getElementById('saveBtnGuid').style.display = 'none';
+        document.getElementById('btnReadyAnalysis').style.display = 'none';
+        document.getElementById('btnReadyDeci').style.display = 'none';
+        document.getElementById('btnPDFsynth').style.display = 'none';
+        document.getElementById('btnDeciTaken').style.display = 'none';
+        document.getElementById('btnPDFminut').style.display = 'none';
+        document.getElementById('btnReadyCS').style.display = 'none';
+        document.getElementById("blockDecision").style.display = 'none';
+        document.getElementById('btnReviewed').style.display = 'none';
+        document.getElementById('btnPDFreview').style.display = 'none';
+    }
+    break;
