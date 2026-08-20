@@ -1,1 +1,367 @@
-erwds
+@ModelType AdminTabViewModel
+<div class="admin-tab-content">
+    <div class="container-fluid">
+        <form class="admin-form form-horizontal" id="adminForm">
+            <!--project details -->
+            <div class="admin-card">
+                <div class="admin-card-header">
+                    <h4 class="admin-card-title">Project Details</h4>
+                </div>
+                <div class="admin-card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group form-group-sm">
+                                <label class="col-sm-5 control-label">Project ID:</label>
+                                <div class="col-sm-7">
+                                    @*<input type="text" class="form-control input-sm" id="projectId" readonly>*@
+                                    @Html.TextBoxFor(Function(m) m.ProjectId, New With {.class = "form-control input-sm", .readonly = "readonly", .id = "projectId"})
+                                </div>
+                            </div>
+
+
+                            <div class="form-group form-group-sm">
+                                <label class="col-sm-5 control-label">Project Reference Type:</label>
+                                <div class="col-sm-7">
+                                    @code
+                                        Dim projectReferenceTypes = New List(Of Object) From {New With {.Value = "", .Text = "SELECT"}}
+                                        If Model.ReferenceTypeOptions IsNot Nothing Then
+                                            For Each opt In Model.ReferenceTypeOptions
+                                                projectReferenceTypes.Add(New With {.Value = opt.TcodId.ToString(), .Text = opt.TcodDescName})
+                                            Next
+                                        End If
+                                    End Code
+                                    @*@Html.DropDownListFor(Function(m) m.ProjectReferenceType,
+                                New SelectList(Model.ReferenceTypeOptions, "TcodId", "TcodDescName"),
+                                New With {.class = "form-control input-sm", .id = "projectReferenceType"})*@
+                                    @Html.DropDownListFor(Function(m) m.ProjectReferenceType,
+New SelectList(projectReferenceTypes, "Value", "Text", Model?.ProjectReferenceType),
+New With {.class = "form-control input-sm", .id = "projectReferenceType"})
+
+                                </div>
+                            </div>
+
+                            <div Class="form-group form-group-sm">
+                                <Label Class="col-sm-5 control-label">Project Status:</Label>
+                                <div Class="col-sm-7">
+                                    @*<input type = "text" Class="form-control input-sm" id="projectStatus">*@
+                                    @Html.TextBoxFor(Function(m) m.ProjectStatusIdDisplyText, New With {.class = "form-control input-sm", .readonly = "readonly", .id = "projectStatusIdDisplyText"})
+                                    @Html.HiddenFor(Function(m) m.ProjectStatusId, New With {.id = "projectStatusId"})
+                                </div>
+                            </div>
+                        </div>
+
+                        <div Class="col-md-6">
+                            <div class="form-group form-group-sm">
+                                <label class="col-sm-5 control-label">Project Name:</label>
+                                <div class="col-sm-7">
+                                    @If Not Model.ReProjAgErID.HasValue Then
+                                        @Html.TextBoxFor(Function(m) m.ProjectName, New With {.class = "form-control input-sm", .id = "projectName", .maxlength = "200"})
+                                    Else
+                                        @*<input type="text" class="form-control input-sm" id="projectName" readonly>*@
+                                        @Html.TextBoxFor(Function(m) m.ProjectName, New With {.class = "form-control input-sm", .readonly = "readonly", .id = "projectName"})
+                                    End If
+                                </div>
+                            </div>
+
+                            <div Class="form-group form-group-sm">
+                                <Label Class="col-sm-5 control-label">File Ref Value:</Label>
+                                <div Class="col-sm-7">
+                                    @*<input type = "text" Class="form-control input-sm" id="fileReferenceValue" ReadOnly>*@
+                                    @Html.TextBoxFor(Function(m) m.FileReferenceValue, New With {.class = "form-control input-sm", .id = "fileReferenceValue", .maxlength = "25", .autocomplete = "off", .data_val = "false"})
+                                    <div class="field-error-message" id="fileReferenceValue-error" role="alert"></div>
+                                    <small id="fileReferenceValue-hint" class="format-hint"></small>
+                                </div>
+                            </div>
+
+
+                            <div Class="form-group form-group-sm">
+                                <Label Class="col-sm-5 control-label">Status Date:</Label>
+                                <div Class="col-sm-7">
+                                    @*<input type = "text" Class="form-control input-sm" id="statusDate" ReadOnly>*@
+                                    @Html.TextBoxFor(Function(m) m.StatusDate, "{0:dd-MM-yyyy}", New With {.Class = "form-control input-sm", .readonly = "readonly", .id = "statusDate"})
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- User Details Card -->
+
+            <div Class="admin-card">
+                <div Class="admin-card-header">
+                    <h4 Class="admin-card-title">User Details</h4>
+                </div>
+                <div Class="admin-card-body">
+                    <div Class="row">
+                        <div Class="col-md-6">
+                            <div Class="form-group form-group-sm">
+                                <Label Class="col-sm-5 control-label">User Initiator:</Label>
+                                <div Class="col-sm-7">
+                                    @*<input type = "text" Class="form-control input-sm" id="userCreator" ReadOnly>*@
+                                    @Html.TextBoxFor(Function(m) m.UserCreator, New With {.class = "form-control input-sm", .readonly = "readonly", .id = "userCreator"})
+                                </div>
+                            </div>
+
+                            <div Class="form-group form-group-sm">
+                                <Label Class="col-sm-5 control-label">Initiate date:</Label>
+                                <div Class="col-sm-7">
+                                    @*<input type = "text" Class="form-control input-sm" id="creationDate" ReadOnly>*@
+                                    @Html.TextBoxFor(Function(m) m.CreationDate, "{0:dd-MM-yyyy}", New With {.Class = "form-control input-sm", .readonly = "readonly", .id = "creationDate"})
+                                </div>
+                            </div>
+                        </div>
+
+                        <div Class="col-md-6">
+
+                            <div Class="form-group form-group-sm">
+                                <Label Class="col-sm-5 control-label">Last User:</Label>
+                                <div Class="col-sm-7">
+                                    @*<input type = "text" Class="form-control input-sm" id="lastUser" ReadOnly>*@
+                                    @Html.TextBoxFor(Function(m) m.LastUser, New With {.class = "form-control input-sm", .readonly = "readonly", .id = "lastUser"})
+                                </div>
+                            </div>
+
+                            <div Class="form-group form-group-sm">
+                                <Label Class="col-sm-5 control-label">Last Update Date:</Label>
+                                <div Class="col-sm-7">
+                                    @*<input type = "text" Class="form-control input-sm" id="lastUpdateDate" ReadOnly>*@
+                                    @Html.TextBoxFor(Function(m) m.LastUpdateDate, "{0:dd-MM-yyyy}", New With {.Class = "form-control input-sm", .readonly = "readonly", .id = "lastUpdateDate"})
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CRE Project Details -->
+            <div Class="admin-card">
+                <div Class="admin-card-header">
+                    <h4 Class="admin-card-title">CRE Details</h4>
+                </div>
+                <div Class="admin-card-body">
+                    <div Class="row">
+                        <div Class="col-md-6">
+                            <div Class="form-group form-group-sm">
+                                <Label Class="col-sm-5 control-label">CRE Project:</Label>
+                                <div Class="col-sm-7">
+                                    @code
+                                        Dim creProjectItems = New List(Of Object) From {New With {.Value = "", .Text = "SELECT"}}
+                                        If Model.CreProjectOptions IsNot Nothing Then
+                                            For Each opt In Model.CreProjectOptions
+                                                creProjectItems.Add(New With {.Value = opt.TcodId.ToString(), .Text = opt.TcodDescName})
+                                            Next
+                                        End If
+                                    End Code
+                                    @Html.DropDownListFor(Function(m) m.CommercialReProjId,
+New SelectList(creProjectItems, "Value", "Text", Model?.CommercialReProjId),
+New With {.class = "form-control input-sm", .id = "commercialReProjId"})
+                                    <div class="field-error-message" id="commercialReProjId-error" role="alert"></div>
+                                </div>
+                            </div>
+
+
+                            <div Class="form-group form-group-sm">
+                                <Label Class="col-sm-5 control-label">CRE Type:</Label>
+                                <div Class="col-sm-7">
+                                    @code
+                                        Dim creTypeItems = New List(Of Object) From {New With {.Value = "", .Text = "SELECT"}}
+                                        If Model.CreTypeOptions IsNot Nothing Then
+                                            For Each opt In Model.CreTypeOptions
+                                                creTypeItems.Add(New With {.Value = opt.TcodId.ToString(), .Text = opt.TcodDescName})
+                                            Next
+                                        End If
+                                    End Code
+                                    @Html.DropDownListFor(Function(m) m.ReTypeId,
+New SelectList(creTypeItems, "Value", "Text", Model?.ReTypeId),
+New With {.class = "form-control input-sm", .id = "reTypeId"})
+                                    <div class="field-error-message" id="reTypeId-error" role="alert"></div>
+                                </div>
+                            </div>
+
+                        </div>
+
+                        <div Class="col-md-6">
+
+                            <div Class="form-group form-group-sm">
+                                <Label Class="col-sm-5 control-label">Project Goal:</Label>
+                                <div Class="col-sm-7">
+                                    @code
+                                        Dim creGoalItems = New List(Of Object) From {New With {.Value = "", .Text = "SELECT"}}
+                                        If Model.ProjectGoalOptions IsNot Nothing Then
+                                            For Each opt In Model.ProjectGoalOptions
+                                                creGoalItems.Add(New With {.Value = opt.TcodId.ToString(), .Text = opt.TcodDescName})
+                                            Next
+                                        End If
+                                    End Code
+                                    @Html.DropDownListFor(Function(m) m.GoalId,
+New SelectList(creGoalItems, "Value", "Text", Model?.GoalId),
+New With {.class = "form-control input-sm", .id = "goalId"})
+                                    <div class="field-error-message" id="goalId-error" role="alert"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+
+            <!-- Banking & Receiving Details Card- Only visible when if analysis from Guidance -->
+            @If Model.ReProjAgErID.HasValue Then
+                @<text>
+                <div Class="admin-card" id="bankerDetailsCard">
+                    <div Class="admin-card-header">
+                                        <h4 Class="admin-card-title">Banker details</h4>
+                    </div>
+                    <div Class="admin-card-body">
+                        <div Class="row">
+                            <div Class="col-md-6">
+                                <div Class="form-group form-group-sm">
+                                    <Label Class="col-sm-5 control-label">Receiving Date:</Label>
+                                    <div Class="col-sm-7">
+                                        @*<input type = "text" Class="form-control input-sm" id="receivingDate" ReadOnly>*@
+                                        @*@Html.TextBoxFor(Function(m) m.ReceivingDate, New With {.class = "form-control input-sm", .readonly = "readonly", .id = "receivingDate"})*@
+                                        @Html.TextBoxFor(Function(m) m.ReceivingDate, "{0:dd-MM-yyyy}", New With {.class = "form-control input-sm", .readonly = "readonly", .id = "receivingDate"})
+                                    </div>
+                                </div>
+
+                                <div Class="form-group form-group-sm">
+                                    <Label Class="col-sm-5 control-label">User Banker:</Label>
+                                    <div Class="col-sm-7">
+                                        @*<input type = "text" Class="form-control input-sm" id="userBanker" ReadOnly>*@
+                                        @Html.TextBoxFor(Function(m) m.UserBanker, New With {.class = "form-control input-sm", .readonly = "readonly", .id = "userBanker"})
+                                    </div>
+                                </div>
+                                <div Class="form-group form-group-sm">
+                                    <Label Class="col-sm-5 control-label">CI Banker:</Label>
+                                    <div Class="col-sm-7">
+                                        @*<input type = "text" Class="form-control input-sm" id="ciBanker" ReadOnly>*@
+                                        @Html.TextBoxFor(Function(m) m.CiBanker, New With {.class = "form-control input-sm", .readonly = "readonly", .id = "ciBanker"})
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div Class="col-md-6">
+
+                                <div Class="form-group form-group-sm">
+                                    <Label Class="col-sm-5 control-label">Region Banker:</Label>
+                                    <div Class="col-sm-7">
+                                        @*<input type="text" Class="form-control input-sm" id="regionBanker" ReadOnly>*@
+                                        @Html.TextBoxFor(Function(m) m.RegionBanker, New With {.class = "form-control input-sm", .readonly = "readonly", .id = "regionBanker"})
+                                    </div>
+                                </div>
+
+                                <div Class="form-group form-group-sm">
+                                    <Label Class="col-sm-5 control-label">CDC Central Rep ID:</Label>
+                                    <div Class="col-sm-7">
+                                        @*<input type = "text" Class="form-control input-sm" id="cdcCentralRepId" ReadOnly>*@
+                                        @Html.TextBoxFor(Function(m) m.CdcCentralRepId, New With {.class = "form-control input-sm", .readonly = "readonly", .id = "cdcCentralRepId"})
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div Class="admin-card" id="creAdvisorDetailsCard">
+                    <div Class="admin-card-header">
+                        <h4 Class="admin-card-title">CRE Advisor</h4>
+                    </div>
+                    <div Class="admin-card-body">
+                        <div Class="row">
+                            <div Class="col-md-6">
+                                <div Class="form-group form-group-sm">
+                                    <Label Class="col-sm-5 control-label">Distribution advice:</Label>
+                                    <div Class="col-sm-7">
+                                        @*<input type = "text" Class="form-control input-sm" id="userBanker" ReadOnly>*@
+                                        @*@Html.TextBoxFor(Function(m) m.DistributionAdvice, New With {.class = "form-control input-sm", .readonly = "readonly", .id = "distributionAdvice"})*@
+                                        @Html.TextBoxFor(Function(m) m.DistributionAdviceDisplayText, New With {.class = "form-control input-sm", .readonly = "readonly", .id = "distributionAdviceDisplayText"})
+                                        @Html.HiddenFor(Function(m) m.DistributionAdvice, New With {.id = "distributionAdvice"})
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div Class="col-md-6">
+                                <div Class="form-group form-group-sm">
+                                    <Label Class="col-sm-5 control-label">Distribution conditions:</Label>
+                                    <div Class="col-sm-7">
+                                        @*<input type="text" Class="form-control input-sm" id="regionBanker" ReadOnly>*@
+                                        @*@Html.TextBoxFor(Function(m) m.DistributionCondition, New With {.class = "form-control input-sm", .readonly = "readonly", .id = "distributionCondition"})*@
+                                        @Html.TextAreaFor(Function(m) m.DistributionCondition, 5, 0, New With {.class = "form-control input-sm", .readonly = "readonly", .id = "distributionCondition", .maxlength = "1000", .style = "resize:none;"})
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                </text>
+            End If
+        </form>
+
+        <!-- Admin tab action buttons -->
+        <div Class="admin-action-buttons">
+            <div Class="admin-action-left">
+                <Button type="button" Class="btn btn-primary analyze-btn analyze-btn-save-close" id="saveCloseBtn">
+                    <Span Class="glyphicon glyphicon-floppy-saved"></Span>Save And Close file
+                </Button>
+                <Button type="button" Class="btn btn-success analyze-btn analyze-btn-save" id="saveBtn">
+                    <Span Class="glyphicon glyphicon-floppy-disk"></Span>Save And Next
+                </Button>
+            </div>
+
+            <div Class="admin-action-right">
+                <Button type="button" Class="btn btn-default analyze-btn analyze-btn-cancel" id="cancelBtn">
+                    <Span Class="glyphicon glyphicon-remove"></Span>Cancel
+                </Button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@Html.HiddenFor(Function(m) m.ProjectStatusFlowId, New With {.id = "projectStatusFlowId"})
+@If Model.IsSuccess AndAlso Not String.IsNullOrEmpty(Model.Message) Then
+    @<div class="alert alert-danger" id="adminErrorMessage">
+        @Model.Message
+    </div>
+End If
+
+@If Model.IsSuccess AndAlso Not String.IsNullOrEmpty(Model.Message) Then
+    @<div class="alert alert-success" id="adminSuccessMessage">
+        @Model.Message
+    </div>
+End If
+
+
+<!-- Modal for cancel confirmation -->
+@Html.Partial("_CancelConfirmModal")
+<!-- Modal for leave confirmation -->
+@Html.Partial("_LeaveConfirmModal")
+
+<!-- Social housing Warning Modal -->
+<div class="modal fade" id="socialHousingWarningModal" tabindex="-1" role="dialog" aria-labelledby="socialHousingModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-sm" role="document">
+        <div class="modal-content">
+
+            <div class="modal-header">
+                <h4 class="modal-title" id="socialHousingModalLabel">
+                    <span class="glyphicon glyphicon-warning-sign" aria-hidden="true"></span>
+                    non supported request
+                </h4>
+            </div>
+
+            <div class="modal-body">
+                <p>ImmoTool is not required for this kind of project. Please, click 'Cancel' to leave the tool or select another 'CRE project'.</p>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" data-dismiss="modal">
+                    <span class="glyphicon glyphicon-ok" aria-hidden="true"></span> OK
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    window.adminTabAccess = '@ViewBag.Access';
+</script>
