@@ -1,1 +1,54 @@
 
+============================================================================
+' AnalysisPdfFieldModel.vb
+' Location suggestion: Models/AnalysisPdfFieldModel.vb
+'
+' One flat row = one field on the PDF. The RDLC Tablix groups these rows by
+' TabName, then SectionName, so adding a new field later is just adding a
+' row here â€” the .rdlc template itself never needs to be touched again.
+'
+' Field names below (TabName, SectionName, Label, Value, SortOrder) must
+' match exactly what you bind in the RDLC Tablix â€” see notes at the bottom.
+' ============================================================================
+
+Public Class AnalysisPdfFieldModel
+    Public Property TabName As String        ' "Admin", "Actor", "Project Asset", ...
+    Public Property SectionName As String     ' "Project Details", "User Details", ...
+    Public Property Label As String           ' "Project ID", "Project Name", ...
+    Public Property Value As String
+    Public Property SortOrder As Integer      ' controls row order within a section
+
+    Public Sub New(tabName As String, sectionName As String, label As String, value As String, sortOrder As Integer)
+        Me.TabName = tabName
+        Me.SectionName = sectionName
+        Me.Label = label
+        Me.Value = If(String.IsNullOrWhiteSpace(value), "-", value)
+        Me.SortOrder = sortOrder
+    End Sub
+End Class
+
+' ----------------------------------------------------------------------------
+' RDLC Tablix binding notes:
+'
+' 1. Add a Dataset to the report called "AnalysisFields" with these fields:
+'       TabName, SectionName, Label, Value
+'    (SortOrder is used only to order rows in code before passing the list in â€”
+'     it doesn't need to be a visible column, but add it to the dataset too so
+'     you can set it as a sort expression on the innermost group if needed.)
+'
+' 2. Insert a Tablix with 2 data columns: Label | Value
+'
+' 3. Row group 1 (outer): group by [TabName]
+'       - Add a group header row above the Label/Value header row
+'       - Merge its two cells, bind to =Fields!TabName.Value, bold, larger font
+'
+' 4. Row group 2 (inner): group by [SectionName]
+'       - Add a group header row, merged cells, bind to =Fields!SectionName.Value
+'       - Give it a background color (matches your admin-card-header style)
+'
+' 5. Detail row: two cells bound to =Fields!Label.Value and =Fields!Value.Value
+'
+' 6. Sort the dataset by TabName, then SectionName, then SortOrder â€” either in
+'    the Tablix's sort properties, or (simpler) just sort the List(Of
+'    AnalysisPdfFieldModel) in code before you pass it to the ReportDataSource.
+' ----------------------------------------------------------------------------
