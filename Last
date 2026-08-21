@@ -1,57 +1,63 @@
-Public Function GetAdminPdfFields(adminData As AdminTabViewModel) As List(Of AnalysisPdfFieldModel) Implements IAdminTabService.GetAdminPdfFields
+' GET: Analysis/GenerateAnalysisPdf
+<HttpGet>
+Public Async Function GenerateAnalysisPdf() As Task(Of ActionResult)
+    Dim sw = Stopwatch.StartNew()
+    Dim userName = Current_LoginUser
+    _logger.Information("GenerateAnalysisPdf - Request received | User: {User}", userName)
 
-    Dim rows As New List(Of AnalysisPdfFieldModel)()
-    Dim order As Integer = 0
-    Const tab As String = "Admin"
+    Try
+        Dim sessionValidation = validateSessionParameters()
+        If Not sessionValidation.IsValid Then
+            _logger.Warning("GenerateAnalysisPdf - Session invalid | User: {User} | Reason: {Reason}", userName, sessionValidation.Message)
+            Return New HttpStatusCodeResult(400, sessionValidation.Message)
+        End If
 
-    ' ProjectReferenceType is a String code, resolve to display text manually
-    Dim referenceTypeText As String = ""
-    If adminData.ReferenceTypeOptions IsNot Nothing AndAlso Not String.IsNullOrEmpty(adminData.ProjectReferenceType) Then
-        Dim match = adminData.ReferenceTypeOptions.FirstOrDefault(Function(x) x.TcodId.ToString() = adminData.ProjectReferenceType)
-        If match IsNot Nothing Then referenceTypeText = match.TcodDescName
-    End If
+        Dim projectId = sessionValidation.ProjectId
+        Dim projectStatusId = sessionValidation.ProjectStatusId
+        Dim projectFlowId = sessionValidation.ProjectFlowId
 
-    Dim creProjectText As String = TcodTypeHelper.GetDisplayText(adminData.CommercialReProjId, adminData.CreProjectOptions)
-    Dim creTypeText As String = TcodTypeHelper.GetDisplayText(adminData.ReTypeId, adminData.CreTypeOptions)
-    Dim goalText As String = TcodTypeHelper.GetDisplayText(adminData.GoalId, adminData.ProjectGoalOptions)
+        ' --- Admin tab only, for now ---
+        Dim adminData = Await _adminTabService.GetAdminDataAsync(projectId, projectStatusId, projectFlowId)
+        Dim allFields As List(Of AnalysisPdfFieldModel) = _adminTabService.GetAdminPdfFields(adminData)
 
-    ' ---- Project Details ----
-    Dim sec As String = "Project Details"
-    rows.Add(New AnalysisPdfFieldModel(tab, sec, "Project ID", adminData.ProjectId.ToString(), order)) : order += 1
-    rows.Add(New AnalysisPdfFieldModel(tab, sec, "Project Reference Type", referenceTypeText, order)) : order += 1
-    rows.Add(New AnalysisPdfFieldModel(tab, sec, "Project Status", adminData.ProjectStatusIdDisplyText, order)) : order += 1
-    rows.Add(New AnalysisPdfFieldModel(tab, sec, "Project Name", adminData.ProjectName, order)) : order += 1
-    rows.Add(New AnalysisPdfFieldModel(tab, sec, "File Ref Value", adminData.FileReferenceValue, order)) : order += 1
-    rows.Add(New AnalysisPdfFieldModel(tab, sec, "Status Date", If(adminData.StatusDate.HasValue, adminData.StatusDate.Value.ToString("dd-MM-yyyy"), ""), order)) : order += 1
+        If Not allFields.Any() Then
+            _logger.Warning("GenerateAnalysisPdf - No admin fields resolved | ProjectId: {ProjectId}", projectId)
+            Return New HttpStatusCodeResult(500, "No report data available.")
+        End If
 
-    ' ---- User Details ----
-    sec = "User Details"
-    rows.Add(New AnalysisPdfFieldModel(tab, sec, "User Initiator", adminData.UserCreator, order)) : order += 1
-    rows.Add(New AnalysisPdfFieldModel(tab, sec, "Initiate Date", If(adminData.CreationDate.HasValue, adminData.CreationDate.Value.ToString("dd-MM-yyyy"), ""), order)) : order += 1
-    rows.Add(New AnalysisPdfFieldModel(tab, sec, "Last User", adminData.LastUser, order)) : order += 1
-    rows.Add(New AnalysisPdfFieldModel(tab, sec, "Last Update Date", If(adminData.LastUpdateDate.HasValue, adminData.LastUpdateDate.Value.ToString("dd-MM-yyyy"), ""), order)) : order += 1
+        ' Render RDLC -> PDF bytes
+        Dim lrLocalReport As New LocalReport()
+        lrLocalReport.ReportPath = Server.MapPath("~/Reports/AnalysisReport.rdlc")
 
-    ' ---- CRE Details ----
-    sec = "CRE Details"
-    rows.Add(New AnalysisPdfFieldModel(tab, sec, "CRE Project", creProjectText, order)) : order += 1
-    rows.Add(New AnalysisPdfFieldModel(tab, sec, "CRE Type", creTypeText, order)) : order += 1
-    rows.Add(New AnalysisPdfFieldModel(tab, sec, "Project Goal", goalText, order)) : order += 1
+        Dim reportDataSource As New ReportDataSource("AnalysisFields", allFields)
+        lrLocalReport.DataSources.Add(reportDataSource)
 
-    ' ---- Bank Details (only if ReProjAgErID has a value, same rule as the view) ----
-    If adminData.ReProjAgErID.HasValue Then
-        sec = "Bank Details"
-        rows.Add(New AnalysisPdfFieldModel(tab, sec, "Receiving Date", If(adminData.ReceivingDate.HasValue, adminData.ReceivingDate.Value.ToString("dd-MM-yyyy"), ""), order)) : order += 1
-        rows.Add(New AnalysisPdfFieldModel(tab, sec, "User Banker", adminData.UserBanker, order)) : order += 1
-        rows.Add(New AnalysisPdfFieldModel(tab, sec, "CI Banker", adminData.CiBanker, order)) : order += 1
-        rows.Add(New AnalysisPdfFieldModel(tab, sec, "Region Banker", adminData.RegionBanker, order)) : order += 1
-        rows.Add(New AnalysisPdfFieldModel(tab, sec, "CDC Central Rep ID", adminData.CdcCentralRepId, order)) : order += 1
+        Dim deviceInfo As String =
+            "<DeviceInfo>" &
+            "<PageHeight>297mm</PageHeight>" &
+            "<PageWidth>210mm</PageWidth>" &
+            "<MarginTop>10mm</MarginTop>" &
+            "<MarginLeft>10mm</MarginLeft>" &
+            "<MarginRight>10mm</MarginRight>" &
+            "<MarginBottom>10mm</MarginBottom>" &
+            "</DeviceInfo>"
 
-        ' ---- CRE Advisor (same condition) ----
-        sec = "CRE Advisor"
-        rows.Add(New AnalysisPdfFieldModel(tab, sec, "Distribution Advice", adminData.DistributionAdviceDisplayText, order)) : order += 1
-        rows.Add(New AnalysisPdfFieldModel(tab, sec, "Distribution Conditions", adminData.DistributionCondition, order)) : order += 1
-    End If
+        Dim mimeType, encoding, extension As String
+        Dim streamIds As String()
+        Dim warnings As Warning()
 
-    Return rows
+        Dim pdfBytes As Byte() = lrLocalReport.Render("PDF", deviceInfo, mimeType, encoding, extension, streamIds, warnings)
 
+        sw.Stop()
+        _logger.Information("GenerateAnalysisPdf - Completed | User: {User} | ProjectId: {ProjectId} | FieldCount: {Count} | SizeBytes: {Size} | ElapsedMs: {ElapsedMs}ms",
+                            userName, projectId, allFields.Count, pdfBytes.Length, sw.ElapsedMilliseconds)
+
+        Dim fileName As String = $"Analysis_Project_{projectId}_{DateTime.Now:yyyyMMdd_HHmmss}.pdf"
+        Return File(pdfBytes, "application/pdf", fileName)
+
+    Catch ex As Exception
+        sw.Stop()
+        _logger.Error(ex, "GenerateAnalysisPdf - Unhandled exception | User: {User} | ElapsedMs: {ElapsedMs}ms", userName, sw.ElapsedMilliseconds)
+        Return New HttpStatusCodeResult(500, "Error generating PDF: " & ex.Message)
+    End Try
 End Function
