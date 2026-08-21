@@ -1,1 +1,75 @@
-e
+
+<HttpGet>
+Public Async Function GenerateAnalysisPdf() As Task(Of ActionResult)
+    Dim sw = Stopwatch.StartNew()
+    Dim userName = Current_LoginUser
+    _logger.Information("GenerateAnalysisPdf - Request received | User: {User}", userName)
+
+    Try
+        Dim sessionValidation = validateSessionParameters()
+        If Not sessionValidation.IsValid Then
+            _logger.Warning("GenerateAnalysisPdf - Session invalid | User: {User} | Reason: {Reason}", userName, sessionValidation.Message)
+            Return New HttpStatusCodeResult(400, sessionValidation.Message)
+        End If
+
+        Dim projectId = sessionValidation.ProjectId
+        Dim projectStatusId = sessionValidation.ProjectStatusId
+        Dim projectFlowId = sessionValidation.ProjectFlowId
+
+        ' --- Admin tab only, for now ---
+        Dim adminData = Await _adminTabService.GetAdminDataAsync(projectId, projectStatusId, projectFlowId)
+        Dim allFields As List(Of AnalysisPdfFieldModel) = _adminTabService.GetAdminPdfFields(adminData)
+
+        If Not allFields.Any() Then
+            _logger.Warning("GenerateAnalysisPdf - No admin fields resolved | ProjectId: {ProjectId}", projectId)
+            Return New HttpStatusCodeResult(500, "No report data available.")
+        End If
+
+        ' Render RDLC -> PDF bytes
+        Dim lrLocalReport As New LocalReport()
+        lrLocalReport.ReportPath = Server.MapPath("~/Report/AnalysisReport.rdlc")
+
+        Dim reportDataSource As New ReportDataSource("AnalysisFields", allFields)
+        lrLocalReport.DataSources.Add(reportDataSource)
+
+        Dim deviceInfo As String =
+            "<DeviceInfo>" &
+            "<PageHeight>297mm</PageHeight>" &
+            "<PageWidth>210mm</PageWidth>" &
+            "<MarginTop>10mm</MarginTop>" &
+            "<MarginLeft>10mm</MarginLeft>" &
+            "<MarginRight>10mm</MarginRight>" &
+            "<MarginBottom>10mm</MarginBottom>" &
+            "</DeviceInfo>"
+
+        Dim mimeType, encoding, extension As String
+        Dim streamIds As String()
+        Dim warnings As Warning()
+
+        Dim pdfBytes As Byte() = lrLocalReport.Render("PDF", deviceInfo, mimeType, encoding, extension, streamIds, warnings)
+
+        sw.Stop()
+        _logger.Information("GenerateAnalysisPdf - Completed | User: {User} | ProjectId: {ProjectId} | FieldCount: {Count} | SizeBytes: {Size} | ElapsedMs: {ElapsedMs}ms",
+                            userName, projectId, allFields.Count, pdfBytes.Length, sw.ElapsedMilliseconds)
+
+        Dim fileName As String = $"Analysis_Project_{projectId}_{DateTime.Now:yyyyMMdd_HHmmss}.pdf"
+        Return File(pdfBytes, "application/pdf", fileName)
+
+    Catch ex As Exception
+        sw.Stop()
+
+        ' Walk the full InnerException chain - the top-level message from
+        ' LocalReport is almost always a generic wrapper; the real cause is
+        ' buried several levels down.
+        Dim fullError As String = ex.Message
+        Dim innerEx = ex.InnerException
+        While innerEx IsNot Nothing
+            fullError &= " | Inner: " & innerEx.Message
+            innerEx = innerEx.InnerException
+        End While
+
+        _logger.Error(ex, "GenerateAnalysisPdf - Unhandled exception | User: {User} | ElapsedMs: {ElapsedMs}ms | FullError: {FullError}",
+                      userName, sw.ElapsedMilliseconds, fullError)
+        Return New HttpStatusCodeResult(500, "Error generating PDF: " & fullError)
+    End Try
+End Function
