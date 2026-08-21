@@ -1,54 +1,234 @@
-
-============================================================================
-' AnalysisPdfFieldModel.vb
-' Location suggestion: Models/AnalysisPdfFieldModel.vb
-'
-' One flat row = one field on the PDF. The RDLC Tablix groups these rows by
-' TabName, then SectionName, so adding a new field later is just adding a
-' row here â€” the .rdlc template itself never needs to be touched again.
-'
-' Field names below (TabName, SectionName, Label, Value, SortOrder) must
-' match exactly what you bind in the RDLC Tablix â€” see notes at the bottom.
-' ============================================================================
-
-Public Class AnalysisPdfFieldModel
-    Public Property TabName As String        ' "Admin", "Actor", "Project Asset", ...
-    Public Property SectionName As String     ' "Project Details", "User Details", ...
-    Public Property Label As String           ' "Project ID", "Project Name", ...
-    Public Property Value As String
-    Public Property SortOrder As Integer      ' controls row order within a section
-
-    Public Sub New(tabName As String, sectionName As String, label As String, value As String, sortOrder As Integer)
-        Me.TabName = tabName
-        Me.SectionName = sectionName
-        Me.Label = label
-        Me.Value = If(String.IsNullOrWhiteSpace(value), "-", value)
-        Me.SortOrder = sortOrder
-    End Sub
-End Class
-
-' ----------------------------------------------------------------------------
-' RDLC Tablix binding notes:
-'
-' 1. Add a Dataset to the report called "AnalysisFields" with these fields:
-'       TabName, SectionName, Label, Value
-'    (SortOrder is used only to order rows in code before passing the list in â€”
-'     it doesn't need to be a visible column, but add it to the dataset too so
-'     you can set it as a sort expression on the innermost group if needed.)
-'
-' 2. Insert a Tablix with 2 data columns: Label | Value
-'
-' 3. Row group 1 (outer): group by [TabName]
-'       - Add a group header row above the Label/Value header row
-'       - Merge its two cells, bind to =Fields!TabName.Value, bold, larger font
-'
-' 4. Row group 2 (inner): group by [SectionName]
-'       - Add a group header row, merged cells, bind to =Fields!SectionName.Value
-'       - Give it a background color (matches your admin-card-header style)
-'
-' 5. Detail row: two cells bound to =Fields!Label.Value and =Fields!Value.Value
-'
-' 6. Sort the dataset by TabName, then SectionName, then SortOrder â€” either in
-'    the Tablix's sort properties, or (simpler) just sort the List(Of
-'    AnalysisPdfFieldModel) in code before you pass it to the ReportDataSource.
-' ----------------------------------------------------------------------------
+<?xml  version="1.0" encoding="utf-8"?>
+<Report xmlns="http://schemas.microsoft.com/sqlserver/reporting/2008/01/reportdefinition" xmlns:rd="http://schemas.microsoft.com/SQLServer/reporting/reportdesigner">
+  <DataSources>
+    <DataSource Name="DataSource1">
+      <ConnectionProperties>
+        <DataProvider>System.Data.DataSet</DataProvider>
+        <ConnectString>/* Local Connection */</ConnectString>
+      </ConnectionProperties>
+      <rd:DataSourceID>a1111111-1111-1111-1111-111111111111</rd:DataSourceID>
+    </DataSource>
+  </DataSources>
+  <DataSets>
+    <DataSet Name="AnalysisFields">
+      <Fields>
+        <Field Name="TabName">
+          <DataField>TabName</DataField>
+          <rd:TypeName>System.String</rd:TypeName>
+        </Field>
+        <Field Name="SectionName">
+          <DataField>SectionName</DataField>
+          <rd:TypeName>System.String</rd:TypeName>
+        </Field>
+        <Field Name="Label">
+          <DataField>Label</DataField>
+          <rd:TypeName>System.String</rd:TypeName>
+        </Field>
+        <Field Name="Value">
+          <DataField>Value</DataField>
+          <rd:TypeName>System.String</rd:TypeName>
+        </Field>
+        <Field Name="SortOrder">
+          <DataField>SortOrder</DataField>
+          <rd:TypeName>System.Int32</rd:TypeName>
+        </Field>
+      </Fields>
+      <Query>
+        <DataSourceName>DataSource1</DataSourceName>
+        <CommandText></CommandText>
+      </Query>
+    </DataSet>
+  </DataSets>
+  <Body>
+    <ReportItems>
+      <Textbox Name="TitleTextbox">
+        <CanGrow>true</CanGrow>
+        <Height>0.3in</Height>
+        <Width>6.5in</Width>
+        <Value>Project Analysis Report</Value>
+        <Style>
+          <FontFamily>Segoe UI</FontFamily>
+          <FontSize>14pt</FontSize>
+          <FontWeight>Bold</FontWeight>
+        </Style>
+        <Top>0in</Top>
+        <Left>0in</Left>
+      </Textbox>
+      <Tablix Name="Tablix1">
+        <TablixBody>
+          <TablixColumns>
+            <TablixColumn>
+              <Width>2in</Width>
+            </TablixColumn>
+            <TablixColumn>
+              <Width>4.5in</Width>
+            </TablixColumn>
+          </TablixColumns>
+          <TablixRows>
+            <!-- Row 0: TabName group header, spans both columns -->
+            <TablixRow>
+              <Height>0.3in</Height>
+              <TablixCells>
+                <TablixCell>
+                  <CellContents>
+                    <Textbox Name="TabNameHeaderTextbox">
+                      <CanGrow>true</CanGrow>
+                      <Value>=Fields!TabName.Value</Value>
+                      <Style>
+                        <FontFamily>Segoe UI</FontFamily>
+                        <FontSize>12pt</FontSize>
+                        <FontWeight>Bold</FontWeight>
+                        <Color>White</Color>
+                        <BackgroundColor>#34495E</BackgroundColor>
+                        <PaddingLeft>4pt</PaddingLeft>
+                        <PaddingTop>2pt</PaddingTop>
+                        <PaddingBottom>2pt</PaddingBottom>
+                      </Style>
+                    </Textbox>
+                  </CellContents>
+                  <ColSpan>2</ColSpan>
+                </TablixCell>
+              </TablixCells>
+            </TablixRow>
+            <!-- Row 1: SectionName group header, spans both columns -->
+            <TablixRow>
+              <Height>0.25in</Height>
+              <TablixCells>
+                <TablixCell>
+                  <CellContents>
+                    <Textbox Name="SectionNameHeaderTextbox">
+                      <CanGrow>true</CanGrow>
+                      <Value>=Fields!SectionName.Value</Value>
+                      <Style>
+                        <FontFamily>Segoe UI</FontFamily>
+                        <FontSize>10pt</FontSize>
+                        <FontWeight>Bold</FontWeight>
+                        <Color>White</Color>
+                        <BackgroundColor>#5D6D7E</BackgroundColor>
+                        <PaddingLeft>4pt</PaddingLeft>
+                        <PaddingTop>2pt</PaddingTop>
+                        <PaddingBottom>2pt</PaddingBottom>
+                      </Style>
+                    </Textbox>
+                  </CellContents>
+                  <ColSpan>2</ColSpan>
+                </TablixCell>
+              </TablixCells>
+            </TablixRow>
+            <!-- Row 2: Detail row - Label | Value -->
+            <TablixRow>
+              <Height>0.2in</Height>
+              <TablixCells>
+                <TablixCell>
+                  <CellContents>
+                    <Textbox Name="LabelTextbox">
+                      <CanGrow>true</CanGrow>
+                      <Value>=Fields!Label.Value</Value>
+                      <Style>
+                        <FontFamily>Segoe UI</FontFamily>
+                        <FontSize>9pt</FontSize>
+                        <FontWeight>Bold</FontWeight>
+                        <BackgroundColor>#F5F5F5</BackgroundColor>
+                        <PaddingLeft>4pt</PaddingLeft>
+                        <Border>
+                          <Style>Solid</Style>
+                          <Color>LightGrey</Color>
+                          <Width>0.5pt</Width>
+                        </Border>
+                      </Style>
+                    </Textbox>
+                  </CellContents>
+                </TablixCell>
+                <TablixCell>
+                  <CellContents>
+                    <Textbox Name="ValueTextbox">
+                      <CanGrow>true</CanGrow>
+                      <Value>=Fields!Value.Value</Value>
+                      <Style>
+                        <FontFamily>Segoe UI</FontFamily>
+                        <FontSize>9pt</FontSize>
+                        <PaddingLeft>4pt</PaddingLeft>
+                        <Border>
+                          <Style>Solid</Style>
+                          <Color>LightGrey</Color>
+                          <Width>0.5pt</Width>
+                        </Border>
+                      </Style>
+                    </Textbox>
+                  </CellContents>
+                </TablixCell>
+              </TablixCells>
+            </TablixRow>
+          </TablixRows>
+        </TablixBody>
+        <TablixColumnHierarchy>
+          <TablixMembers>
+            <TablixMember />
+            <TablixMember />
+          </TablixMembers>
+        </TablixColumnHierarchy>
+        <TablixRowHierarchy>
+          <TablixMembers>
+            <!-- Level 0: TabName group -> maps to TablixRow 0 -->
+            <TablixMember>
+              <Group Name="TabNameGroup">
+                <GroupExpressions>
+                  <GroupExpression>=Fields!TabName.Value</GroupExpression>
+                </GroupExpressions>
+              </Group>
+              <SortExpressions>
+                <SortExpression>
+                  <Value>=Fields!TabName.Value</Value>
+                </SortExpression>
+              </SortExpressions>
+              <TablixMembers>
+                <!-- Level 1: SectionName group -> maps to TablixRow 1 -->
+                <TablixMember>
+                  <Group Name="SectionNameGroup">
+                    <GroupExpressions>
+                      <GroupExpression>=Fields!SectionName.Value</GroupExpression>
+                    </GroupExpressions>
+                  </Group>
+                  <SortExpressions>
+                    <SortExpression>
+                      <Value>=Fields!SectionName.Value</Value>
+                    </SortExpression>
+                  </SortExpressions>
+                  <TablixMembers>
+                    <!-- Level 2: Details (one row per field) -> maps to TablixRow 2 -->
+                    <TablixMember>
+                      <Group Name="Details" />
+                      <SortExpressions>
+                        <SortExpression>
+                          <Value>=Fields!SortOrder.Value</Value>
+                        </SortExpression>
+                      </SortExpressions>
+                    </TablixMember>
+                  </TablixMembers>
+                </TablixMember>
+              </TablixMembers>
+            </TablixMember>
+          </TablixMembers>
+        </TablixRowHierarchy>
+        <DataSetName>AnalysisFields</DataSetName>
+        <Top>0.4in</Top>
+        <Left>0in</Left>
+        <Height>0.75in</Height>
+        <Width>6.5in</Width>
+      </Tablix>
+    </ReportItems>
+    <Height>8in</Height>
+  </Body>
+  <Width>6.5in</Width>
+  <Page>
+    <PageHeight>11in</PageHeight>
+    <PageWidth>8.5in</PageWidth>
+    <LeftMargin>1in</LeftMargin>
+    <RightMargin>1in</RightMargin>
+    <TopMargin>1in</TopMargin>
+    <BottomMargin>1in</BottomMargin>
+    <ColumnSpacing>0in</ColumnSpacing>
+  </Page>
+  <rd:ReportUnitType>Inch</rd:ReportUnitType>
+  <rd:ReportID>b2222222-2222-2222-2222-222222222222</rd:ReportID>
+</Report>
