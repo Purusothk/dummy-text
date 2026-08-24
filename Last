@@ -1,1 +1,123 @@
-w
+============================================================================
+' 1) ADD to ICollateralTabService interface
+' ============================================================================
+'
+' Function GetCollateralPdfFields(wrapperList As List(Of CollateralDetailsWrapperViewModel)) As List(Of AnalysisPdfFieldModel)
+
+
+' ============================================================================
+' 2) ADD to CollateralTabService class
+' ============================================================================
+
+Public Function GetCollateralPdfFields(wrapperList As List(Of CollateralDetailsWrapperViewModel)) As List(Of AnalysisPdfFieldModel) Implements ICollateralTabService.GetCollateralPdfFields
+
+    Dim rows As New List(Of AnalysisPdfFieldModel)()
+    If wrapperList Is Nothing OrElse Not wrapperList.Any() Then Return rows
+
+    Const tab As String = "Collateral"
+    Dim itemIndex As Integer = 1
+
+    For Each wrapper In wrapperList
+
+        Dim c = wrapper?.COLLATERAL
+        If c Is Nothing Then
+            itemIndex += 1
+            Continue For
+        End If
+
+        Dim sectionPrefix As String = $"Item {itemIndex}"
+        Dim order As Integer = 0
+
+        ' ---- Real Estate ----
+        Dim sec As String = $"{sectionPrefix} - Real Estate"
+        rows.Add(New AnalysisPdfFieldModel(tab, sec, "RE Collateral Owner", c.RE_CLTL_COLLATERAL_OWNER_NM, order)) : order += 1
+        rows.Add(New AnalysisPdfFieldModel(tab, sec, "Pari Passu / Full Rights", c.PariPassuDisplayValue, order)) : order += 1
+        rows.Add(New AnalysisPdfFieldModel(tab, sec, "Nature", c.NatureDisplayValue, order)) : order += 1
+        rows.Add(New AnalysisPdfFieldModel(tab, sec, "Attribute", c.AttributeDisplayValue, order)) : order += 1
+        rows.Add(New AnalysisPdfFieldModel(tab, sec, "Street", c.RE_CLTL_STREET_NM, order)) : order += 1
+        rows.Add(New AnalysisPdfFieldModel(tab, sec, "Street Number", c.RE_CLTL_STREETNR_NM, order)) : order += 1
+        rows.Add(New AnalysisPdfFieldModel(tab, sec, "Postal Code", c.RE_CLTL_POSTALCODE_ID, order)) : order += 1
+        rows.Add(New AnalysisPdfFieldModel(tab, sec, "City", c.RE_CLTL_CITY_NM, order)) : order += 1
+        rows.Add(New AnalysisPdfFieldModel(tab, sec, "Location", c.ProjectLocationDisplayValue, order)) : order += 1
+
+        ' ---- Valuation Before Expertise ----
+        sec = $"{sectionPrefix} - Valuation Before Expertise"
+        rows.Add(New AnalysisPdfFieldModel(tab, sec, "Market value (deduced)", FormatAmount(c.RE_CLTL_MARKET_VALUE_AM), order)) : order += 1
+        rows.Add(New AnalysisPdfFieldModel(tab, sec, "Forced Sale (computed)", FormatAmount(c.RE_CLTL_FORCED_SALE_VALUE_AM), order)) : order += 1
+
+        ' ---- Valuation After Expertise ----
+        sec = $"{sectionPrefix} - Valuation After Expertise"
+        rows.Add(New AnalysisPdfFieldModel(tab, sec, "Expertise Methodology", c.ExpertiseMethodologyDisplayValue, order)) : order += 1
+        rows.Add(New AnalysisPdfFieldModel(tab, sec, "Expertise Methodology Conformity", c.ExpertiseMethodologyConformityDisplayValue, order)) : order += 1
+        rows.Add(New AnalysisPdfFieldModel(tab, sec, "Market value", FormatAmount(c.RE_CLTL_MARKET_VALUE_EXPERT_AM), order)) : order += 1
+        rows.Add(New AnalysisPdfFieldModel(tab, sec, "Forced sale", FormatAmount(c.RE_CLTL_FORCED_SALE_VALUE_EXPERT_AM), order)) : order += 1
+
+        ' ---- Registration (Current Rank) ----
+        sec = $"{sectionPrefix} - Registration (Current Rank)"
+        rows.Add(New AnalysisPdfFieldModel(tab, sec, "OFI", FormatAmount(c.RE_CLTL_OFI_CURRENT_RANK_AM), order)) : order += 1
+        rows.Add(New AnalysisPdfFieldModel(tab, sec, "Belfius", FormatAmount(c.RE_CLTL_BELFIUS_CURRENT_RANK_AM), order)) : order += 1
+        rows.Add(New AnalysisPdfFieldModel(tab, sec, "Outstanding Credit Belfius", FormatAmount(c.RE_CLTL_OUTSTANDING_AM), order)) : order += 1
+
+        ' ---- Registration (New) ----
+        ' NOTE: model has both RE_CLTL_MORTGAGE_..._AM and RE_CLTL_MORTGAGE_..._AFTER_AM pairs
+        ' with no distinguishing comment. Mapped by best fit against the 5 UI rows across
+        ' this section + Basel II below - verify against real data once tested.
+        sec = $"{sectionPrefix} - Registration (New)"
+        rows.Add(New AnalysisPdfFieldModel(tab, sec, "Mortgage", FormatAmount(c.RE_CLTL_MORTGAGE_REGISTRATION_AM), order)) : order += 1
+        rows.Add(New AnalysisPdfFieldModel(tab, sec, "Mortgage Mandate", FormatAmount(c.RE_CLTL_MORTGAGE_MANDATE_AM), order)) : order += 1
+
+        ' ---- Basel II ----
+        sec = $"{sectionPrefix} - Basel II"
+        rows.Add(New AnalysisPdfFieldModel(tab, sec, "Mortgage", FormatAmount(c.RE_CLTL_MORTGAGE_REGISTRATION_AFTER_AM), order)) : order += 1
+        rows.Add(New AnalysisPdfFieldModel(tab, sec, "Mortgage Mandate", FormatAmount(c.RE_CLTL_MORTGAGE_MANDATE_AFTER_AM), order)) : order += 1
+        rows.Add(New AnalysisPdfFieldModel(tab, sec, "Building", FormatAmount(c.RE_CLTL_BUILDING_AM), order)) : order += 1
+
+        ' ---- Coverage Details ----
+        sec = $"{sectionPrefix} - Coverage Details"
+        rows.Add(New AnalysisPdfFieldModel(tab, sec, "Total Credit Exposure (Before)", FormatAmount(c.RE_CLOT_TOTAL_CREDIT_EXPOSURE_CURR_AM), order)) : order += 1
+        rows.Add(New AnalysisPdfFieldModel(tab, sec, "Basel II Value (Before)", FormatAmount(c.RE_CLOT_BASELII_VALUE_CURR_AM), order)) : order += 1
+        rows.Add(New AnalysisPdfFieldModel(tab, sec, "Basel II Value (Other, New)", FormatAmount(c.RE_CLOT_BASELII_VALUE_NEW_AM), order)) : order += 1
+        rows.Add(New AnalysisPdfFieldModel(tab, sec, "Total Belfius Credit (New)", FormatAmount(c.RE_CRED_BELFIUS_CREDIT_AM), order)) : order += 1
+
+        ' ---- Notary ----
+        sec = $"{sectionPrefix} - Notary"
+        rows.Add(New AnalysisPdfFieldModel(tab, sec, "Notary Actor ID", c.RE_PROJ_NOTARY_ACTOR_ID, order)) : order += 1
+
+        ' ---- Other Collaterals ----
+        sec = $"{sectionPrefix} - Other Collaterals"
+        rows.Add(New AnalysisPdfFieldModel(tab, sec, "Joint and Personal Surety", FormatAmount(c.RE_CLOT_JOINT_PERSONAL_SURETY_AM), order)) : order += 1
+        rows.Add(New AnalysisPdfFieldModel(tab, sec, "Saving/Term Acc", FormatAmount(c.RE_CLOT_SAVING_TERM_ACCOUNTS_AM), order)) : order += 1
+        rows.Add(New AnalysisPdfFieldModel(tab, sec, "Saving/Term Acc Owner", c.RE_CLOT_SAVING_TERM_ACCOUNTS_OWNER_NM, order)) : order += 1
+        rows.Add(New AnalysisPdfFieldModel(tab, sec, "Securities Acc", FormatAmount(c.RE_CLOT_SECURITIES_ACCOUNTS_AM), order)) : order += 1
+        rows.Add(New AnalysisPdfFieldModel(tab, sec, "Securities Acc Owner", c.RE_CLOT_SECURITIES_ACCOUNTS_OWNER_NM, order)) : order += 1
+        rows.Add(New AnalysisPdfFieldModel(tab, sec, "Insurance", FormatAmount(c.RE_CLOT_INSURANCE_AM), order)) : order += 1
+        rows.Add(New AnalysisPdfFieldModel(tab, sec, "Insurance Owner", c.RE_CLOT_INSURANCE_OWNER_NM, order)) : order += 1
+        rows.Add(New AnalysisPdfFieldModel(tab, sec, "Additional Contribution", FormatAmount(c.RE_CLOT_ADDITIONAL_CONTRIBUTION_AM), order)) : order += 1
+        rows.Add(New AnalysisPdfFieldModel(tab, sec, "Cash Deficiency", FormatYesNo(c.RE_CLOT_CASH_DEFICIENCY_SW), order)) : order += 1
+        rows.Add(New AnalysisPdfFieldModel(tab, sec, "Cost Overrun", FormatYesNo(c.RE_CLOT_COST_OVERRUN_SW), order)) : order += 1
+        rows.Add(New AnalysisPdfFieldModel(tab, sec, "Environment Permit", FormatYesNo(c.RE_CLOT_ENVIRONMENT_PERMIT_SW), order)) : order += 1
+
+        itemIndex += 1
+
+    Next
+
+    Return rows
+
+End Function
+
+' ---- Helpers (add as Private functions in the same class) ----
+
+Private Function FormatAmount(value As Decimal?) As String
+    If Not value.HasValue Then Return ""
+    Return value.Value.ToString("N2")
+End Function
+
+Private Function FormatAmount(value As Integer?) As String
+    If Not value.HasValue Then Return ""
+    Return value.Value.ToString("N0")
+End Function
+
+Private Function FormatYesNo(value As Integer?) As String
+    If Not value.HasValue Then Return ""
+    Return If(value.Value = 1, "Yes", "No")
+End Function
