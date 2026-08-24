@@ -1,46 +1,32 @@
-2026-08-21 15:04:25.654 [ERR] IMMO_Sample.Controllers.AnalysisController
-Message: GenerateAnalysisPdf - Unhandled exception | User: NKNAMP | ElapsedMs: 1696ms | FullError: An error occurred during local report processing. | Inner: The definition of the report 'R:\Repo\belfius.qrer.site.versioning\IMMO_Sample\Report\AnalysisReport.rdlc' is invalid. | Inner: The definition of this report is not valid or supported by this version of Reporting Services. The report definition may have been created with a later version of Reporting Services, or contain content that is not well-formed or not valid based on Reporting Services schemas. Details: Deserialization failed: The element 'Textbox' in namespace 'http://schemas.microsoft.com/sqlserver/reporting/2008/01/reportdefinition' has invalid child element 'Value' in namespace 'http://schemas.microsoft.com/sqlserver/reporting/2008/01/reportdefinition'. List of possible elements expected: 'Style, ActionInfo, Top, Left, Height, Width, ZIndex, Visibility, ToolTip, DocumentMapLabel, Bookmark, RepeatWith, CustomProperties, Paragraphs, CanGrow, CanShrink, HideDuplicates, ToggleImage, UserSort, KeepTogether, DataElementName, DataElementOutput, DataElementStyle' in namespace 'http://schemas.microsoft.com/sqlserver/reporting/2008/01/reportdefinition' as well as any element in namespace '##other'. Line 48, position 10.
-Microsoft.Reporting.WinForms.LocalProcessingException: An error occurred during local report processing. ---> Microsoft.Reporting.DefinitionInvalidException: The definition of the report 'R:\Repo\belfius.qrer.site.versioning\IMMO_Sample\Report\AnalysisReport.rdlc' is invalid. ---> Microsoft.ReportingServices.ReportProcessing.ReportProcessingException: The definition of this report is not valid or supported by this version of Reporting Services. The report definition may have been created with a later version of Reporting Services, or contain content that is not well-formed or not valid based on Reporting Services schemas. Details: Deserialization failed: The element 'Textbox' in namespace 'http://schemas.microsoft.com/sqlserver/reporting/2008/01/reportdefinition' has invalid child element 'Value' in namespace 'http://schemas.microsoft.com/sqlserver/reporting/2008/01/reportdefinition'. List of possible elements expected: 'Style, ActionInfo, Top, Left, Height, Width, ZIndex, Visibility, ToolTip, DocumentMapLabel, Bookmark, RepeatWith, CustomProperties, Paragraphs, CanGrow, CanShrink, HideDuplicates, ToggleImage, UserSort, KeepTogether, DataElementName, DataElementOutput, DataElementStyle' in namespace 'http://schemas.microsoft.com/sqlserver/reporting/2008/01/reportdefinition' as well as any element in namespace '##other'. Line 48, position 10.
-   at Microsoft.ReportingServices.ReportPublishing.ReportPublishing.CreateInvalidReportDefinitionException(Exception e)
-   at Microsoft.ReportingServices.ReportPublishing.ReportPublishing.Phase1(Stream definitionStream, String& description, String& language, DataSourceInfoCollection& dataSources, DataSetInfoCollection& sharedDataSetReferences, Boolean& hasExternalImages, Boolean& hasHyperlinks)
-   at Microsoft.ReportingServices.ReportPublishing.ReportPublishing.InternalCreateIntermediateFormat(Stream definitionStream, String& description, String& language, ParameterInfoCollection& parameters, DataSourceInfoCollection& dataSources, DataSetInfoCollection& sharedDataSetReferences, UserLocationFlags& userReferenceLocation, ArrayList& dataSetsName, Boolean& hasExternalImages, Boolean& hasHyperlinks, Byte[]& dataSetsHash)
-   at Microsoft.ReportingServices.ReportProcessing.ReportProcessing.CompileOdpReport(PublishingContext reportPublishingContext, PublishingErrorContext errorContext, String& reportDescription, String& reportLanguage, ParameterInfoCollection& parameters, DataSourceInfoCollection& dataSources, DataSetInfoCollection& sharedDataSetReferences, UserLocationFlags& userReferenceLocation, ArrayList& dataSetsName, Boolean& hasExternalImages, Boolean& hasHyperlinks, Byte[]& dataSetsHash)
-   at Microsoft.ReportingServices.ReportProcessing.ReportProcessing.CreateIntermediateFormat(PublishingContext reportPublishingContext)
-   at Microsoft.Reporting.ReportCompiler.CompileReport(ICatalogItemContext context, Byte[] reportDefinition, Boolean generateExpressionHostWithRefusedPermissions, ControlSnapshot& snapshot)
-   --- End of inner exception stack trace ---
-   at Microsoft.Reporting.ReportCompiler.CompileReport(ICatalogItemContext context, Byte[] reportDefinition, Boolean generateExpressionHostWithRefusedPermissions, ControlSnapshot& snapshot)
-   at Microsoft.Reporting.LocalService.GetCompiledReport(PreviewItemContext itemContext, Boolean rebuild, ControlSnapshot& snapshot)
-   at Microsoft.Reporting.LocalService.CompileReport()
-   at Microsoft.Reporting.WinForms.LocalReport.EnsureExecutionSession()
-   --- End of inner exception stack trace ---
-   at Microsoft.Reporting.WinForms.LocalReport.EnsureExecutionSession()
-   at Microsoft.Reporting.WinForms.LocalReport.InternalRender(String format, Boolean allowInternalRenderers, String deviceInfo, PageCountMode pageCountMode, CreateAndRegisterStream createStreamCallback, Warning[]& warnings)
-   at Microsoft.Reporting.WinForms.LocalReport.InternalRender(String format, Boolean allowInternalRenderers, String deviceInfo, PageCountMode pageCountMode, String& mimeType, String& encoding, String& fileNameExtension, String[]& streams, Warning[]& warnings)
-   at Microsoft.Reporting.WinForms.LocalReport.Render(String format, String deviceInfo, PageCountMode pageCountMode, String& mimeType, String& encoding, String& fileNameExtension, String[]& streams, Warning[]& warnings)
-   at Microsoft.Reporting.WinForms.Report.Render(String format, String deviceInfo, String& mimeType, String& encoding, String& fileNameExtension, String[]& streams, Warning[]& warnings)
-   at IMMO_Sample.Controllers.AnalysisController.VB$StateMachine_18_GenerateAnalysisPdf.MoveNext() in R:\Repo\belfius.qrer.site.versioning\IMMO_Sample\Controllers\AnalysisController.vb:line 417
+// Inside updateProjectCostsTable, after the fields.forEach(...) loop that builds labels/inputs:
 
----
-2026-08-21 15:04:25.729 [ERR] 
-Message: Unhandled exception - URL: https://localhost:44377/Analysis/GenerateAnalysisPdf, Method: GET
-System.ArgumentOutOfRangeException: Specified argument was out of the range of valid values.
-Parameter name: value
-   at System.Web.HttpResponse.set_StatusDescription(String value)
-   at System.Web.Mvc.HttpStatusCodeResult.ExecuteResult(ControllerContext context)
-   at System.Web.Mvc.ControllerActionInvoker.InvokeActionResultFilterRecursive(IList`1 filters, Int32 filterIndex, ResultExecutingContext preContext, ControllerContext controllerContext, ActionResult actionResult)
-   at System.Web.Mvc.ControllerActionInvoker.InvokeActionResultFilterRecursive(IList`1 filters, Int32 filterIndex, ResultExecutingContext preContext, ControllerContext controllerContext, ActionResult actionResult)
-   at System.Web.Mvc.ControllerActionInvoker.InvokeActionResultWithFilters(ControllerContext controllerContext, IList`1 filters, ActionResult actionResult)
-   at System.Web.Mvc.Async.AsyncControllerActionInvoker.<>c__DisplayClass3_1.<BeginInvokeAction>b__1(IAsyncResult asyncResult)
-   at System.Web.Mvc.Async.AsyncControllerActionInvoker.EndInvokeAction(IAsyncResult asyncResult)
-   at System.Web.Mvc.Controller.<>c.<BeginExecuteCore>b__152_1(IAsyncResult asyncResult, ExecuteCoreState innerState)
-   at System.Web.Mvc.Async.AsyncResultWrapper.WrappedAsyncVoid`1.CallEndDelegate(IAsyncResult asyncResult)
-   at System.Web.Mvc.Controller.EndExecuteCore(IAsyncResult asyncResult)
-   at System.Web.Mvc.Async.AsyncResultWrapper.WrappedAsyncVoid`1.CallEndDelegate(IAsyncResult asyncResult)
-   at System.Web.Mvc.Controller.EndExecute(IAsyncResult asyncResult)
-   at System.Web.Mvc.MvcHandler.<>c.<BeginProcessRequest>b__20_1(IAsyncResult asyncResult, ProcessRequestState innerState)
-   at System.Web.Mvc.Async.AsyncResultWrapper.WrappedAsyncVoid`1.CallEndDelegate(IAsyncResult asyncResult)
-   at System.Web.Mvc.MvcHandler.EndProcessRequest(IAsyncResult asyncResult)
-   at System.Web.HttpApplication.CallHandlerExecutionStep.InvokeEndHandler(IAsyncResult ar)
-   at System.Web.HttpApplication.CallHandlerExecutionStep.OnAsyncHandlerCompletion(IAsyncResult ar)
+// Reinitialize the FormattedNumberInput class for the dynamically generated fields
+new FormattedNumberInput('.formatted-number');
 
----
+// Add event listeners to recalculate the sum whenever an input changes
+$('.project-cost-input').on('change', calculateTotalSum);
+
+// Re-apply mandatory field coloring based on role, since labels were just rebuilt
+applyMandatoryCostLabelColor();
+
+
+
+
+
+
+
+
+
+
+function applyMandatoryCostLabelColor() {
+    // Adjust window.userRole / window.projectCreditAccess to match however
+    // your app exposes the CRE Expert role — update the condition below
+    var isCreExpert = (window.userRole === 'CRE_EXPERT');
+
+    $('.mandatory-cost-label').css('color', isCreExpert ? 'red' : 'black');
+}
+
+
+
+
+
