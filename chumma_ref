@@ -1,86 +1,3 @@
-============================================================================
-' 1) ADD to IAdminTabService interface (Services/AdminTabService.vb)
-' ============================================================================
-'
-' Function GetAdminPdfFields(adminData As AdminTabViewModel) As List(Of AnalysisPdfFieldModel)
-
-
-' ============================================================================
-' 2) ADD to AdminTabService class
-'    (This is the RDLC version of the mapping â€” same field list as before,
-'    just flattened into rows instead of nested sections.)
-' ============================================================================
-
-Public Function GetAdminPdfFields(adminData As AdminTabViewModel) As List(Of AnalysisPdfFieldModel) Implements IAdminTabService.GetAdminPdfFields
-
-    Dim rows As New List(Of AnalysisPdfFieldModel)()
-    Dim order As Integer = 0
-    Const tab As String = "Admin"
-
-    ' ProjectReferenceType is a String code, resolve to display text manually
-    Dim referenceTypeText As String = ""
-    If adminData.ReferenceTypeOptions IsNot Nothing AndAlso Not String.IsNullOrEmpty(adminData.ProjectReferenceType) Then
-        Dim match = adminData.ReferenceTypeOptions.FirstOrDefault(Function(x) x.TcodId.ToString() = adminData.ProjectReferenceType)
-        If match IsNot Nothing Then referenceTypeText = match.TcodDescName
-    End If
-
-    Dim creProjectText As String = TcodTypeHelper.GetDisplayText(adminData.CommercialReProjId, adminData.CreProjectOptions)
-    Dim creTypeText As String = TcodTypeHelper.GetDisplayText(adminData.ReTypeId, adminData.CreTypeOptions)
-    Dim goalText As String = TcodTypeHelper.GetDisplayText(adminData.GoalId, adminData.ProjectGoalOptions)
-
-    ' ---- Project Details ----
-    Dim sec As String = "Project Details"
-    rows.Add(New AnalysisPdfFieldModel(tab, sec, "Project ID", adminData.ProjectId.ToString(), order)) : order += 1
-    rows.Add(New AnalysisPdfFieldModel(tab, sec, "Project Reference Type", referenceTypeText, order)) : order += 1
-    rows.Add(New AnalysisPdfFieldModel(tab, sec, "Project Status", adminData.ProjectStatusIdDisplyText, order)) : order += 1
-    rows.Add(New AnalysisPdfFieldModel(tab, sec, "Project Name", adminData.ProjectName, order)) : order += 1
-    rows.Add(New AnalysisPdfFieldModel(tab, sec, "File Ref Value", adminData.FileReferenceValue, order)) : order += 1
-    rows.Add(New AnalysisPdfFieldModel(tab, sec, "Status Date", If(adminData.StatusDate.HasValue, adminData.StatusDate.Value.ToString("dd-MM-yyyy"), ""), order)) : order += 1
-
-    ' ---- User Details ----
-    sec = "User Details"
-    rows.Add(New AnalysisPdfFieldModel(tab, sec, "User Initiator", adminData.UserCreator, order)) : order += 1
-    rows.Add(New AnalysisPdfFieldModel(tab, sec, "Initiate Date", If(adminData.CreationDate.HasValue, adminData.CreationDate.Value.ToString("dd-MM-yyyy"), ""), order)) : order += 1
-    rows.Add(New AnalysisPdfFieldModel(tab, sec, "Last User", adminData.LastUser, order)) : order += 1
-    rows.Add(New AnalysisPdfFieldModel(tab, sec, "Last Update Date", If(adminData.LastUpdateDate.HasValue, adminData.LastUpdateDate.Value.ToString("dd-MM-yyyy"), ""), order)) : order += 1
-
-    ' ---- CRE Details ----
-    sec = "CRE Details"
-    rows.Add(New AnalysisPdfFieldModel(tab, sec, "CRE Project", creProjectText, order)) : order += 1
-    rows.Add(New AnalysisPdfFieldModel(tab, sec, "CRE Type", creTypeText, order)) : order += 1
-    rows.Add(New AnalysisPdfFieldModel(tab, sec, "Project Goal", goalText, order)) : order += 1
-
-    ' ---- Bank Details (only if ReProjAgErID has a value, same rule as the view) ----
-    ' NOTE: section title renamed from "Banker Details" to "Bank Details" to match
-    ' the business-provided PDF mockup label exactly.
-    If adminData.ReProjAgErID.HasValue Then
-        sec = "Bank Details"
-        rows.Add(New AnalysisPdfFieldModel(tab, sec, "Receiving Date", If(adminData.ReceivingDate.HasValue, adminData.ReceivingDate.Value.ToString("dd-MM-yyyy"), ""), order)) : order += 1
-        rows.Add(New AnalysisPdfFieldModel(tab, sec, "User Banker", adminData.UserBanker, order)) : order += 1
-        rows.Add(New AnalysisPdfFieldModel(tab, sec, "CI Banker", adminData.CiBanker, order)) : order += 1
-        rows.Add(New AnalysisPdfFieldModel(tab, sec, "Region Banker", adminData.RegionBanker, order)) : order += 1
-        rows.Add(New AnalysisPdfFieldModel(tab, sec, "CDC Central Rep ID", adminData.CdcCentralRepId, order)) : order += 1
-
-        ' ---- CRE Advisor (same condition) ----
-        sec = "CRE Advisor"
-        rows.Add(New AnalysisPdfFieldModel(tab, sec, "Distribution Advice", adminData.DistributionAdviceDisplayText, order)) : order += 1
-        rows.Add(New AnalysisPdfFieldModel(tab, sec, "Distribution Conditions", adminData.DistributionCondition, order)) : order += 1
-    End If
-
-    Return rows
-
-End Function
-
-
-' ============================================================================
-' 3) ADD to AnalysisController.vb â€” renders the RDLC using LocalReport,
-'    same Render("PDF") pattern as QRFI's RenderPdf, adapted for MVC (bytes
-'    returned as a FileResult instead of written to disk).
-' ============================================================================
-
-Imports Microsoft.Reporting.WebForms   ' NOT WinForms â€” this is the MVC-compatible one
-
-' GET: Analysis/GenerateAnalysisPdf
 <HttpGet>
 Public Async Function GenerateAnalysisPdf() As Task(Of ActionResult)
     Dim sw = Stopwatch.StartNew()
@@ -111,20 +28,20 @@ Public Async Function GenerateAnalysisPdf() As Task(Of ActionResult)
 
         ' Render RDLC -> PDF bytes
         Dim lrLocalReport As New LocalReport()
-        lrLocalReport.ReportPath = Server.MapPath("~/Reports/AnalysisReport.rdlc")  ' adjust path to wherever you put the .rdlc
+        lrLocalReport.ReportPath = Server.MapPath("~/Report/AnalysisReport.rdlc")  ' adjust path to wherever you put the .rdlc
 
         Dim reportDataSource As New ReportDataSource("AnalysisFields", allFields)
         lrLocalReport.DataSources.Add(reportDataSource)
 
         Dim deviceInfo As String =
-            "<DeviceInfo>" &
-            "<PageHeight>297mm</PageHeight>" &
-            "<PageWidth>210mm</PageWidth>" &
-            "<MarginTop>10mm</MarginTop>" &
-            "<MarginLeft>10mm</MarginLeft>" &
-            "<MarginRight>10mm</MarginRight>" &
-            "<MarginBottom>10mm</MarginBottom>" &
-            "</DeviceInfo>"
+    "<DeviceInfo>" &
+    "<PageHeight>297mm</PageHeight>" &
+    "<PageWidth>210mm</PageWidth>" &
+    "<MarginTop>10mm</MarginTop>" &
+    "<MarginLeft>10mm</MarginLeft>" &
+    "<MarginRight>10mm</MarginRight>" &
+    "<MarginBottom>10mm</MarginBottom>" &
+    "</DeviceInfo>"
 
         Dim mimeType, encoding, extension As String
         Dim streamIds As String()
@@ -134,7 +51,7 @@ Public Async Function GenerateAnalysisPdf() As Task(Of ActionResult)
 
         sw.Stop()
         _logger.Information("GenerateAnalysisPdf - Completed | User: {User} | ProjectId: {ProjectId} | SizeBytes: {Size} | ElapsedMs: {ElapsedMs}ms",
-                            userName, projectId, pdfBytes.Length, sw.ElapsedMilliseconds)
+                    userName, projectId, pdfBytes.Length, sw.ElapsedMilliseconds)
 
         Dim fileName As String = $"Analysis_Project_{projectId}_{DateTime.Now:yyyyMMdd_HHmmss}.pdf"
         Return File(pdfBytes, "application/pdf", fileName)
@@ -145,18 +62,3 @@ Public Async Function GenerateAnalysisPdf() As Task(Of ActionResult)
         Return New HttpStatusCodeResult(500, "Error generating PDF: " & ex.Message)
     End Try
 End Function
-
-
-' ============================================================================
-' 4) ADD to _guidanceTab.vbhtml
-' ============================================================================
-
-' HTML:
-' <Button type="button" Class="btn btn-info analyze-btn" id="generatePdfBtn">
-'     <Span Class="glyphicon glyphicon-file"></Span>Generate PDF
-' </Button>
-
-' JS:
-' document.getElementById('generatePdfBtn').addEventListener('click', function () {
-'     window.location.href = '/Analysis/GenerateAnalysisPdf';
-' });
