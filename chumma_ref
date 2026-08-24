@@ -1,75 +1,162 @@
-Imports System.Reflection
+============================================================================
+' 1) ADD to IAdminTabService interface (Services/AdminTabService.vb)
+' ============================================================================
+'
+' Function GetAdminPdfFields(adminData As AdminTabViewModel) As List(Of AnalysisPdfFieldModel)
 
-Public Class PdfFieldReflectionHelper
 
-    ' Properties that show up on nearly every tab ViewModel but aren't real
-    ' report data - status/plumbing fields, always excluded.
-    Private Shared ReadOnly DefaultExcludedProperties As New HashSet(Of String)(StringComparer.OrdinalIgnoreCase) From {
-        "IsSuccess", "Message", "IsDirty"
-    }
+' ============================================================================
+' 2) ADD to AdminTabService class
+'    (This is the RDLC version of the mapping â€” same field list as before,
+'    just flattened into rows instead of nested sections.)
+' ============================================================================
 
-    ''' <summary>
-    ''' Converts any object's public simple-typed properties into a flat list
-    ''' of AnalysisPdfFieldModel rows for the given tab/section.
-    ''' </summary>
-    Public Shared Function GetAutoPdfFields(tabName As String, sectionName As String, obj As Object, Optional additionalExcludes As IEnumerable(Of String) = Nothing) As List(Of AnalysisPdfFieldModel)
+Public Function GetAdminPdfFields(adminData As AdminTabViewModel) As List(Of AnalysisPdfFieldModel) Implements IAdminTabService.GetAdminPdfFields
 
-        Dim rows As New List(Of AnalysisPdfFieldModel)()
-        If obj Is Nothing Then Return rows
+    Dim rows As New List(Of AnalysisPdfFieldModel)()
+    Dim order As Integer = 0
+    Const tab As String = "Admin"
 
-        Dim excludeSet As New HashSet(Of String)(DefaultExcludedProperties, StringComparer.OrdinalIgnoreCase)
-        If additionalExcludes IsNot Nothing Then
-            For Each ex In additionalExcludes
-                excludeSet.Add(ex)
-            Next
+    ' ProjectReferenceType is a String code, resolve to display text manually
+    Dim referenceTypeText As String = ""
+    If adminData.ReferenceTypeOptions IsNot Nothing AndAlso Not String.IsNullOrEmpty(adminData.ProjectReferenceType) Then
+        Dim match = adminData.ReferenceTypeOptions.FirstOrDefault(Function(x) x.TcodId.ToString() = adminData.ProjectReferenceType)
+        If match IsNot Nothing Then referenceTypeText = match.TcodDescName
+    End If
+
+    Dim creProjectText As String = TcodTypeHelper.GetDisplayText(adminData.CommercialReProjId, adminData.CreProjectOptions)
+    Dim creTypeText As String = TcodTypeHelper.GetDisplayText(adminData.ReTypeId, adminData.CreTypeOptions)
+    Dim goalText As String = TcodTypeHelper.GetDisplayText(adminData.GoalId, adminData.ProjectGoalOptions)
+
+    ' ---- Project Details ----
+    Dim sec As String = "Project Details"
+    rows.Add(New AnalysisPdfFieldModel(tab, sec, "Project ID", adminData.ProjectId.ToString(), order)) : order += 1
+    rows.Add(New AnalysisPdfFieldModel(tab, sec, "Project Reference Type", referenceTypeText, order)) : order += 1
+    rows.Add(New AnalysisPdfFieldModel(tab, sec, "Project Status", adminData.ProjectStatusIdDisplyText, order)) : order += 1
+    rows.Add(New AnalysisPdfFieldModel(tab, sec, "Project Name", adminData.ProjectName, order)) : order += 1
+    rows.Add(New AnalysisPdfFieldModel(tab, sec, "File Ref Value", adminData.FileReferenceValue, order)) : order += 1
+    rows.Add(New AnalysisPdfFieldModel(tab, sec, "Status Date", If(adminData.StatusDate.HasValue, adminData.StatusDate.Value.ToString("dd-MM-yyyy"), ""), order)) : order += 1
+
+    ' ---- User Details ----
+    sec = "User Details"
+    rows.Add(New AnalysisPdfFieldModel(tab, sec, "User Initiator", adminData.UserCreator, order)) : order += 1
+    rows.Add(New AnalysisPdfFieldModel(tab, sec, "Initiate Date", If(adminData.CreationDate.HasValue, adminData.CreationDate.Value.ToString("dd-MM-yyyy"), ""), order)) : order += 1
+    rows.Add(New AnalysisPdfFieldModel(tab, sec, "Last User", adminData.LastUser, order)) : order += 1
+    rows.Add(New AnalysisPdfFieldModel(tab, sec, "Last Update Date", If(adminData.LastUpdateDate.HasValue, adminData.LastUpdateDate.Value.ToString("dd-MM-yyyy"), ""), order)) : order += 1
+
+    ' ---- CRE Details ----
+    sec = "CRE Details"
+    rows.Add(New AnalysisPdfFieldModel(tab, sec, "CRE Project", creProjectText, order)) : order += 1
+    rows.Add(New AnalysisPdfFieldModel(tab, sec, "CRE Type", creTypeText, order)) : order += 1
+    rows.Add(New AnalysisPdfFieldModel(tab, sec, "Project Goal", goalText, order)) : order += 1
+
+    ' ---- Bank Details (only if ReProjAgErID has a value, same rule as the view) ----
+    ' NOTE: section title renamed from "Banker Details" to "Bank Details" to match
+    ' the business-provided PDF mockup label exactly.
+    If adminData.ReProjAgErID.HasValue Then
+        sec = "Bank Details"
+        rows.Add(New AnalysisPdfFieldModel(tab, sec, "Receiving Date", If(adminData.ReceivingDate.HasValue, adminData.ReceivingDate.Value.ToString("dd-MM-yyyy"), ""), order)) : order += 1
+        rows.Add(New AnalysisPdfFieldModel(tab, sec, "User Banker", adminData.UserBanker, order)) : order += 1
+        rows.Add(New AnalysisPdfFieldModel(tab, sec, "CI Banker", adminData.CiBanker, order)) : order += 1
+        rows.Add(New AnalysisPdfFieldModel(tab, sec, "Region Banker", adminData.RegionBanker, order)) : order += 1
+        rows.Add(New AnalysisPdfFieldModel(tab, sec, "CDC Central Rep ID", adminData.CdcCentralRepId, order)) : order += 1
+
+        ' ---- CRE Advisor (same condition) ----
+        sec = "CRE Advisor"
+        rows.Add(New AnalysisPdfFieldModel(tab, sec, "Distribution Advice", adminData.DistributionAdviceDisplayText, order)) : order += 1
+        rows.Add(New AnalysisPdfFieldModel(tab, sec, "Distribution Conditions", adminData.DistributionCondition, order)) : order += 1
+    End If
+
+    Return rows
+
+End Function
+
+
+' ============================================================================
+' 3) ADD to AnalysisController.vb â€” renders the RDLC using LocalReport,
+'    same Render("PDF") pattern as QRFI's RenderPdf, adapted for MVC (bytes
+'    returned as a FileResult instead of written to disk).
+' ============================================================================
+
+Imports Microsoft.Reporting.WebForms   ' NOT WinForms â€” this is the MVC-compatible one
+
+' GET: Analysis/GenerateAnalysisPdf
+<HttpGet>
+Public Async Function GenerateAnalysisPdf() As Task(Of ActionResult)
+    Dim sw = Stopwatch.StartNew()
+    Dim userName = Current_LoginUser
+    _logger.Information("GenerateAnalysisPdf - Request received | User: {User}", userName)
+
+    Try
+        Dim sessionValidation = validateSessionParameters()
+        If Not sessionValidation.IsValid Then
+            _logger.Warning("GenerateAnalysisPdf - Session invalid | User: {User} | Reason: {Reason}", userName, sessionValidation.Message)
+            Return New HttpStatusCodeResult(400, sessionValidation.Message)
         End If
 
-        Dim order As Integer = 0
-        Dim properties As PropertyInfo() = obj.GetType().GetProperties()
+        Dim projectId = sessionValidation.ProjectId
+        Dim projectStatusId = sessionValidation.ProjectStatusId
+        Dim projectFlowId = sessionValidation.ProjectFlowId
 
-        For Each prop As PropertyInfo In properties
+        Dim allFields As New List(Of AnalysisPdfFieldModel)()
 
-            If excludeSet.Contains(prop.Name) Then Continue For
+        ' --- Admin tab ---
+        Dim adminData = Await _adminTabService.GetAdminDataAsync(projectId, projectStatusId, projectFlowId)
+        allFields.AddRange(_adminTabService.GetAdminPdfFields(adminData))
 
-            ' Skip collections/lists (dropdown options, nested detail lists) -
-            ' these aren't simple Label/Value pairs and need custom handling
-            ' once this tab gets a curated mapping.
-            If GetType(System.Collections.IEnumerable).IsAssignableFrom(prop.PropertyType) AndAlso prop.PropertyType IsNot GetType(String) Then
-                Continue For
-            End If
+        ' --- Future tabs: same pattern once you have each tab's field list ---
+        ' Dim actorData = Await _actorTabService.GetActorTabDataAsync(projectId, projectStatusId.Value, projectFlowId.Value)
+        ' allFields.AddRange(_actorTabService.GetActorPdfFields(actorData))
+        ' ... project-asset, collateral, project-credits, guidance follow the same shape
 
-            Dim rawValue As Object
-            Try
-                rawValue = prop.GetValue(obj)
-            Catch
-                Continue For ' property getter threw - skip rather than fail the whole PDF
-            End Try
+        ' Render RDLC -> PDF bytes
+        Dim lrLocalReport As New LocalReport()
+        lrLocalReport.ReportPath = Server.MapPath("~/Reports/AnalysisReport.rdlc")  ' adjust path to wherever you put the .rdlc
 
-            Dim displayValue As String = FormatValue(rawValue)
+        Dim reportDataSource As New ReportDataSource("AnalysisFields", allFields)
+        lrLocalReport.DataSources.Add(reportDataSource)
 
-            rows.Add(New AnalysisPdfFieldModel(tabName, sectionName, prop.Name, displayValue, order))
-            order += 1
+        Dim deviceInfo As String =
+            "<DeviceInfo>" &
+            "<PageHeight>297mm</PageHeight>" &
+            "<PageWidth>210mm</PageWidth>" &
+            "<MarginTop>10mm</MarginTop>" &
+            "<MarginLeft>10mm</MarginLeft>" &
+            "<MarginRight>10mm</MarginRight>" &
+            "<MarginBottom>10mm</MarginBottom>" &
+            "</DeviceInfo>"
 
-        Next
+        Dim mimeType, encoding, extension As String
+        Dim streamIds As String()
+        Dim warnings As Warning()
 
-        Return rows
+        Dim pdfBytes As Byte() = lrLocalReport.Render("PDF", deviceInfo, mimeType, encoding, extension, streamIds, warnings)
 
-    End Function
+        sw.Stop()
+        _logger.Information("GenerateAnalysisPdf - Completed | User: {User} | ProjectId: {ProjectId} | SizeBytes: {Size} | ElapsedMs: {ElapsedMs}ms",
+                            userName, projectId, pdfBytes.Length, sw.ElapsedMilliseconds)
 
-    Private Shared Function FormatValue(rawValue As Object) As String
+        Dim fileName As String = $"Analysis_Project_{projectId}_{DateTime.Now:yyyyMMdd_HHmmss}.pdf"
+        Return File(pdfBytes, "application/pdf", fileName)
 
-        If rawValue Is Nothing Then Return ""
+    Catch ex As Exception
+        sw.Stop()
+        _logger.Error(ex, "GenerateAnalysisPdf - Unhandled exception | User: {User} | ElapsedMs: {ElapsedMs}ms", userName, sw.ElapsedMilliseconds)
+        Return New HttpStatusCodeResult(500, "Error generating PDF: " & ex.Message)
+    End Try
+End Function
 
-        If TypeOf rawValue Is DateTime Then
-            Return CType(rawValue, DateTime).ToString("dd-MM-yyyy")
-        End If
 
-        If TypeOf rawValue Is Boolean Then
-            Return If(CBool(rawValue), "Yes", "No")
-        End If
+' ============================================================================
+' 4) ADD to _guidanceTab.vbhtml
+' ============================================================================
 
-        Return rawValue.ToString()
+' HTML:
+' <Button type="button" Class="btn btn-info analyze-btn" id="generatePdfBtn">
+'     <Span Class="glyphicon glyphicon-file"></Span>Generate PDF
+' </Button>
 
-    End Function
-
-End Class
+' JS:
+' document.getElementById('generatePdfBtn').addEventListener('click', function () {
+'     window.location.href = '/Analysis/GenerateAnalysisPdf';
+' });
