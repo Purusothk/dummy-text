@@ -1356,3 +1356,534 @@ Namespace Controllers
 
     End Class
 End Namespace
+
+
+
+
+for actor tab it is 
+Function GetActorTabDataAsync(projectId As Integer, projectStatus As Integer, projectFlowId As Integer) As Task(Of ActorTabViewModel)
+for project and credit tab it is 
+Function GetActorData(projectId As Integer, actorId As String, Optional projectStatusId As Integer? = Nothing, Optional projectFlowId As Integer? = Nothing) As ActorViewModel
+
+
+
+
+for collateral i have 
+Imports IMMO_Sample.Models
+Imports IMMO_Sample.Repositories
+Imports Newtonsoft.Json
+Imports IMMO_Sample.Services
+Imports Serilog
+Imports Microsoft.VisualBasic.ApplicationServices
+
+Public Class CollateralTabService
+    Implements ICollateralTabService
+
+    Private ReadOnly _collateralRepository As ICollateralRepository
+    Private ReadOnly _logger As ILogger
+
+    Public Sub New(collateralRepository As ICollateralRepository)
+        _collateralRepository = collateralRepository
+        _logger = Log.ForContext(Of CollateralTabService)()
+    End Sub
+
+    '==========Get dropdown for collateral tab ==============
+    Public Function GetCollateralDropdowns() As CollateralDropdownViewModel _
+    Implements ICollateralTabService.GetCollateralDropdowns
+
+        Dim sw = Stopwatch.StartNew()
+        _logger.Information("GetCollateralDropdowns - Started loading all dropdowns"
+                            )
+        Dim dropdowns As New CollateralDropdownViewModel()
+
+        Try
+            _logger.Debug("GetCollateralDropdowns - Loading TCOD dropdowns from cache")
+            ' TCOD dropdowns
+            dropdowns.ProjectCollateralOptions = TcodTypeHelper.GetProjectCollateralTypes()
+            dropdowns.PariPassuOptions = TcodTypeHelper.GetParriPassuTypes()
+            dropdowns.ProjectLocationOptions = TcodTypeHelper.GetProjectLocationTypes()
+            dropdowns.ExpertiseMethodologyOptions = TcodTypeHelper.GetExpertiseMethodologyTypes()
+            dropdowns.ExpertiseMethodologyConformityOptions = TcodTypeHelper.GetExpertiseMethodologyConformityTypes()
+            dropdowns.YesNoOptions = TcodTypeHelper.GetYesNoTypes()
+
+            'Log: Warn if any TCOD dropdown is empty  
+            If dropdowns.ProjectCollateralOptions Is Nothing OrElse Not dropdowns.ProjectCollateralOptions.Any() Then
+                _logger.Warning("GetCollateralDropdowns - ProjectCollateralOptions is empty from TCOD cache")
+            End If
+            If dropdowns.PariPassuOptions Is Nothing OrElse Not dropdowns.PariPassuOptions.Any() Then
+                _logger.Warning("GetCollateralDropdowns - PariPassuOptions is empty from TCOD cache")
+            End If
+            _logger.Debug("GetCollateralDropdowns - TCOD dropdowns loaded")
+            ' GECO dropdowns (from SP)  
+            _logger.Information("GetCollateralDropdowns - Loading GECO dropdowns from SP | Tables: GDF2, GD59")
+
+            ' GECO dropdowns
+            Dim natureModel = _collateralRepository.GetGecoDropDownData("GDF2")
+            Dim attributeModel = _collateralRepository.GetGecoDropDownData("GD59")
+            dropdowns.NatureOptions = MapKeyValueToTcodModel(natureModel.NatureOptions)
+            dropdowns.AttributeOptions = MapKeyValueToTcodModel(attributeModel.AttributeOptions)
+
+            ' Log: Warn if GECO dropdown is empty  
+            If dropdowns.NatureOptions Is Nothing OrElse Not dropdowns.NatureOptions.Any() Then
+                _logger.Warning("GetCollateralDropdowns - NatureOptions is empty after SP call (GDF2)")
+            End If
+            If dropdowns.AttributeOptions Is Nothing OrElse Not dropdowns.AttributeOptions.Any() Then
+                _logger.Warning("GetCollateralDropdowns - AttributeOptions is empty after SP call (GD59)")
+            End If
+            sw.Stop()
+            'Log: Success  
+            _logger.Information("GetCollateralDropdowns - All dropdowns loaded successfully | ElapsedMs: {ElapsedMs}ms", sw.ElapsedMilliseconds)
+        Catch ex As Exception
+            sw.Stop()
+            'Log: Dropdown load fail  
+            _logger.Error(ex, "GetCollateralDropdowns - Failed to load dropdowns | ElapsedMs: {ElapsedMs}ms", sw.ElapsedMilliseconds)
+            Throw
+        End Try
+
+        Return dropdowns
+    End Function
+
+    '=============== Get Collateral 1st column Data ================'
+    Public Function GetCollateralTabData(
+        projectId As Integer,
+        Optional projectStatusId As Integer? = Nothing,
+        Optional projectFlowId As Integer? = Nothing
+    ) As List(Of CollateralDetailsWrapperViewModel) _
+        Implements ICollateralTabService.GetCollateraldata
+        Dim sw = Stopwatch.StartNew()
+        _logger.Information("GetCollateralTabData - Started | ProjectId: {ProjectId} | ProjectStatusId: {StatusId} | ProjectFlowId: {FlowId}",
+            projectId, projectStatusId, projectFlowId)
+        Try
+            Dim wrapperList = _collateralRepository.GetCollateralDetails(projectId, projectStatusId, projectFlowId)
+            'Log: No data returned  
+            If wrapperList Is Nothing OrElse Not wrapperList.Any() Then
+                _logger.Warning("GetCollateralTabData - No collateral data found | ProjectId: {ProjectId}, ProjectStatusId: {projectStatusId}, ProjectFlowId: {projectFlowId}", projectId, projectStatusId, projectFlowId)
+                Return New List(Of CollateralDetailsWrapperViewModel)
+            End If
+            _logger.Debug("GetCollateralTabData - Processing {Count} wrapper records | ProjectId: {ProjectId}, ProjectStatusId: {projectStatusId}, ProjectFlowId: {projectFlowId}",
+                wrapperList.Count, projectId, projectStatusId, projectFlowId)
+            ' Ensure project id  
+            Dim nullCollateralCount = 0
+            For Each wrapper In wrapperList
+                If wrapper?.COLLATERAL IsNot Nothing Then
+                    wrapper.COLLATERAL.RE_PROJ_ID = projectId
+                Else
+                    nullCollateralCount += 1
+                End If
+            Next
+            'Log: Null collateral records warn  
+            If nullCollateralCount > 0 Then
+                _logger.Warning("GetCollateralTabData - {NullCount} wrapper(s) had null COLLATERAL | ProjectId: {ProjectId}, ProjectStatusId: {projectStatusId}, ProjectFlowId: {projectFlowId}",
+                    nullCollateralCount, projectId, projectStatusId, projectFlowId)
+            End If
+            ' ProjectCollateralId assignment  
+            For Each wrapper In wrapperList
+                Dim coll = wrapper?.COLLATERAL
+                If coll Is Nothing Then Continue For
+                Dim count = coll.RE_PRCR_RE_AS_COLLATERALS_NR
+                Dim isProjectCollateral = coll.RE_PRCR_CRE_PROJECT_COLLATERAL_ID
+                coll.ProjectCollateralId1 = Nothing
+                coll.ProjectCollateralId2 = Nothing
+                coll.ProjectCollateralId3 = Nothing
+                If isProjectCollateral = 1 Then
+                    coll.ProjectCollateralId1 = 2
+                    If count >= 2 Then coll.ProjectCollateralId2 = 3
+                    If count >= 3 Then coll.ProjectCollateralId3 = 3
+                Else
+                    coll.ProjectCollateralId1 = 3
+                    If count >= 2 Then coll.ProjectCollateralId2 = 3
+                    If count >= 3 Then coll.ProjectCollateralId3 = 3
+                    coll.RE_ASST_COLLATERAL_NATURE_ID = Nothing
+                    coll.RE_ASST_COLLATERAL_ATTRIBUTE_ID = Nothing
+                    coll.RE_ASST_STREET_NM = Nothing
+                    coll.RE_ASST_STREET_NR_NM = Nothing
+                    coll.RE_ASST_POSTAL_CODE_ID = Nothing
+                    coll.RE_ASST_CITY_NM = Nothing
+                    coll.RE_ASST_LOCATION_ID = Nothing
+                    coll.RE_ASST_MARKET_VALUE_AM = Nothing
+                    coll.RE_ASST_FORCED_SALE_VALUE_AM = Nothing
+                    coll.RE_ASST_MARKET_VALUE_EXPERT_AM = Nothing
+                    coll.RE_ASST_FORCED_SALE_VALUE_EXPERT_AM = Nothing
+                    coll.RE_ASST_EXPERTISE_METHODO_ID = Nothing
+                    coll.RE_ASST_EXPERT_METHODO_CONFIRM_ID = Nothing
+                End If
+            Next
+            sw.Stop()
+            'Log: Success  
+            _logger.Information("GetCollateralTabData - Completed | ProjectId: {ProjectId}, ProjectStatusId: {projectStatusId}, ProjectFlowId: {projectFlowId} | RecordCount: {Count} | ElapsedMs: {ElapsedMs}ms",
+                projectId, projectStatusId, projectFlowId, wrapperList.Count, sw.ElapsedMilliseconds)
+            Return wrapperList
+        Catch ex As Exception
+            sw.Stop()
+            'Log: Fail  
+            _logger.Error(ex, "GetCollateralTabData - Failed | ProjectId: {ProjectId}, ProjectStatusId: {projectStatusId}, ProjectFlowId: {projectFlowId} | ElapsedMs: {ElapsedMs}ms",
+                projectId, projectStatusId, projectFlowId, sw.ElapsedMilliseconds)
+            Throw
+        End Try
+    End Function
+
+
+    Public Function CalculateNumColumns(wrapperList As List(Of CollateralDetailsWrapperViewModel)) As Integer _
+        Implements ICollateralTabService.CalculateNumColumns
+        _logger.Debug("CalculateNumColumns - Started")
+        Try
+            If wrapperList Is Nothing OrElse Not wrapperList.Any() Then
+                'Log: No data, default 1 column  
+                _logger.Warning("CalculateNumColumns - WrapperList is empty, defaulting to 1 column")
+                Return 1
+            End If
+            Dim firstColl = wrapperList.FirstOrDefault()?.COLLATERAL
+            If firstColl Is Nothing Then
+                _logger.Warning("CalculateNumColumns - First COLLATERAL is null, defaulting to 1 column")
+                Return 1
+            End If
+            Dim count = If(firstColl.RE_PRCR_RE_AS_COLLATERALS_NR > 0, firstColl.RE_PRCR_RE_AS_COLLATERALS_NR, 1)
+            Return count
+            'Log: Result  
+            _logger.Information("CalculateNumColumns - Result: {NumColumns} columns | CollateralsNr: {CollateralsNr} | ProjectCollateralId: {ProjectCollateralId}",
+                count,
+                firstColl.RE_PRCR_RE_AS_COLLATERALS_NR,
+                firstColl.RE_PRCR_CRE_PROJECT_COLLATERAL_ID)
+            Return count
+        Catch ex As Exception
+            _logger.Error(ex, "CalculateNumColumns - Failed, defaulting to 1 column")
+            Return 1
+        End Try
+    End Function
+
+
+    ' =================== KRWG search (popup data with pagination) ===================
+    Public Function GetKrwgData(postcode As String, streetname As String,
+                                projectId As Integer,
+                                Optional projectStatusId As Integer? = Nothing,
+                                Optional projectFlowId As Integer? = Nothing,
+                                Optional pageNumber As Integer = 1) _
+                                As KrwgPagedResponse Implements ICollateralTabService.GetKrwgData
+        Dim sw = Stopwatch.StartNew()
+        Dim safePostcode = If(postcode, String.Empty).Trim()
+        Dim safeStreet = If(streetname, String.Empty).Trim()
+        'Service started  
+        _logger.Information("GetKrwgData - Started | Postcode: {Postcode} | Street: {Street} | Page: {Page} | ProjectId: {ProjectId} | StatusId: {StatusId} | FlowId: {FlowId}",
+        safePostcode, safeStreet, pageNumber, projectId, projectStatusId, projectFlowId)
+        Try
+            Dim paged = _collateralRepository.GetKrwgData(
+            safePostcode, safeStreet,
+            projectId, projectStatusId, projectFlowId,
+            pageNumber)
+            'Null from repo  
+            If paged Is Nothing Then
+                _logger.Warning("GetKrwgData - Repository returned null, using empty response | ProjectId: {ProjectId} | StatusId: {StatusId} | FlowId: {FlowId}",
+                projectId, projectStatusId, projectFlowId)
+                Return New KrwgPagedResponse()
+            End If
+            sw.Stop()
+            'Success  
+            _logger.Information("GetKrwgData - Success | ResultCount: {Count} | Page: {Page} | ProjectId: {ProjectId} | StatusId: {StatusId} | FlowId: {FlowId} | ElapsedMs: {ElapsedMs}ms",
+            paged.Data?.Count, pageNumber, projectId, projectStatusId, projectFlowId, sw.ElapsedMilliseconds)
+            Return paged
+        Catch ex As Exception
+            sw.Stop()
+            _logger.Error(ex, "GetKrwgData - Failed | Postcode: {Postcode} | Street: {Street} | ProjectId: {ProjectId} | StatusId: {StatusId} | FlowId: {FlowId} | ElapsedMs: {ElapsedMs}ms",
+            safePostcode, safeStreet, projectId, projectStatusId, projectFlowId, sw.ElapsedMilliseconds)
+            Throw New ApplicationException("Error in GetKrwgData service: " & ex.Message, ex)
+        End Try
+    End Function
+
+
+    ' =================== OFI/Belfius data ===================
+    Public Function GetOfiBelfiusData(krwgRef As String) As OfiBelfiusDataModel _
+       Implements ICollateralTabService.GetOfiBelfiusData
+
+        Dim sw = Stopwatch.StartNew()
+
+        'Started
+        _logger.Information("GetOfiBelfiusData - Started | KrwgRef: {KrwgRef}", krwgRef)
+
+        If String.IsNullOrWhiteSpace(krwgRef) Then
+            _logger.Warning("GetOfiBelfiusData - KrwgRef is empty, returning Nothing")
+            Return Nothing
+        End If
+        Try
+            Dim result = _collateralRepository.GetOfiBelfiusData(krwgRef)
+            If result Is Nothing Then
+                _logger.Warning("GetOfiBelfiusData - Repository returned null | KrwgRef: {KrwgRef}", krwgRef)
+                Return Nothing
+            End If
+            ' Normalize field names (SP returns OFS but UI needs OFI)
+            Dim normalized As New OfiBelfiusDataModel With {
+               .KrwgRef = result.KrwgRef,
+               .Ofi = result.Ofi,
+               .Belfius = result.Belfius
+            }
+
+            sw.Stop()
+            ' Success
+            _logger.Information("GetOfiBelfiusData - Success | KrwgRef: {KrwgRef} | Ofi: {Ofi} | Belfius: {Belfius} | ElapsedMs: {ElapsedMs}ms",
+                krwgRef, normalized.Ofi, normalized.Belfius, sw.ElapsedMilliseconds)
+            Return normalized
+        Catch ex As Exception
+            sw.Stop()
+            ' Error - original code silently returned Nothing, ab log hoga
+            _logger.Error(ex, "GetOfiBelfiusData - Failed | KrwgRef: {KrwgRef} | ElapsedMs: {ElapsedMs}ms",
+                krwgRef, sw.ElapsedMilliseconds)
+            Return Nothing
+        End Try
+    End Function
+
+    Public Function GetNotaryData(searchText As String) As List(Of NotaryDataModel) Implements ICollateralTabService.GetNotaryData
+        Dim sw = Stopwatch.StartNew()
+        ' Started
+        _logger.Information("GetNotaryData - Started | SearchText: {SearchText}", searchText)
+
+        ' Empty input
+        If String.IsNullOrWhiteSpace(searchText) Then
+            _logger.Warning("GetNotaryData - SearchText is empty, returning Nothing")
+            Return Nothing
+        End If
+
+        Try
+            Dim result = _collateralRepository.GetNotaryData(searchText)
+            ' Null from repo
+            If result Is Nothing Then
+                _logger.Warning("GetNotaryData - Repository returned null | SearchText: {SearchText}", searchText)
+                Return Nothing
+            End If
+            sw.Stop()
+            ' Success
+            _logger.Information("GetNotaryData - Success | SearchText: {SearchText} | ResultCount: {Count} | ElapsedMs: {ElapsedMs}ms",
+                                searchText, result.Count, sw.ElapsedMilliseconds)
+            Return result
+
+        Catch ex As Exception
+            sw.Stop()
+            _logger.Error(ex, "GetNotaryData - Failed | SearchText: {SearchText} | ElapsedMs: {ElapsedMs}ms",
+                          searchText, sw.ElapsedMilliseconds)
+            Return Nothing
+        End Try
+    End Function
+
+    Public Function GetCoverageData(projectId As Integer,
+                              Optional projectStatusId As Integer? = Nothing,
+                              Optional projectFlowId As Integer? = Nothing) As CoverageViewModel _
+                              Implements ICollateralTabService.GetCoverageData
+
+        Dim sw = Stopwatch.StartNew()
+        _logger.Information("GetCoverageData - Started | ProjectId: {ProjectId} , ProjectStatusId: {projectStatusId}, ProjectFlowId: {projectFlowId}", projectId, projectStatusId, projectFlowId)
+
+        Try
+            Dim result As New CoverageViewModel()
+
+            Dim coverageList = _collateralRepository.GetCoverageData(projectId, projectStatusId, projectFlowId)
+
+            If coverageList Is Nothing OrElse coverageList.Count = 0 Then
+                _logger.Warning("GetCoverageData - No coverage data found | ProjectId: {ProjectId} , ProjectStatusId: {projectStatusId}, ProjectFlowId: {projectFlowId}", projectId, projectStatusId, projectFlowId)
+                result.TotalBelfiusCredit = 0
+                result.ValidationMessage = "No coverage data found."
+                Return result
+            End If
+
+            Dim totalBelfius As Double = coverageList.
+            Where(Function(c) c.Coverage IsNot Nothing).
+            Sum(Function(c) c.Coverage.RE_CRED_BELFIUS_CREDIT_AM)
+
+            ' Warn if total is 0 (unexpected)  
+            If totalBelfius = 0 Then
+                _logger.Warning("GetCoverageData - TotalBelfiusCredit is 0 | ProjectId: {ProjectId} , ProjectStatusId: {projectStatusId}, ProjectFlowId: {projectFlowId} | RecordCount: {Count}",
+                projectId, projectStatusId, projectFlowId, coverageList.Count)
+            End If
+
+            result.TotalBelfiusCredit = totalBelfius
+            result.ValidationMessage = String.Empty
+
+            sw.Stop()
+            _logger.Information("GetCoverageData - Success | ProjectId: {ProjectId}, ProjectStatusId: {projectStatusId}, ProjectFlowId: {projectFlowId} | RecordCount: {Count} | TotalBelfiusCredit: {Total} | ElapsedMs: {ElapsedMs}ms",
+            projectId, projectStatusId, projectFlowId, coverageList.Count, totalBelfius, sw.ElapsedMilliseconds)
+
+            Return result
+
+        Catch ex As Exception
+            sw.Stop()
+            _logger.Error(ex, "GetCoverageData - Failed | ProjectId: {ProjectId}, ProjectStatusId: {projectStatusId}, ProjectFlowId: {projectFlowId} | ElapsedMs: {ElapsedMs}ms",
+            projectId, projectStatusId, projectFlowId, sw.ElapsedMilliseconds)
+            Throw
+        End Try
+    End Function
+
+    Public Function GetOtherCollateralData(projectId As Integer, projectStatusId As Integer, projectFlowId As Integer) As OtherCollateralViewModel Implements ICollateralTabService.GetOtherCollateralData
+        Dim sw = Stopwatch.StartNew()
+        _logger.Information("GetOtherCollateralData - Started | ProjectId: {ProjectId}, ProjectStatusId: {projectStatusId}, ProjectFlowId: {projectFlowId}", projectId, projectStatusId, projectFlowId)
+
+        Try
+            Dim result = _collateralRepository.GetOtherCollateralData(projectId, projectStatusId, projectFlowId)
+            If result Is Nothing Then
+                _logger.Warning("GetOtherCollateralData - Repository returned null, using empty model | ProjectId: {ProjectId}, ProjectStatusId: {projectStatusId}, ProjectFlowId: {projectFlowId}", projectId, projectStatusId, projectFlowId)
+                Return New OtherCollateralViewModel()
+            End If
+            If result.OwnerIds Is Nothing Then
+                _logger.Warning("GetOtherCollateralData - OwnerIds is null, initializing empty list | ProjectId: {ProjectId}, ProjectStatusId: {projectStatusId}, ProjectFlowId: {projectFlowId}", projectId, projectStatusId, projectFlowId)
+                result.OwnerIds = New List(Of OwnerViewModel)()
+            End If
+            ' ---- CORE BUSINESS LOGIC ----
+            ' Sponsor client check
+            result.HasSponser = result.OwnerIds.Any(Function(x) x.SourceSystem = "SPONSER")
+            result.AllowedOwners = result.OwnerIds
+            ' Warn if no allowed owners
+            If result.AllowedOwners Is Nothing OrElse Not result.AllowedOwners.Any() Then
+                _logger.Warning("GetOtherCollateralData - No allowed owners found | ProjectId: {ProjectId},ProjectStatusId: {projectStatusId}, ProjectFlowId: {projectFlowId} | IsSponsorClient: {IsSponsor}",
+                    projectId, projectStatusId, projectFlowId, result.HasSponser)
+            End If
+
+            sw.Stop()
+            _logger.Information("GetOtherCollateralData - Success | ProjectId: {ProjectId}, ProjectStatusId: {projectStatusId}, ProjectFlowId: {projectFlowId} | TotalOwners: {Total} | AllowedOwners: {Allowed} | ElapsedMs: {ElapsedMs}ms",
+                                projectId, projectStatusId, projectFlowId, result.OwnerIds.Count, result.AllowedOwners?.Count, sw.ElapsedMilliseconds)
+            Return result
+        Catch ex As Exception
+            sw.Stop()
+            _logger.Error(ex, "GetOtherCollateralData - Failed | ProjectId: {ProjectId}, ProjectStatusId: {projectStatusId}, ProjectFlowId: {projectFlowId} | ElapsedMs: {ElapsedMs}ms",
+                          projectId, projectStatusId, projectFlowId, sw.ElapsedMilliseconds)
+            Throw
+        End Try
+    End Function
+
+
+    Public Sub SaveCollateral(
+            projectId As Integer, projectStatusId As Integer,
+            projectFlowId As Integer, collaterals As List(Of CollateralSaveDto),
+            otherCollaterals As List(Of OtherCollateralSaveDto),
+            notary As List(Of ProjectNotarySaveDto), numColumns As Integer) Implements ICollateralTabService.SaveCollateral
+
+        Dim sw = Stopwatch.StartNew()
+        _logger.Information("SaveCollateral - Started | ProjectId: {ProjectId} | StatusId: {StatusId} | FlowId: {FlowId} | CollateralCount: {CCount} | OtherCount: {OCount} | NotaryCount: {NCount}",
+                            projectId, projectStatusId, projectFlowId, collaterals?.Count, otherCollaterals?.Count, notary?.Count)
+
+        Try
+            If collaterals IsNot Nothing Then
+                For Each c In collaterals
+                    c.RE_PROJ_ID = projectId
+                    c.RE_PROJ_STATUS_ID = projectStatusId
+                    c.RE_PROJ_STATUS_FLOW_ID = projectFlowId
+                Next
+                _logger.Debug("SaveCollateral - ProjectId injected into {Count} collateral(s) | ProjectId: {ProjectId} | StatusId: {StatusId} | FlowId: {FlowId}",
+                              collaterals.Count, projectId, projectStatusId, projectFlowId)
+            End If
+
+            If otherCollaterals IsNot Nothing Then
+                For Each o In otherCollaterals
+                    o.RE_PROJ_ID = projectId
+                    o.RE_PROJ_STATUS_ID = projectStatusId
+                    o.RE_PROJ_STATUS_FLOW_ID = projectFlowId
+                Next
+                _logger.Debug("SaveCollateral - ProjectId injected into {Count} other collateral(s) | ProjectId: {ProjectId} | StatusId: {StatusId} | FlowId: {FlowId}",
+                             otherCollaterals.Count, projectId, projectStatusId, projectFlowId)
+            End If
+
+            If notary IsNot Nothing Then
+                For Each n In notary
+                    n.RE_PROJ_ID = projectId
+                    n.RE_PROJ_STATUS_ID = projectStatusId
+                    n.RE_PROJ_STATUS_FLOW_ID = projectFlowId
+                Next
+                _logger.Debug("SaveCollateral - ProjectId injected into {Count} notary record(s) | ProjectId: {ProjectId} | StatusId: {StatusId} | FlowId: {FlowId}",
+                   notary.Count, projectId, projectStatusId, projectFlowId)
+            End If
+
+            _collateralRepository.SaveCollateral(
+                    projectId,
+                    projectStatusId,
+                    projectFlowId,
+                    collaterals,
+                    otherCollaterals,
+                    notary,
+                    numColumns
+                )
+            sw.Stop()
+            _logger.Information("SaveCollateral - Completed | ProjectId: {ProjectId} | StatusId: {StatusId} | FlowId: {FlowId} | ElapsedMs: {ElapsedMs}ms",
+                                projectId, projectStatusId, projectFlowId, sw.ElapsedMilliseconds)
+        Catch ex As Exception
+            sw.Stop()
+            _logger.Error(ex, "SaveCollateral - Failed | ProjectId: {ProjectId} | StatusId: {StatusId} | FlowId: {FlowId} | ElapsedMs: {ElapsedMs}ms",
+                projectId, projectStatusId, projectFlowId, sw.ElapsedMilliseconds)
+            Throw
+        End Try
+    End Sub
+
+    Public Function GetSavedCollateralDetails(
+    projectId As Integer,
+    Optional projectStatusId As Integer? = Nothing,
+    Optional projectFlowId As Integer? = Nothing
+) As List(Of CollateralDetailsWrapperViewModel) _
+    Implements ICollateralTabService.GetSavedCollateralDetails
+
+        Dim sw = Stopwatch.StartNew()
+        _logger.Information("GetSavedCollateralDetails - Started | ProjectId: {projectId}, ProjectStatusId: {projectStatusId}, ProjectFlowId: {projectFlowId}", projectId, projectStatusId, projectFlowId)
+
+        Try
+            '--- Get SAVED collateral data from SP (QID = 1) ---
+            Dim wrapperList = _collateralRepository.GetSavedCollateralDetails(projectId, projectStatusId, projectFlowId)
+            If wrapperList Is Nothing OrElse wrapperList.Count = 0 Then
+                _logger.Information("GetSavedCollateralDetails - No saved data found, Create mode will be used | ProjectId: {projectId}, ProjectStatusId: {projectStatusId}, ProjectFlowId: {projectFlowId}", projectId, projectStatusId, projectFlowId)
+                Return New List(Of CollateralDetailsWrapperViewModel)
+            End If
+
+            '--- Ensure ProjectId is set (important for refs / JS) ---
+            Dim nullCount = 0
+            For Each wrapper In wrapperList
+                If wrapper IsNot Nothing AndAlso wrapper.COLLATERAL IsNot Nothing Then
+                    wrapper.COLLATERAL.RE_PROJ_ID = projectId
+                Else
+                    nullCount += 1
+                End If
+            Next
+            If nullCount > 0 Then
+                _logger.Warning("GetSavedCollateraletails - {NullCount} wrapper(s) had null COLLATERAL | ProjectId: {projectId}, ProjectStatusId: {projectStatusId}, ProjectFlowId: {projectFlowId}", nullCount, projectId, projectStatusId, projectFlowId)
+            End If
+            sw.Stop()
+            _logger.Information("GetSavedCollateralDetails - Success | ProjectId: {ProjectId}, ProjectStatusId: {projectStatusId}, ProjectFlowId: {projectFlowId} | RecordCount: {Count} | ElapsedMs: {ElapsedMs}ms", projectId, projectStatusId, projectFlowId, wrapperList.Count, sw.ElapsedMilliseconds)
+
+            Return wrapperList
+        Catch ex As Exception
+            sw.Stop()
+            _logger.Error(ex, "GetSavedCollateralDetails - Failed | ProjectId: {ProjectId}, ProjectStatusId: {projectStatusId}, ProjectFlowId: {projectFlowId} | ElapsedMs: {ElapsedMs}ms", projectId, projectStatusId, projectFlowId, sw.ElapsedMilliseconds)
+            Throw
+        End Try
+    End Function
+
+    ' Helper - Convert KeyValuePairs to TcodModel
+    Private Function MapKeyValueToTcodModel(list As List(Of KeyValuePair(Of String, String))) As List(Of TcodModel)
+        If list Is Nothing Then Return New List(Of TcodModel)
+        Return list.Select(Function(x)
+                               Dim tcodId As Integer
+                               If Integer.TryParse(x.Key, tcodId) Then
+                                   Return New TcodModel With {.TcodId = tcodId, .TcodDescName = x.Value}
+                               Else
+                                   Return New TcodModel With {.TcodId = 0, .TcodDescName = x.Value}
+                               End If
+                           End Function).ToList()
+    End Function
+
+    Public Function GetKrwgAssetValues(krwgRef As String) As CollateralViewModel _
+    Implements ICollateralTabService.GetKrwgAssetValues
+        Dim sw = Stopwatch.StartNew()
+        _logger.Information("GetKrwgAssetValues - Started | KrwgRef: {KrwgRef}", krwgRef)
+        Try
+            Dim result = _collateralRepository.GetKrwgAssetValues(krwgRef)
+            sw.Stop()
+            If result Is Nothing Then
+                _logger.Warning("GetKrwgAssetValues - Repository returned null | KrwgRef: {KrwgRef} | ElapsedMs: {ElapsedMs}ms", krwgRef, sw.ElapsedMilliseconds)
+            Else
+                _logger.Information("GetKrwgAssetValues - Success | KrwgRef: {KrwgRef} | ElapsedMs: {ElapsedMs}ms", krwgRef, sw.ElapsedMilliseconds)
+            End If
+            Return result
+        Catch ex As Exception
+            sw.Stop()
+            _logger.Error(ex, "GetKrwgAssetValues - Failed | KrwgRef: {KrwgRef} | ElapsedMs: {ElapsedMs}ms", krwgRef, sw.ElapsedMilliseconds)
+            Throw
+        End Try
+    End Function
+
+End Class
+
+
+
+for asset tab i have 
+ Function GetAssetData(projectId As Integer, Optional projectStatusId As Integer? = Nothing, Optional projectFlowId As Integer? = Nothing) As AssetTabModel
