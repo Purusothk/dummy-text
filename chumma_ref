@@ -1,133 +1,75 @@
-HttpGet>
-Public Async Function GenerateAnalysisPdf() As Task(Of ActionResult)
-    Dim sw = Stopwatch.StartNew()
-    Dim userName = Current_LoginUser
-    _logger.Information("GenerateAnalysisPdf - Request received | User: {User}", userName)
+Imports System.Reflection
 
-    Try
-        Dim sessionValidation = validateSessionParameters()
-        If Not sessionValidation.IsValid Then
-            _logger.Warning("GenerateAnalysisPdf - Session invalid | User: {User} | Reason: {Reason}", userName, sessionValidation.Message)
-            Return New HttpStatusCodeResult(400, sessionValidation.Message)
+Public Class PdfFieldReflectionHelper
+
+    ' Properties that show up on nearly every tab ViewModel but aren't real
+    ' report data - status/plumbing fields, always excluded.
+    Private Shared ReadOnly DefaultExcludedProperties As New HashSet(Of String)(StringComparer.OrdinalIgnoreCase) From {
+        "IsSuccess", "Message", "IsDirty"
+    }
+
+    ''' <summary>
+    ''' Converts any object's public simple-typed properties into a flat list
+    ''' of AnalysisPdfFieldModel rows for the given tab/section.
+    ''' </summary>
+    Public Shared Function GetAutoPdfFields(tabName As String, sectionName As String, obj As Object, Optional additionalExcludes As IEnumerable(Of String) = Nothing) As List(Of AnalysisPdfFieldModel)
+
+        Dim rows As New List(Of AnalysisPdfFieldModel)()
+        If obj Is Nothing Then Return rows
+
+        Dim excludeSet As New HashSet(Of String)(DefaultExcludedProperties, StringComparer.OrdinalIgnoreCase)
+        If additionalExcludes IsNot Nothing Then
+            For Each ex In additionalExcludes
+                excludeSet.Add(ex)
+            Next
         End If
 
-        Dim projectId = sessionValidation.ProjectId
-        Dim projectStatusId = sessionValidation.ProjectStatusId
-        Dim projectFlowId = sessionValidation.ProjectFlowId
+        Dim order As Integer = 0
+        Dim properties As PropertyInfo() = obj.GetType().GetProperties()
 
-        Dim allFields As New List(Of AnalysisPdfFieldModel)()
+        For Each prop As PropertyInfo In properties
 
-        ' ---- Admin tab (CURATED - already matches business mockup) ----
-        Try
-            Dim adminData = Await _adminTabService.GetAdminDataAsync(projectId, projectStatusId, projectFlowId)
-            allFields.AddRange(_adminTabService.GetAdminPdfFields(adminData))
-        Catch ex As Exception
-            _logger.Error(ex, "GenerateAnalysisPdf - Admin tab failed | ProjectId: {ProjectId}", projectId)
-            allFields.Add(New AnalysisPdfFieldModel("Admin", "Error", "Note", "Admin data unavailable", 0))
-        End Try
+            If excludeSet.Contains(prop.Name) Then Continue For
 
-        ' ---- Actor tab (AUTO-DUMP) ----
-        Try
-            If projectStatusId.HasValue AndAlso projectFlowId.HasValue Then
-                Dim actorData = Await _actorTabService.GetActorTabDataAsync(projectId, projectStatusId.Value, projectFlowId.Value)
-                allFields.AddRange(PdfFieldReflectionHelper.GetAutoPdfFields("Actor", "All Fields", actorData))
+            ' Skip collections/lists (dropdown options, nested detail lists) -
+            ' these aren't simple Label/Value pairs and need custom handling
+            ' once this tab gets a curated mapping.
+            If GetType(System.Collections.IEnumerable).IsAssignableFrom(prop.PropertyType) AndAlso prop.PropertyType IsNot GetType(String) Then
+                Continue For
             End If
-        Catch ex As Exception
-            _logger.Error(ex, "GenerateAnalysisPdf - Actor tab failed | ProjectId: {ProjectId}", projectId)
-            allFields.Add(New AnalysisPdfFieldModel("Actor", "Error", "Note", "Actor data unavailable", 0))
-        End Try
 
-        ' ---- Project & Credits tab (AUTO-DUMP) ----
-        Try
-            Dim projectCreditsData = _projectCreditsTabService.GetProjectCreditsData(projectId, projectStatusId, projectFlowId)
-            allFields.AddRange(PdfFieldReflectionHelper.GetAutoPdfFields("Project & Credits", "All Fields", projectCreditsData))
-        Catch ex As Exception
-            _logger.Error(ex, "GenerateAnalysisPdf - Project & Credits tab failed | ProjectId: {ProjectId}", projectId)
-            allFields.Add(New AnalysisPdfFieldModel("Project & Credits", "Error", "Note", "Project & Credits data unavailable", 0))
-        End Try
+            Dim rawValue As Object
+            Try
+                rawValue = prop.GetValue(obj)
+            Catch
+                Continue For ' property getter threw - skip rather than fail the whole PDF
+            End Try
 
-        ' ---- Project Asset tab (AUTO-DUMP) ----
-        Try
-            Dim assetData = _assetTabRepository.GetAssetData(projectId, projectStatusId, projectFlowId)
-            allFields.AddRange(PdfFieldReflectionHelper.GetAutoPdfFields("Project Asset", "All Fields", assetData))
-        Catch ex As Exception
-            _logger.Error(ex, "GenerateAnalysisPdf - Project Asset tab failed | ProjectId: {ProjectId}", projectId)
-            allFields.Add(New AnalysisPdfFieldModel("Project Asset", "Error", "Note", "Project Asset data unavailable", 0))
-        End Try
+            Dim displayValue As String = FormatValue(rawValue)
 
-        ' ---- Collateral tab (AUTO-DUMP) ----
-        Try
-            Dim collateralData = _collateralTabService.GetCollateraldata(projectId, projectStatusId, projectFlowId)
-            ' collateralData may be a List(Of ...) rather than a single object -
-            ' if so, dump each item with an incrementing section name.
-            If TypeOf collateralData Is System.Collections.IEnumerable AndAlso Not (TypeOf collateralData Is String) Then
-                Dim idx As Integer = 1
-                For Each item In DirectCast(collateralData, System.Collections.IEnumerable)
-                    allFields.AddRange(PdfFieldReflectionHelper.GetAutoPdfFields("Collateral", $"Item {idx}", item))
-                    idx += 1
-                Next
-            Else
-                allFields.AddRange(PdfFieldReflectionHelper.GetAutoPdfFields("Collateral", "All Fields", collateralData))
-            End If
-        Catch ex As Exception
-            _logger.Error(ex, "GenerateAnalysisPdf - Collateral tab failed | ProjectId: {ProjectId}", projectId)
-            allFields.Add(New AnalysisPdfFieldModel("Collateral", "Error", "Note", "Collateral data unavailable", 0))
-        End Try
+            rows.Add(New AnalysisPdfFieldModel(tabName, sectionName, prop.Name, displayValue, order))
+            order += 1
 
-        ' ---- Guidance tab (AUTO-DUMP) ----
-        Try
-            Dim guidanceData = _guidanceTabRepository.GetGuidanceData(projectId, projectStatusId, projectFlowId)
-            allFields.AddRange(PdfFieldReflectionHelper.GetAutoPdfFields("Guidance", "All Fields", guidanceData))
-        Catch ex As Exception
-            _logger.Error(ex, "GenerateAnalysisPdf - Guidance tab failed | ProjectId: {ProjectId}", projectId)
-            allFields.Add(New AnalysisPdfFieldModel("Guidance", "Error", "Note", "Guidance data unavailable", 0))
-        End Try
+        Next
 
-        If Not allFields.Any() Then
-            _logger.Warning("GenerateAnalysisPdf - No fields resolved for any tab | ProjectId: {ProjectId}", projectId)
-            Return New HttpStatusCodeResult(500, "No report data available.")
+        Return rows
+
+    End Function
+
+    Private Shared Function FormatValue(rawValue As Object) As String
+
+        If rawValue Is Nothing Then Return ""
+
+        If TypeOf rawValue Is DateTime Then
+            Return CType(rawValue, DateTime).ToString("dd-MM-yyyy")
         End If
 
-        ' Render RDLC -> PDF bytes
-        Dim lrLocalReport As New LocalReport()
-        lrLocalReport.ReportPath = Server.MapPath("~/Report/AnalysisReport.rdlc")
+        If TypeOf rawValue Is Boolean Then
+            Return If(CBool(rawValue), "Yes", "No")
+        End If
 
-        Dim reportDataSource As New ReportDataSource("AnalysisFields", allFields)
-        lrLocalReport.DataSources.Add(reportDataSource)
+        Return rawValue.ToString()
 
-        Dim deviceInfo As String =
-            "<DeviceInfo>" &
-            "<PageHeight>297mm</PageHeight>" &
-            "<PageWidth>210mm</PageWidth>" &
-            "<MarginTop>10mm</MarginTop>" &
-            "<MarginLeft>10mm</MarginLeft>" &
-            "<MarginRight>10mm</MarginRight>" &
-            "<MarginBottom>10mm</MarginBottom>" &
-            "</DeviceInfo>"
+    End Function
 
-        Dim mimeType, encoding, extension As String
-        Dim streamIds As String()
-        Dim warnings As Warning()
-
-        Dim pdfBytes As Byte() = lrLocalReport.Render("PDF", deviceInfo, mimeType, encoding, extension, streamIds, warnings)
-
-        sw.Stop()
-        _logger.Information("GenerateAnalysisPdf - Completed | User: {User} | ProjectId: {ProjectId} | FieldCount: {Count} | SizeBytes: {Size} | ElapsedMs: {ElapsedMs}ms",
-                            userName, projectId, allFields.Count, pdfBytes.Length, sw.ElapsedMilliseconds)
-
-        Dim fileName As String = $"Analysis_Project_{projectId}_{DateTime.Now:yyyyMMdd_HHmmss}.pdf"
-        Return File(pdfBytes, "application/pdf", fileName)
-
-    Catch ex As Exception
-        sw.Stop()
-        Dim fullError As String = ex.Message
-        Dim innerEx = ex.InnerException
-        While innerEx IsNot Nothing
-            fullError &= " | Inner: " & innerEx.Message
-            innerEx = innerEx.InnerException
-        End While
-        _logger.Error(ex, "GenerateAnalysisPdf - Unhandled exception | User: {User} | ElapsedMs: {ElapsedMs}ms | FullError: {FullError}",
-                      userName, sw.ElapsedMilliseconds, fullError)
-        Return New HttpStatusCodeResult(500, "Error generating PDF: " & fullError)
-    End Try
-End Function
+End Class
