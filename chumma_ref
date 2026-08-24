@@ -30,3 +30,10 @@ function applyMandatoryCostLabelColor() {
 
 
 
+
+// Highlight CRE-expert mandatory field labels in red (Initiated status only)
+if (typeof applyCreExpertMandatoryHighlight === 'function') {
+    applyCreExpertMandatoryHighlight('project-credits');
+}
+applyMandatoryCostLabelColor();
+
