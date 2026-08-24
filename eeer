@@ -1,798 +1,124 @@
-@ModelType CollateralScreenViewModel
+Imports Newtonsoft.Json
 
-<div class="admin-tab-content" id="collateralForm">
-    <div class="container-fluid">
-        <form class="collateral-form form-horizontal" id="collateralForm">
-            <!-- Collateral card -->
-            <div class="admin-card">
-                <div class="admin-card-header">
-                    <h4 class="admin-card-title">Collateral</h4>
-                </div>
-                <div class="admin-card-body">
-                    <div class="admin-card-body">
-                        @Code
-                            Dim dropdowns = Model.Dropdowns
-                            Dim numColumns As Integer = Model.NumColumns
-                            Dim access As String = If(ViewBag.Access, "NO_ACCESS")
-                        End Code
-                        <input type="hidden" id="numColumns" value="@numColumns" />
-                        <!-- KRWG And Collateral Ref Table -->
-                        <table class="table table-bordered table-condensed coverage-table table-responsive">
-                            <tbody>
-                                <!-- KRWG ref -->
-                                <tr>
-                                    <td class="label-cell">
-                                        <label class="control-label" rowspan="2">Ref</label>
-                                    </td>
-                                    <td class="label-cell">
-                                        <label class="control-label">KRWG ref</label>
-                                    </td>
-                                    @Code
-                                        For i As Integer = 1 To numColumns
-                                            @<td>
-                                                <div class="input-group">
-                                                    <input type="text" id="krwg_ref_@i"
-                                                           class="form-control input-sm readonly-select"
-                                                           data-label="KRWG Refrence" data-index="@i" />
-                                                    <span class="input-group-btn">
-                                                        <button type="button" class="btn krwg-btn open-krwg-modal" data-field-index="@i">
-                                                            <span class="glyphicon glyphicon-search"></span>
-                                                        </button>
-                                                    </span>
-                                                </div>
-                                            </td>
-                                        Next
-                                    End Code
-                                </tr>
+Public Class CollateralViewModel
+    ' Collateral Information
+    Public Property RE_CLTL_ID As Integer
+    Public Property RE_CLTL_KRWG_ASSET_ID As Integer
+    Public Property RE_CLTL_PROJECT_COLLATERAL_ID As Integer
+    Public Property RE_CLTL_COLLATERAL_OWNER_NM As String
+    Public Property RE_CLTL_PARRI_PASSU_ID As Integer?
+    Public Property RE_CLTL_NATURE_ID As Integer?
+    Public Property RE_CLTL_ATTRIBUTE_ID As Integer?
+    Public Property RE_CLTL_STREET_NM As String
+    Public Property RE_CLTL_STREETNR_NM As String
+    Public Property RE_CLTL_POSTALCODE_ID As String
+    Public Property RE_CLTL_CITY_NM As String
+    Public Property RE_CLTL_COUNTRY_ID As Integer?
 
-                                <!-- Immotool RE Collateral Ref -->
-                                <tr>
-                                    <td class="label-cell"></td>
-                                    <td class="label-cell">
-                                        <label class="control-label">Immotool RE Collateral Ref</label>
-                                    </td>
-                                    @For i As Integer = 1 To numColumns
-                                        @<td>
-                                            <input type="text"
-                                                   class="form-control input-sm readonly-select"
-                                                   id="immotoolRef@(i)"
-                                                   @*value="@($"{coll.RE_PROJ_ID}-{i}")"*@
-                                                   value=""
-                                                   data-required="true" data-label="Collateral Refrence" data-index="@i" />
-                                        </td>
-                                    Next
-                                </tr>
+    ' Financial Information
+    Public Property RE_CLTL_MARKET_VALUE_AM As Decimal?
+    Public Property RE_CLTL_FORCED_SALE_VALUE_AM As Decimal?
+    Public Property RE_CLTL_EXPERT_METHODO_CONFIRM_ID As Integer?
+    Public Property RE_CLTL_EXPERTISE_METHODO_ID As Integer?
+    Public Property RE_CLTL_MARKET_VALUE_EXPERT_AM As Decimal?
+    Public Property RE_CLTL_FORCED_SALE_VALUE_EXPERT_AM As Decimal?
+    Public Property RE_CLTL_OFI_CURRENT_RANK_AM As Decimal?
+    Public Property RE_CLTL_BELFIUS_CURRENT_RANK_AM As Decimal?
+    Public Property RE_CLTL_OUTSTANDING_AM As Decimal?
+    Public Property RE_CLTL_MORTGAGE_REGISTRATION_AM As Decimal?
+    Public Property RE_CLTL_MORTGAGE_MANDATE_AM As Decimal?
+    Public Property RE_CLTL_MORTGAGE_REGISTRATION_AFTER_AM As Decimal?
+    Public Property RE_CLTL_MORTGAGE_MANDATE_AFTER_AM As Decimal?
+    Public Property RE_CLTL_BUILDING_AM As Decimal?
 
-                            </tbody>
-                        </table>
+    ' Collateral Other Information
+    Public Property RE_CLOT_JOINT_PERSONAL_SURETY_AM As Decimal?
+    Public Property RE_CLOT_SAVING_TERM_ACCOUNTS_AM As Decimal?
+    Public Property RE_CLOT_SECURITIES_ACCOUNTS_AM As Decimal?
+    Public Property RE_CLOT_INSURANCE_AM As Decimal?
+    Public Property RE_CLOT_CASH_DEFICIENCY_SW As Integer?
+    Public Property RE_CLOT_COST_OVERRUN_SW As Integer?
+    Public Property RE_CLOT_JOINT_PERSONAL_SURETY_OWNER_NM As String
+    Public Property RE_CLOT_SAVING_TERM_ACCOUNTS_OWNER_NM As String
+    Public Property RE_CLOT_SECURITIES_ACCOUNTS_OWNER_NM As String
+    Public Property RE_CLOT_INSURANCE_OWNER_NM As String
+    Public Property RE_CLOT_CASH_DEFICIENCY_OWNER_NM As String
+    Public Property RE_CLOT_COST_OVERRUN_OWNER_NM As String
+    Public Property RE_CLOT_ENVIRONMENT_PERMIT_SW As Integer?
+    Public Property RE_CLOT_TOTAL_CREDIT_EXPOSURE_CURR_AM As Decimal?
+    Public Property RE_CLOT_BASELII_VALUE_CURR_AM As Decimal?
+    Public Property RE_CLOT_BASELII_VALUE_NEW_AM As Decimal?
+    Public Property RE_CLOT_ADDITIONAL_CONTRIBUTION_AM As Decimal?
+    Public Property RE_CLOT_ADDITIONAL_CONTRIBUTION_NM As String
 
-                        @Html.Action("KRWGSearchModal", "Analysis")
+    <JsonProperty("RE_CLOT_SAVING_TERM_ACCOUNTS_OWNER_ID")>
+    Public Property RE_CLOT_SAVING_TERM_ACCOUNTS_OWNER_ID As String
 
+    <JsonProperty("RE_CLOT_SECURITIES_ACCOUNTS_OWNER_ID")>
+    Public Property RE_CLOT_SECURITIES_ACCOUNTS_OWNER_ID As String
 
-                        <table class="table table-bordered table-condensed coverage-table table-responsive">
-                            @*<colgroup>
-                            <col>
-                            <col>
-                            <col>
-                            <col>
-                            <col>
-                        </colgroup>*@
-                            <tbody>
+    <JsonProperty("RE_CLOT_INSURANCE_OWNER_ID")>
+    Public Property RE_CLOT_INSURANCE_OWNER_ID As String
 
-                                <!-- Real Estate-->
-                                @* Project / Collateral *@
-                                <tr>
-                                    <td class="label-cell" rowspan="6">
-                                        <label class="control-label">Real Estate</label>
-                                    </td>
-                                    <td class="label-cell">
-                                        <label class="control-label">Project / Collateral</label>
-                                    </td>
+    <JsonProperty("RE_PROJ_NOTARY_ACTOR_ID")>
+    Public Property RE_PROJ_NOTARY_ACTOR_ID As String
 
-                                    @For i As Integer = 1 To numColumns
-                                        @<td>
-                                            <select class="form-control input-sm readonly-select"
-                                                    id="projectCollateral@(i)"
-                                                    data-required="true" data-label="Project / Collateral" data-index="@i">
-                                                <option value="">Select</option>
+    <JsonProperty("RE_CRED_BELFIUS_CREDIT_AM")>
+    Public Property RE_CRED_BELFIUS_CREDIT_AM As Integer?
 
-                                                @If dropdowns IsNot Nothing AndAlso dropdowns.ProjectCollateralOptions IsNot Nothing Then
-                                                    For Each item In dropdowns.ProjectCollateralOptions
-                                                        @<option value="@item.TcodId">@item.TcodDescName</option>
-                                                    Next
-                                                End If
-                                            </select>
-                                        </td>
-                                    Next
-                                </tr>
+    ' Asset Information
+    Public Property RE_ASST_CITY_NM As String
+    Public Property RE_ASST_COLLATERAL_ATTRIBUTE_ID As String
+    Public Property RE_ASST_COLLATERAL_NATURE_ID As String
+    Public Property RE_ASST_EXPERT_METHODO_CONFIRM_ID As Integer?
+    Public Property RE_ASST_EXPERTISE_METHODO_ID As Integer?
+    Public Property RE_ASST_FORCED_SALE_VALUE_AM As Decimal?
+    Public Property RE_ASST_FORCED_SALE_VALUE_EXPERT_AM As Decimal?
+    Public Property RE_ASST_LOCATION_ID As Integer?
+    Public Property RE_ASST_MARKET_VALUE_AM As Decimal?
+    Public Property RE_ASST_MARKET_VALUE_EXPERT_AM As Decimal?
+    Public Property RE_ASST_POSTAL_CODE_ID As String
+    Public Property RE_ASST_RE_EVALUATION_REFERENCE_NM As String
+    Public Property RE_ASST_STREET_BOX_NM As String
+    Public Property RE_ASST_STREET_NM As String
+    Public Property RE_ASST_STREET_NR_NM As String
 
+    ' Project Collateral Information
+    Public Property RE_PRCR_RE_AS_COLLATERALS_NR As Integer
+    Public Property RE_PRCR_PROPOSED_COLL_ALREADY_SW As Integer
+    Public Property RE_PRCR_OTHER_PROPOSED_COLLATERALS_SW As Integer
+    Public Property RE_PRCR_CRE_PROJECT_COLLATERAL_ID As Integer
 
-                                @* RE Collateral Owner *@
-                                <tr>
-                                    <td Class="label-cell">
-                                        <Label for="reCollateralOwner" class="control-label">RE Collateral Owner</Label>
-                                    </td>
-                                    @For i As Integer = 1 To numColumns
-                                        @<td>
-                                            <input type="text"
-                                                   class="form-control input-sm"
-                                                   id="reCollateralOwner@(i)"
-                                                   data-required="true" data-label="Collateral Owner" data-index="@i" />
-                                        </td>
-                                    Next
-                                </tr>
+    ' Display only fields (Read-only mappings)
+    Public Property RE_PROJ_ID As Integer
+    Public Property ProjectCollateralId1 As String
+    Public Property ProjectCollateralId2 As String
+    Public Property ProjectCollateralId3 As String
+    Public Property PariPassuDisplayValue As String
+    Public Property NatureDisplayValue As String
+    Public Property AttributeDisplayValue As String
+    Public Property ProjectLocationDisplayValue As String
+    Public Property ExpertiseMethodologyDisplayValue As String
+    Public Property ExpertiseMethodologyConformityDisplayValue As String
 
-                                @* Pari Passu / Full Rights *@
-                                <tr>
-                                    <td class="label-cell">
-                                        <label for="pariPassu" class="control-label">Pari Passu / Full Rights</label>
-                                    </td>
-                                    @For i As Integer = 1 To numColumns
-                                        @<td>
-                                            <select class="form-control input-sm" id="pariPassu@(i)"
-                                                    data-required="true" data-label="Pari Passu / Full Rights" data-index="@i">
-                                                <option value="">SELECT</option>
-                                                @For Each item In dropdowns.PariPassuOptions
-                                                    @<option value="@item.TcodId">@item.TcodDescName</option>
-                                                Next
-                                            </select>
-                                        </td>
-                                    Next
-                                </tr>
+    ' DROPDOWN COLLECTION (FOR UI BINDINGS)
+    Public Property ProjectCollaterlOptions As List(Of TcodModel)
+    Public Property PariPassuOptions As List(Of TcodModel)
+    Public Property NatureOptions As List(Of TcodModel)
+    Public Property AttributeOptions As List(Of TcodModel)
+    Public Property ProjectLocationOptions As List(Of TcodModel)
+    Public Property ExpertiseSource As List(Of TcodModel)
+    Public Property ExpertiseMethodologyOptions As List(Of TcodModel)
+    Public Property ExpertiseMethodologyConformityOptions As List(Of TcodModel)
 
-                                @* Nature *@
-                                <tr>
-                                    <td class="label-cell">
-                                        <label for="nature" class="control-label">Nature</label>
-                                    </td>
-                                    @For i As Integer = 1 To numColumns
-                                        @<td>
-                                            <select class="form-control input-sm" id="nature@(i)"
-                                                    data-required="true" data-field="Nature" data-label="Nature" data-index="@i">
-                                                <option value="">SELECT</option>
-                                                @For Each item In dropdowns.NatureOptions
-                                                    @<option value="@item.TcodId">@item.TcodDescName</option>
-                                                Next
-                                            </select>
-                                        </td>
-                                    Next
-                                </tr>
+    Public Property RE_PRCR_RE_AS_COLLATERALS_NR_Display As String
+    Public Property RE_PRCR_PROPOSED_COLL_ALREADY_SW_Display As String
+    Public Property RE_PRCR_OTHER_PROPOSED_COLLATERALS_SW_Display As String
 
+    ' NEW (for IT table values used for re evaluation phase)
+    <JsonProperty("MARKETVALUE")>
+    Public Property KRWG_MARKET_VALUE_AM As Decimal?
+    <JsonProperty("ASSETVALUE")>
+    Public Property KRWG_FORCED_SALE_VALUE_AM As Decimal?
 
-                                @* Attribute *@
-                                <tr>
-                                    <td class="label-cell">
-                                        <label for="attribute" class="control-label">Attribute</label>
-                                    </td>
-                                    @For i As Integer = 1 To numColumns
-                                        @<td>
-                                            <select class="form-control input-sm" id="attribute@(i)"
-                                                    data-required="true" data-label="Attribute" data-index="@i">
-                                                <option value="">SELECT</option>
-                                                @For Each item In dropdowns.AttributeOptions
-                                                    @<option value="@item.TcodId">@item.TcodDescName</option>
-                                                Next
-                                            </select>
-                                        </td>
-                                    Next
-
-                                </tr>
-
-                                @* Address *@
-                                <tr>
-                                    <td class="label-cell">
-                                        <label class="control-label">Address</label>
-                                    </td>
-                                    @For i As Integer = 1 To numColumns
-                                        @<td>
-                                            <input type="text" class="form-control input-sm" id="street@(i)" data-required="true" data-label="Street" data-index="@i" placeholder="Street" />
-                                            <input type="text" class="form-control input-sm" id="streetNr@(i)" data-required="true" data-label="Street Number" data-index="@i" placeholder="Street Nr" />
-                                            <input type="text" class="form-control input-sm" id="postalCode@(i)" data-required="true" data-label="Postal Code" data-index="@i" placeholder="Postal Code" />
-                                            <input type="text" class="form-control input-sm" id="city@(i)" data-required="true" data-label="City" data-index="@i" placeholder="City" />
-                                            <select class="form-control input-sm" id="location@(i)" data-required="true" data-label="Location" data-index="@i">
-                                                <option value="">SELECT</option>
-                                                @For Each item In dropdowns.ProjectLocationOptions
-                                                    @<option value="@item.TcodId">
-                                                        @item.TcodDescName
-                                                    </option>
-                                                Next
-                                            </select>
-                                        </td>
-
-                                    Next
-                                </tr>
-
-                                <!-- Valuation Before Expertise-->
-                                <tr>
-                                    <td class="label-cell" rowspan="2">
-                                        <label class="control-label">Valuation Before Expertise</label>
-                                    </td>
-                                    <!-- Market Value (deduced) -->
-                                    <td class="label-cell">
-                                        <label for="marketValueDeduced" class="control-label">Market value (deduced)</label>
-                                    </td>
-                                    @For i As Integer = 1 To numColumns
-                                        @<td>
-                                            <input type="text" Class="form-control input-sm numeric-field text-right readonly-select" id="marketValueDeduced@(i)"
-                                                    data-label="Market Value Before Expertise" data-index="@i" />
-                                        </td>
-                                    Next
-                                </tr>
-                                <!-- Forced Sale (computed) -->
-                                <tr>
-                                    <td Class="label-cell">
-                                        <Label for="forcedSaleComputed" class="control-label">Forced Sale (computed)</Label>
-                                    </td>
-                                    @For i As Integer = 1 To numColumns
-                                        @<td>
-                                            <input type="text" Class="form-control input-sm numeric-field text-right readonly-select" id="forcedSaleComputed@(i)"
-                                                    data-label="Forced Sale Before Expertise" data-index="@i" />
-                                        </td>
-                                    Next
-                                </tr>
-
-                                <!-- Valuation after expertise -->
-                                <tr>
-                                    <td class="label-cell" rowspan="3">
-                                        <label class="control-label">Valuation After Expertise</label>
-                                    </td>
-                                    <td class="label-cell">
-                                        <label class="control-label">Expertise methodology</label>
-                                    </td>
-                                    @For i As Integer = 1 To numColumns
-                                        @<td>
-                                            <!-- Expertise Methodology -->
-                                            <select class="form-control input-sm"
-                                                    id="expertiseMethodology@(i)"
-                                                    data-required="true" data-label="Expertise Methodology" data-index="@i">
-                                                <option value="">SELECT</option>
-                                                @For Each item In dropdowns.ExpertiseMethodologyOptions
-                                                    @<option value="@item.TcodId">@item.TcodDescName</option>
-                                                Next
-                                            </select>
-                                            <!-- Expertise Methodology Conformity -->
-                                            <select class="form-control input-sm"
-                                                    id="expertiseMethodologyConformity@(i)"
-                                                    data-required="true" data-label="Expertise Methodology Conformity" data-index="@i">
-                                                <option value="">
-                                                    SELECT
-                                                </option>
-                                                @For Each item In dropdowns.ExpertiseMethodologyConformityOptions
-                                                    @<option value="@item.TcodId">@item.TcodDescName</option>
-                                                Next
-                                            </select>
-                                        </td>
-                                    Next
-                                </tr>
-
-
-                                <!-- Market value (after expertise) -->
-                                <tr>
-                                    <td class="label-cell">
-                                        <label class="control-label">Market value</label>
-                                    </td>
-                                    @For i As Integer = 1 To numColumns
-                                        @<td>
-                                            <input type="text"
-                                                   class="form-control input-sm numeric-field text-right"
-                                                   id="marketValue@(i)"
-                                                   data-required="true" data-label="Market Value After Expertise" data-index="@i"
-                                                   data-max-int="9" />
-                                        </td>
-                                    Next
-                                </tr>
-
-                                <!-- Forced sale (after expertise) -->
-                                <tr>
-                                    <td class="label-cell">
-                                        <label class="control-label">Forced sale</label>
-                                    </td>
-                                    @For i As Integer = 1 To numColumns
-                                        @<td>
-                                            <input type="text"
-                                                   class="form-control input-sm numeric-field text-right"
-                                                   id="forcedSale@(i)"
-                                                   data-label="Forced Sale After Expertise" data-required-if="expertiseMethodology=1" data-index="@i" />
-                                        </td>
-                                    Next
-                                </tr>
-
-
-
-                                <!-- Registration (Current Rank) -->
-                                <tr>
-                                    <td class="label-cell" rowspan="3">
-                                        <label class="control-label">Registration (Current Rank)</label>
-                                    </td>
-                                    <td class="label-cell">
-                                        <label class="control-label">OFI</label>
-                                    </td>
-                                    @For i As Integer = 1 To numColumns
-                                        @<td>
-                                            <input type="text"
-                                                   class="form-control input-sm numeric-field text-right"
-                                                   id="ofi@(i)"
-                                                   data-required="true" data-label="Registration Current Rank" data-index="@i" />
-                                        </td>
-                                    Next
-                                </tr>
-                                <tr>
-                                    <td class="label-cell">
-                                        <label class="control-label">Belfius</label>
-                                    </td>
-                                    @For i As Integer = 1 To numColumns
-                                        @<td>
-                                            <input type="text"
-                                                   class="form-control input-sm numeric-field text-right"
-                                                   id="belfius@(i)"
-                                                   data-required="true" data-label="Belfius" data-index="@i" />
-                                        </td>
-                                    Next
-                                </tr>
-                                <tr>
-                                    <td class="label-cell">
-                                        <label class="control-label">Outstanding Credit Belfius</label>
-                                    </td>
-                                    @For i As Integer = 1 To numColumns
-                                        @<td>
-                                            <input type="text"
-                                                   class="form-control input-sm numeric-field text-right"
-                                                   id="outstandingCreditBelfius@(i)"
-                                                   data-required="true" data-label="Outstanding Credit Belfius" data-index="@i" />
-                                        </td>
-                                    Next
-                                </tr>
-
-
-                                <!-- Registration (New) -->
-                                <tr>
-                                    <td class="label-cell" rowspan="2">
-                                        <label class="control-label">Registration (New)</label>
-                                    </td>
-                                    <td class="label-cell">
-                                        <label class="control-label">Mortgage</label>
-                                    </td>
-
-                                    @For i As Integer = 1 To numColumns
-                                        @<td>
-                                            <input type="text"
-                                                   Class="form-control input-sm numeric-field text-right"
-                                                   id="mortgage@(i)"
-                                                   data-required="true" data-label="Mortgage" data-index="@i" />
-                                        </td>
-                                    Next
-                                </tr>
-                                <tr>
-                                    <td class="label-cell">
-                                        <label class="control-label">Mortgage Mandate</label>
-                                    </td>
-
-                                    @For i As Integer = 1 To numColumns
-                                        @<td>
-                                            <input type="text"
-                                                   class="form-control input-sm numeric-field text-right"
-                                                   id="mortgageMandate@(i)"
-                                                   data-required="true" data-label="Mortgage Mandate" data-index="@i" />
-                                        </td>
-                                    Next
-                                </tr>
-
-
-                                <!-- Basel II -->
-                                <tr>
-                                    <td class="label-cell" rowspan="3">
-                                        <label class="control-label">Basel II</label>
-                                    </td>
-                                    <td class="label-cell">
-                                        <label class="control-label">Mortgage</label>
-                                    </td>
-                                    @For i As Integer = 1 To numColumns
-                                        @<td>
-                                            <input type="text"
-                                                   class="form-control input-sm numeric-field readonly-select text-right"
-                                                   id="baselMortgage@(i)"
-                                                   data-required="true" data-label="Basel II Mortgage" data-index="@i" />
-                                        </td>
-                                    Next
-                                </tr>
-                                <tr>
-                                    <td class="label-cell">
-                                        <label class="control-label">Mortgage Mandate</label>
-                                    </td>
-                                    @For i As Integer = 1 To numColumns
-                                        @<td>
-                                            <input type="text"
-                                                   class="form-control input-sm numeric-field readonly-select text-right"
-                                                   id="baselMortgageMandate@(i)"
-                                                   data-required="true" data-label="Basel II Mortgage Mandate" data-index="@i" />
-                                        </td>
-                                    Next
-                                </tr>
-                                <tr>
-                                    <td class="label-cell">
-                                        <label class="control-label">Building</label>
-                                    </td>
-                                    @For i As Integer = 1 To numColumns
-                                        @<td>
-                                            <input type="text"
-                                                   class="form-control input-sm numeric-field readonly-select text-right"
-                                                   id="baselBuilding@(i)"
-                                                   data-required="true" data-label="Basel II Building" data-index="@i" />
-                                        </td>
-                                    Next
-                                </tr>
-
-                            </tbody>
-                        </table>
-
-                    </div>
-                </div>
-
-            </div>
-
-            @*@Code
-            Dim coverage = Model.Coverage
-        End Code*@
-            <!-- Coverage Details Card -->
-            <div Class="admin-card">
-                <div Class="admin-card-header">
-                    <h4 Class="admin-card-title">Coverage Details</h4>
-                </div>
-                <div Class="admin-card-body">
-                    <div Class="admin-card-body">
-                        <!--Coverage Table-->
-                        <table Class="table table-bordered table-condensed coverage-table">
-                            <thead>
-                                <tr>
-                                    <th> Topic</th>
-                                    <th> Item</th>
-                                    <th> Amount / %</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td Class="label-cell" rowspan="3">
-                                        <label Class="control-label">Coverage before project</label>
-                                    </td>
-                                    <td Class="label-cell">
-                                        <label for="labeltotalCreditExposureBefore" class="control-label">Total credit exposure (*)</label>
-                                    </td>
-                                    <td>
-                                        <input type="text"
-                                               Class="form-control input-sm numeric-field text-right"
-                                               id="totalCreditExposureBefore"
-                                               placeholder="Enter value"
-                                               step="0.01"
-                                               value=""
-                                               data-required="true" data-label="Total Credit Exposure (Coverage Before Project)" />
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td Class="label-cell">
-                                        <label for="baselTwoValueBefore" class="control-label">Basel II value (*)</label>
-                                    </td>
-                                    <td>
-                                        <input type="text"
-                                               Class="form-control input-sm numeric-field text-right"
-                                               id="baselTwoValueBefore"
-                                               placeholder="Enter Value"
-                                               step="0.01"
-                                               value=""
-                                               data-required="true" data-label="Basel II Value" />
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td Class="label-cell">
-                                        <label for="labelcoverageRatioBefore" class="control-label">Coverage ratio (%) </label>
-                                    </td>
-                                    <td>
-                                        <input type="text"
-                                               Class="form-control input-sm numeric-field text-right"
-                                               id="coverageRatioBefore" ReadOnly />
-                                    </td>
-                                </tr>
-
-                                <tr>
-                                    <td></td>
-                                    <td Class="label-cell">
-                                        <label for="baselValue" class="control-label">Basel II value (other) (New) </label>
-                                    </td>
-                                    <td>
-                                        <input type="text" Class="form-control input-sm numeric-field text-right" id="newItem1" value=""
-                                               placeholder="Enter Value" data-tbd="true" data-label="Basel II Value (Other) (new)" />
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td></td>
-                                    <td Class="label-cell">
-                                        <label for="totalBelfiusCredit" class="control-label">Total Belfius Credit (New)</label>
-                                    </td>
-                                    <td>
-                                        <input type="text"
-                                               class="form-control input-sm numeric-field text-right"
-                                               id="totalBelfiusCredit"
-                                               @*value="@(If(Model.Coverage IsNot Nothing, Model.Coverage.TotalBelfiusCredit.ToString("N2", System.Globalization.CultureInfo.InvariantCulture).Replace(",", " "), ""))"*@
-                                               value=""
-                                               readonly />
-                                    </td>
-                                </tr>
-
-
-                                <tr>
-                                    <td Class="label-cell" rowspan="3">
-                                        <label Class="control-label">Coverage after project</label>
-                                    </td>
-                                    <td Class="label-cell">
-                                        <label for="grossExposure" class="control-label">Gross exposure</label>
-                                    </td>
-                                    <td>
-                                        <input type="text" Class="form-control input-sm numeric-field text-right" id="grossExposure" ReadOnly />
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td Class="label-cell">
-                                        <label for="netExposure" class="control-label">Net exposure</label>
-                                    </td>
-                                    <td>
-                                        <input type="text" Class="form-control input-sm numeric-field text-right" id="netExposure" value="" ReadOnly />
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td Class="label-cell">
-                                        <label for="coverageRatio2" class="control-label">Coverage ratio (%)</label>
-                                    </td>
-                                    <td>
-                                        <input type="text" Class="form-control input-sm numeric-field text-right" id="coverageRatio2" value="" ReadOnly />
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
-            <!--Notary Card -->
-            <div class="admin-card">
-                <div class="admin-card-header">
-                    <h4 class="admin-card-title">Notary</h4>
-                </div>
-                <button class="btn notary-btn" data-toggle="modal" data-target="#notaryModal" type="button">
-                    <span class="glyphicon glyphicon-search"></span>
-                </button>
-                <div class="admin-card-body">
-                    <div class="admin-card-body">
-                        <table class="table table-bordered table-condensed coverage-table">
-                            <tbody>
-                                <!-- Notary Table-->
-                                <tr>
-                                    <td class="label-cell" rowspan="3">
-                                        <label class="control-label">Notary</label>
-                                    </td>
-                                    <td class="label-cell">
-                                        <label for="actorId" class="control-label">Actor ID</label>
-                                    </td>
-                                    <td>
-                                        <input type="text" class="form-control input-sm readonly-select" id="actorId"
-                                               data-required="true" data-label="Notary Actor ID" />
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td class="label-cell">
-                                        <label for="name" class="control-label">Name</label>
-                                    </td>
-                                    <td>
-                                        <input type="text" class="form-control input-sm readonly-select" id="name" />
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td class="label-cell">
-                                        <label for="postalCode" class="control-label">Postal Code</label>
-                                    </td>
-                                    <td>
-                                        <input type="text" class="form-control input-sm readonly-select" id="postalCode" />
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
-
-            @*@code
-            Dim other = Model.OtherCollateral
-            Dim isSponsorClient As Boolean = If(other IsNot Nothing, other.IsSponserClient, False)
-
-        End Code*@
-            <!-- Other Collateral Card -->
-            <div Class="admin-card">
-                <div Class="admin-card-header">
-                    <h4 Class="admin-card-title">Other Collaterals</h4>
-                </div>
-                <div Class="admin-card-body">
-                    <div Class="admin-card-body">
-                        <!--Other Collateral Table-->
-                        <table Class="table table-bordered table-condensed coverage-table">
-                            <thead>
-                                <tr>
-                                    <th> Other Collaterals</th>
-                                    <th></th>
-                                    <th> Owner</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td class="label-cell">
-                                        <label class="control-label">
-                                            Joint and personal surety
-                                        </label>
-                                    </td>
-                                    <td>
-                                        <input type="text" 
-                                               class="form-control input-sm numeric-field amount-field text-right"
-                                               data-tbd="true"
-                                               id="jointAndPersonalSurety"
-                                               data-label="Joint And Personal Surety" />
-                                    </td>
-                                    <td>
-                                        <!-- Owner column intentionally empty for Row 1 -->
-                                    </td>
-                                </tr>
-
-                                <tr>
-                                    <td Class="label-cell">
-                                        <label Class="control-label">Saving/Term acc</label>
-                                    </td>
-                                    <td>
-                                        <input type="text" Class="form-control input-sm numeric-field amount-field text-right" data-tbd="true" id="savingTermAcc"
-                                               data-label="Saving / Term Account Amount" />
-                                    </td>
-                                    <td>
-                                        <select class="form-control input-sm owner-field"
-                                                id="savingTermAccOwner" data-tbd="true"
-                                                data-label="Saving / Term Account Owner">
-                                            <option value="">Select owner</option>
-                                        </select>
-                                    </td>
-
-                                </tr>
-                                <tr>
-                                    <td Class="label-cell">
-                                        <label Class="control-label">Securities acc</label>
-                                    </td>
-                                    <td>
-                                        <input type="text" Class="form-control input-sm numeric-field amount-field text-right" data-tbd="true" id="securitiesAcc" min="0"
-                                               data-label="Securities Account Amount" />
-                                    </td>
-                                    <td>
-                                        <select class="form-control input-sm owner-field"
-                                                id="securitiesAccOwner" data-tbd="true"
-                                                data-label="Securities Account Owner">
-                                            <option value="">Select owner</option>
-                                        </select>
-
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td Class="label-cell">
-                                        <label Class="control-label">Insurance</label>
-                                    </td>
-                                    <td>
-                                        <input type="text" Class="form-control input-sm numeric-field amount-field text-right" data-tbd="true" id="insurance"
-                                               data-label="Insurance Amount" />
-                                    </td>
-                                    <td>
-                                        <select class="form-control input-sm owner-field"
-                                                id="insuranceOwner" data-tbd="true"
-                                                data-label="Insurance Owner">
-                                            <option value="">Select owner</option>
-                                        </select>
-                                    </td>
-                                </tr>
-                                <tr id="rowAdditionalContribution">
-                                    <td Class="label-cell" data-tbd="true">
-                                        <label Class="control-label">covenant sponsor - Additional Contribution</label>
-                                    </td>
-                                    <td>
-                                        <input type="text" Class="form-control input-sm numeric-field text-right" data-tbd="true" id="covenantSponsorAdditionalContribution"
-                                               data-label="Covenant Sponser Additional Contribution" />
-                                    </td>
-
-                                </tr>
-                                <tr id="rowCashDeficiency" data-tbd="true">
-                                    <td Class="label-cell">
-                                        <label Class="control-label">covenant sponsor - Cash deficiency</label>
-                                    </td>
-                                    <td>
-                                        <select Class="form-control input-sm" id="covenantSponsorCashDeficiency" data-tbd="true"
-                                                data-label="Covenant Sponser Cash Deficiency">
-                                            @If dropdowns?.YesNoOptions IsNot Nothing Then
-                                                @<option value="">SELECT</option>
-                                                @For Each item In dropdowns.YesNoOptions
-                                                    @<option value="@item.TcodId">@item.TcodDescName</option>
-                                                Next
-                                            End If
-                                        </select>
-                                    </td>
-
-                                </tr>
-                                <tr id="rowCostOverrun" data-tbd="true">
-                                    <td Class="label-cell">
-                                        <label Class="control-label">covenant sponsor - Cost overrun</label>
-                                    </td>
-                                    <td>
-                                        <select Class="form-control input-sm" id="covenantSponsorCostOverrun" data-tbd="true"
-                                                data-label="Covenant Sponser Cost Overrun">
-                                            @If dropdowns?.YesNoOptions IsNot Nothing Then
-                                                @<option value="">SELECT</option>
-                                                @For Each item In dropdowns.YesNoOptions
-                                                    @<option value="@item.TcodId">@item.TcodDescName</option>
-                                                Next
-                                            End If
-                                        </select>
-                                    </td>
-
-                                </tr>
-                                <tr>
-                                    <td Class="label-cell">
-                                        <label Class="control-label">Covenant - Environment permit</label>
-                                    </td>
-                                    <td>
-                                        <select Class="form-control input-sm" id="covenantEnvironmentPermit" data-tbd="true"
-                                            data-label="Covenant Environment Permit" >
-                                            @If dropdowns?.YesNoOptions IsNot Nothing Then
-                                                @<option value="">SELECT</option>
-                                                @For Each item In dropdowns.YesNoOptions
-                                                    @<option value="@item.TcodId">@item.TcodDescName</option>
-                                                Next
-                                            End If
-                                        </select>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
-        </form>
-
-        <!--Collateral tab action button-->
-        <div Class="admin-action-buttons">
-            <div Class="admin-action-left">
-                <Button type="button" Class="btn btn-primary analyze-btn analyze-btn-save-close" id="collateralSaveCloseBtn">
-                    <Span Class="glyphicon glyphicon-floppy-saved"></Span>Save Close file
-                </Button>
-                <Button type="button" Class="btn btn-success analyze-btn analyze-btn-save" id="collateralSaveBtn">
-                    <Span Class="glyphicon glyphicon-floppy-disk"></Span>Save And Next
-                </Button>
-            </div>
-
-            <div Class="admin-action-right">
-                <Button type="button" Class="btn btn-default analyze-btn analyze-btn-cancel" id="collateralCancelBtn">
-                    <Span Class="glyphicon glyphicon-remove"></Span>Cancel
-                </Button>
-            </div>
-        </div>
-
-    </div>
-</div>
-
-@Code
-
-    Dim notaryModal = New ViewDataDictionary()
-    notaryModal.Add("ModalId", "notaryModal")
-    notaryModal.Add("Title", "Search Notary")
-    notaryModal.Add("ShowSaveButton", False)
-    notaryModal.Add("ModalSize", "modal-xxl")
-    ' Load BODY from partial
-    notaryModal.Add("ModalBody", Html.Partial("_NotarySearchModal", "Analysis").ToHtmlString())
-End Code
-
-@Html.Partial("_GenericModal", notaryModal)
-@Html.Partial("_CancelConfirmModal")
-
-<script>
-    window.tabAccess = "@(If(ViewBag.Access, "NO_ACCESS"))";
-    //window.userRole = "@(If(ViewBag.UserRole, ""))";
-</script>
+End Class
