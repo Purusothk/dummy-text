@@ -1,124 +1,13 @@
-Imports Newtonsoft.Json
-
-Public Class CollateralViewModel
-    ' Collateral Information
-    Public Property RE_CLTL_ID As Integer
-    Public Property RE_CLTL_KRWG_ASSET_ID As Integer
-    Public Property RE_CLTL_PROJECT_COLLATERAL_ID As Integer
-    Public Property RE_CLTL_COLLATERAL_OWNER_NM As String
-    Public Property RE_CLTL_PARRI_PASSU_ID As Integer?
-    Public Property RE_CLTL_NATURE_ID As Integer?
-    Public Property RE_CLTL_ATTRIBUTE_ID As Integer?
-    Public Property RE_CLTL_STREET_NM As String
-    Public Property RE_CLTL_STREETNR_NM As String
-    Public Property RE_CLTL_POSTALCODE_ID As String
-    Public Property RE_CLTL_CITY_NM As String
-    Public Property RE_CLTL_COUNTRY_ID As Integer?
-
-    ' Financial Information
-    Public Property RE_CLTL_MARKET_VALUE_AM As Decimal?
-    Public Property RE_CLTL_FORCED_SALE_VALUE_AM As Decimal?
-    Public Property RE_CLTL_EXPERT_METHODO_CONFIRM_ID As Integer?
-    Public Property RE_CLTL_EXPERTISE_METHODO_ID As Integer?
-    Public Property RE_CLTL_MARKET_VALUE_EXPERT_AM As Decimal?
-    Public Property RE_CLTL_FORCED_SALE_VALUE_EXPERT_AM As Decimal?
-    Public Property RE_CLTL_OFI_CURRENT_RANK_AM As Decimal?
-    Public Property RE_CLTL_BELFIUS_CURRENT_RANK_AM As Decimal?
-    Public Property RE_CLTL_OUTSTANDING_AM As Decimal?
-    Public Property RE_CLTL_MORTGAGE_REGISTRATION_AM As Decimal?
-    Public Property RE_CLTL_MORTGAGE_MANDATE_AM As Decimal?
-    Public Property RE_CLTL_MORTGAGE_REGISTRATION_AFTER_AM As Decimal?
-    Public Property RE_CLTL_MORTGAGE_MANDATE_AFTER_AM As Decimal?
-    Public Property RE_CLTL_BUILDING_AM As Decimal?
-
-    ' Collateral Other Information
-    Public Property RE_CLOT_JOINT_PERSONAL_SURETY_AM As Decimal?
-    Public Property RE_CLOT_SAVING_TERM_ACCOUNTS_AM As Decimal?
-    Public Property RE_CLOT_SECURITIES_ACCOUNTS_AM As Decimal?
-    Public Property RE_CLOT_INSURANCE_AM As Decimal?
-    Public Property RE_CLOT_CASH_DEFICIENCY_SW As Integer?
-    Public Property RE_CLOT_COST_OVERRUN_SW As Integer?
-    Public Property RE_CLOT_JOINT_PERSONAL_SURETY_OWNER_NM As String
-    Public Property RE_CLOT_SAVING_TERM_ACCOUNTS_OWNER_NM As String
-    Public Property RE_CLOT_SECURITIES_ACCOUNTS_OWNER_NM As String
-    Public Property RE_CLOT_INSURANCE_OWNER_NM As String
-    Public Property RE_CLOT_CASH_DEFICIENCY_OWNER_NM As String
-    Public Property RE_CLOT_COST_OVERRUN_OWNER_NM As String
-    Public Property RE_CLOT_ENVIRONMENT_PERMIT_SW As Integer?
-    Public Property RE_CLOT_TOTAL_CREDIT_EXPOSURE_CURR_AM As Decimal?
-    Public Property RE_CLOT_BASELII_VALUE_CURR_AM As Decimal?
-    Public Property RE_CLOT_BASELII_VALUE_NEW_AM As Decimal?
-    Public Property RE_CLOT_ADDITIONAL_CONTRIBUTION_AM As Decimal?
-    Public Property RE_CLOT_ADDITIONAL_CONTRIBUTION_NM As String
-
-    <JsonProperty("RE_CLOT_SAVING_TERM_ACCOUNTS_OWNER_ID")>
-    Public Property RE_CLOT_SAVING_TERM_ACCOUNTS_OWNER_ID As String
-
-    <JsonProperty("RE_CLOT_SECURITIES_ACCOUNTS_OWNER_ID")>
-    Public Property RE_CLOT_SECURITIES_ACCOUNTS_OWNER_ID As String
-
-    <JsonProperty("RE_CLOT_INSURANCE_OWNER_ID")>
-    Public Property RE_CLOT_INSURANCE_OWNER_ID As String
-
-    <JsonProperty("RE_PROJ_NOTARY_ACTOR_ID")>
-    Public Property RE_PROJ_NOTARY_ACTOR_ID As String
-
-    <JsonProperty("RE_CRED_BELFIUS_CREDIT_AM")>
-    Public Property RE_CRED_BELFIUS_CREDIT_AM As Integer?
-
-    ' Asset Information
-    Public Property RE_ASST_CITY_NM As String
-    Public Property RE_ASST_COLLATERAL_ATTRIBUTE_ID As String
-    Public Property RE_ASST_COLLATERAL_NATURE_ID As String
-    Public Property RE_ASST_EXPERT_METHODO_CONFIRM_ID As Integer?
-    Public Property RE_ASST_EXPERTISE_METHODO_ID As Integer?
-    Public Property RE_ASST_FORCED_SALE_VALUE_AM As Decimal?
-    Public Property RE_ASST_FORCED_SALE_VALUE_EXPERT_AM As Decimal?
-    Public Property RE_ASST_LOCATION_ID As Integer?
-    Public Property RE_ASST_MARKET_VALUE_AM As Decimal?
-    Public Property RE_ASST_MARKET_VALUE_EXPERT_AM As Decimal?
-    Public Property RE_ASST_POSTAL_CODE_ID As String
-    Public Property RE_ASST_RE_EVALUATION_REFERENCE_NM As String
-    Public Property RE_ASST_STREET_BOX_NM As String
-    Public Property RE_ASST_STREET_NM As String
-    Public Property RE_ASST_STREET_NR_NM As String
-
-    ' Project Collateral Information
-    Public Property RE_PRCR_RE_AS_COLLATERALS_NR As Integer
-    Public Property RE_PRCR_PROPOSED_COLL_ALREADY_SW As Integer
-    Public Property RE_PRCR_OTHER_PROPOSED_COLLATERALS_SW As Integer
-    Public Property RE_PRCR_CRE_PROJECT_COLLATERAL_ID As Integer
-
-    ' Display only fields (Read-only mappings)
-    Public Property RE_PROJ_ID As Integer
-    Public Property ProjectCollateralId1 As String
-    Public Property ProjectCollateralId2 As String
-    Public Property ProjectCollateralId3 As String
-    Public Property PariPassuDisplayValue As String
-    Public Property NatureDisplayValue As String
-    Public Property AttributeDisplayValue As String
-    Public Property ProjectLocationDisplayValue As String
-    Public Property ExpertiseMethodologyDisplayValue As String
-    Public Property ExpertiseMethodologyConformityDisplayValue As String
-
-    ' DROPDOWN COLLECTION (FOR UI BINDINGS)
-    Public Property ProjectCollaterlOptions As List(Of TcodModel)
-    Public Property PariPassuOptions As List(Of TcodModel)
-    Public Property NatureOptions As List(Of TcodModel)
-    Public Property AttributeOptions As List(Of TcodModel)
-    Public Property ProjectLocationOptions As List(Of TcodModel)
-    Public Property ExpertiseSource As List(Of TcodModel)
-    Public Property ExpertiseMethodologyOptions As List(Of TcodModel)
-    Public Property ExpertiseMethodologyConformityOptions As List(Of TcodModel)
-
-    Public Property RE_PRCR_RE_AS_COLLATERALS_NR_Display As String
-    Public Property RE_PRCR_PROPOSED_COLL_ALREADY_SW_Display As String
-    Public Property RE_PRCR_OTHER_PROPOSED_COLLATERALS_SW_Display As String
-
-    ' NEW (for IT table values used for re evaluation phase)
-    <JsonProperty("MARKETVALUE")>
-    Public Property KRWG_MARKET_VALUE_AM As Decimal?
-    <JsonProperty("ASSETVALUE")>
-    Public Property KRWG_FORCED_SALE_VALUE_AM As Decimal?
-
-End Class
+' ---- Actor tab (SPECIFIC FIELDS ONLY) ----
+        Try
+            If projectStatusId.HasValue AndAlso projectFlowId.HasValue Then
+                Dim actorData = Await _actorTabService.GetActorTabDataAsync(projectId, projectStatusId.Value, projectFlowId.Value)
+                ' ActorId, BelfiusClient, ActorName live on MainDebtor (MainDebtorActorModel),
+                ' NOT directly on ActorTabViewModel - point reflection at actorData.MainDebtor.
+                Dim actorFields = New String() {"ActorId", "ActorName", "BelfiusClient"}
+                allFields.AddRange(PdfFieldReflectionHelper.GetAutoPdfFields("Actor", "Main Debtor", actorData.MainDebtor, includeOnly:=actorFields))
+            End If
+        Catch ex As Exception
+            _logger.Error(ex, "GenerateAnalysisPdf - Actor tab failed | ProjectId: {ProjectId}", projectId)
+            allFields.Add(New AnalysisPdfFieldModel("Actor", "Error", "Note", "Actor data unavailable", 0))
+        End Try
