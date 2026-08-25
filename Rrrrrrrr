@@ -1,127 +1,456 @@
 Imports Serilog
 Imports System.Diagnostics
+
+Imports System.Web.Helpers
+Imports FxResources.System.Text
 Imports Newtonsoft.Json
 Imports Oracle.ManagedDataAccess.Client
+Imports Oracle.ManagedDataAccess.Types
 
-Public Interface IProjectCreditsTabService
-    Function GetProjectCreditsData(projectId As Integer, Optional projectStatusId As Integer? = Nothing, Optional projectFlowId As Integer? = Nothing) As ProjectCreditsTabViewModel
-    Function GetActorData(projectId As Integer, actorId As String, Optional projectStatusId As Integer? = Nothing, Optional projectFlowId As Integer? = Nothing) As ActorViewModel
-    Sub SaveProjectCreditsData(payload As ProjectCreditsTabSaveDto)
-    'Function SaveProjectCreditsData(payload As ProjectCreditsTabSaveDto) As (IsSuccess As Boolean, Message As String)
-End Interface
-Public Class ProjectCreditsTabService
-    Implements IProjectCreditsTabService
+Public Class ProjectCreditsTabRepository
+    Implements IProjectCreditsTabRepository
 
-    Private ReadOnly _projectCreditsTabRepository As IProjectCreditsTabRepository
+    Private ReadOnly _dbContext As OracleDbContext
     Private ReadOnly _logger As ILogger
 
-    Public Sub New(projectCreditsTabRepository As IProjectCreditsTabRepository)
-        _projectCreditsTabRepository = projectCreditsTabRepository
-        _logger = Log.ForContext(Of ProjectCreditsTabService)()
+    Public Sub New()
+        _dbContext = OracleDbContext.GetInstance()
+        _logger = Log.ForContext(Of ProjectCreditsTabRepository)()
     End Sub
 
-    Public Function GetProjectCreditsData(projectId As Integer, Optional projectStatusId As Integer? = Nothing, Optional projectFlowId As Integer? = Nothing) As ProjectCreditsTabViewModel Implements IProjectCreditsTabService.GetProjectCreditsData
-        Dim sw = Stopwatch.StartNew()
-        _logger.Information("GetProjectCreditsData - Request received")
-        Dim projectCreditsData As New ProjectCreditsTabViewModel
+    Dim Cur_UserID As String = HttpContext.Current.User.Identity.Name.ToUpper().Replace("BELWIRED\", "") 'Fetching Current environment username
 
-        projectCreditsData.ProjectId = projectId
-        projectCreditsData.ProjectStatusId = projectStatusId
-        projectCreditsData.ProjectStatusFlowId = projectFlowId
-        Dim savedData As ProjectCreditsTabDataModel = _projectCreditsTabRepository.GetProjectCreditsTabData(projectId, projectStatusId, projectFlowId)
-        If savedData IsNot Nothing Then
-            If savedData.HasData Then
-                'Copying all matching properties automatically
-                For Each prop In GetType(ProjectCreditsTabDataModel).GetProperties()
-                    Dim targetProp = GetType(ProjectCreditsTabViewModel).GetProperty(prop.Name)
-                    If targetProp IsNot Nothing AndAlso targetProp.CanWrite Then
-                        targetProp.SetValue(projectCreditsData, prop.GetValue(savedData))
+    Public Function GetActorData(projectId As Integer, actorId As String, Optional projectStatusId As Integer? = Nothing, Optional projectFlowId As Integer? = Nothing) As (ACTORNAME As String, RATING As String) Implements IProjectCreditsTabRepository.GetActorData
+        Dim sw = Stopwatch.StartNew()
+        _logger.Information("GetActorData - SP call started | Username: {Username}", Cur_UserID)
+        ' Building the SQL condition
+        Dim conditions As New List(Of String)
+        conditions.Add("RE_PROJ_ID = " & projectId)
+
+        If projectStatusId.HasValue Then
+            conditions.Add("RE_proj_status_id = " & projectStatusId)
+        End If
+
+        If projectFlowId.HasValue Then
+            conditions.Add("Re_proj_status_flow_id = " & projectFlowId)
+        End If
+
+        conditions.Add("re_actr_actor_id = '" & actorId & "'")
+
+        ' Joining conditions
+        Dim sqlCondition As String = "WHERE " & String.Join(" AND ", conditions)
+
+        Dim ACTORNAME As String = String.Empty
+        Dim RATING As String = String.Empty
+        Using conn As OracleConnection = _dbContext.CreateConnection()
+            conn.Open()
+
+            Using cmd As New OracleCommand()
+                cmd.Connection = conn
+                cmd.CommandText = "QRER.PKG_SCREEN_ACTOR.SP_Get_ACTR_JSON"
+                cmd.CommandType = CommandType.StoredProcedure
+                'Input Parameters
+                cmd.Parameters.Add("P_Formname", OracleDbType.Varchar2).Value = "ProjectCredits"
+                cmd.Parameters.Add("P_username", OracleDbType.Varchar2).Value = Cur_UserID
+                cmd.Parameters.Add("P_qry_ID", OracleDbType.Int32).Value = 3
+                cmd.Parameters.Add("P_condition", OracleDbType.Varchar2).Value = sqlCondition
+                'Output parameters
+                Dim outparam As New OracleParameter("p_json_re_actr_out", OracleDbType.Clob)
+                outparam.Direction = ParameterDirection.Output
+                cmd.Parameters.Add(outparam)
+                cmd.ExecuteNonQuery()
+                Console.WriteLine(outparam.Value)
+                ' Processing the output
+                If outparam.Value IsNot Nothing AndAlso Not Convert.IsDBNull(outparam.Value) Then
+                    Try
+                        Dim jsonString As String
+
+                        If TypeOf outparam.Value Is OracleClob Then
+                            Dim clob As OracleClob = DirectCast(outparam.Value, OracleClob)
+                            jsonString = clob.Value
+                        Else
+                            jsonString = outparam.Value.ToString()
+                        End If
+
+                        If Not String.IsNullOrEmpty(jsonString) Then
+                            Dim actorList As List(Of ActorViewModel) = JsonConvert.DeserializeObject(Of List(Of ActorViewModel))(jsonString)
+
+                            If actorList IsNot Nothing AndAlso actorList.Count > 0 Then
+                                Dim actorData As ActorViewModel = actorList(0)
+                                ACTORNAME = actorData.ActorName
+                                RATING = actorData.QualityId
+                            End If
+                        End If
+                    Catch ex As Exception
+                        Console.WriteLine("Error processing output: " & ex.Message)
+                    End Try
+                End If
+            End Using
+        End Using
+        _logger.Information("GetActorData - SP executed | User: {User} | ElapsedMs: {ElapsedMs}ms", Cur_UserID, sw.ElapsedMilliseconds)
+        Return (ACTORNAME, RATING)
+    End Function
+
+    Public Function GetProjectCreditsTabData(projectId As Integer, Optional projectStatusId As Integer? = Nothing, Optional projectFlowId As Integer? = Nothing) As ProjectCreditsTabDataModel Implements IProjectCreditsTabRepository.GetProjectCreditsTabData
+        Dim sw = Stopwatch.StartNew()
+        _logger.Information("GetProjectCreditsTabData - SP call started | Username: {Username}", Cur_UserID)
+        Dim projectsCreditsData As New ProjectCreditsTabDataModel
+        Dim credData As New List(Of ProjectCreditsTabBelfiusCreditsDataModel)
+        Dim conditions As New List(Of String)
+        conditions.Add("proj.re_proj_id = " & projectId)
+
+        If projectStatusId.HasValue Then
+            conditions.Add("proj.re_proj_status_id = " & projectStatusId)
+        End If
+
+        If projectFlowId.HasValue Then
+            conditions.Add("proj.re_proj_status_flow_id = " & projectFlowId)
+        End If
+
+        ' Joining conditions
+        Dim sqlCondition As String = "WHERE " & String.Join(" AND ", conditions)
+        Using conn As OracleConnection = _dbContext.CreateConnection()
+            conn.Open()
+
+            Using cmd As New OracleCommand()
+                cmd.Connection = conn
+                cmd.CommandText = RePrcrGetSpJson
+                cmd.CommandType = CommandType.StoredProcedure
+                'Input Parameters
+                cmd.Parameters.Add("P_Formname", OracleDbType.Varchar2).Value = "ProjectCredits"
+                cmd.Parameters.Add("P_username", OracleDbType.Varchar2).Value = Cur_UserID
+                cmd.Parameters.Add("P_qry_ID", OracleDbType.Int32).Value = 1
+                cmd.Parameters.Add("P_condition", OracleDbType.Varchar2).Value = sqlCondition
+                'Output parameters
+                Dim outparam As New OracleParameter("p_json_re_prcr_out", OracleDbType.Clob)
+                outparam.Direction = ParameterDirection.Output
+                cmd.Parameters.Add(outparam)
+                cmd.ExecuteNonQuery()
+                Console.WriteLine(outparam.Value)
+                'Processing the output
+                If outparam.Value IsNot Nothing AndAlso Not Convert.IsDBNull(outparam.Value) Then
+                    Try
+                        Dim jsonString As String
+
+                        If TypeOf outparam.Value Is OracleClob Then
+                            Dim clob As OracleClob = DirectCast(outparam.Value, OracleClob)
+                            jsonString = clob.Value
+                        Else
+                            jsonString = outparam.Value.ToString()
+                        End If
+
+                        If Not String.IsNullOrEmpty(jsonString) Then
+                            projectsCreditsData = JsonConvert.DeserializeObject(Of List(Of ProjectCreditsTabDataModel))(jsonString).FirstOrDefault()
+                            projectsCreditsData.HasData = True
+                        End If
+                    Catch ex As Exception
+                        Console.WriteLine("Error processing output: " & ex.Message)
+                    End Try
+                End If
+            End Using
+            ' Getting RE_CRED table data
+            Using cmd As New OracleCommand()
+                cmd.Connection = conn
+                cmd.CommandText = RePrcrGetSpJson
+                cmd.CommandType = CommandType.StoredProcedure
+                'Input Parameters
+                cmd.Parameters.Add("P_Formname", OracleDbType.Varchar2).Value = "ProjectCredits"
+                cmd.Parameters.Add("P_username", OracleDbType.Varchar2).Value = Cur_UserID
+                cmd.Parameters.Add("P_qry_ID", OracleDbType.Int32).Value = 2
+                cmd.Parameters.Add("P_condition", OracleDbType.Varchar2).Value = sqlCondition
+                'Output parameters
+                Dim outparam As New OracleParameter("p_json_re_prcr_out", OracleDbType.Clob)
+                outparam.Direction = ParameterDirection.Output
+                cmd.Parameters.Add(outparam)
+                cmd.ExecuteNonQuery()
+                Console.WriteLine(outparam.Value)
+                'Processing the output
+                If outparam.Value IsNot Nothing AndAlso Not Convert.IsDBNull(outparam.Value) Then
+                    Try
+                        Dim jsonString As String
+
+                        If TypeOf outparam.Value Is OracleClob Then
+                            Dim clob As OracleClob = DirectCast(outparam.Value, OracleClob)
+                            jsonString = clob.Value
+                        Else
+                            jsonString = outparam.Value.ToString()
+                        End If
+
+                        If Not String.IsNullOrEmpty(jsonString) Then
+                            credData = JsonConvert.DeserializeObject(Of List(Of ProjectCreditsTabBelfiusCreditsDataModel))(jsonString)
+                        End If
+                    Catch ex As Exception
+                        Console.WriteLine("Error processing output: " & ex.Message)
+                    End Try
+                End If
+            End Using
+        End Using
+        _logger.Information("GetProjectCreditsTabData - SP executed | User: {User} | ElapsedMs: {ElapsedMs}ms", Cur_UserID, sw.ElapsedMilliseconds)
+        projectsCreditsData.BelfiusCreditData = credData
+        Return projectsCreditsData
+    End Function
+
+    Public Sub SaveProjectCredits(payload As ProjectCreditsTabSaveDto) Implements IProjectCreditsTabRepository.SaveProjectCredits
+        Dim sw = Stopwatch.StartNew()
+        _logger.Information("SaveProjectCredits - SP call started | User: {User} | ProjectId: {ProjectId} | StatusId: {StatusId} | FlowId: {FlowId}", Cur_UserID, payload?.ProjectId, payload?.ProjectStatusId, payload?.ProjectStatusFlowId)
+        Dim formName As String = "ProjectCredits"
+        Dim userName As String = Cur_UserID
+
+        Using conn As OracleConnection = _dbContext.CreateConnection()
+            conn.Open()
+
+            Using tx = conn.BeginTransaction()
+                Try
+                    SaveSingle(conn, tx, formName, userName, ProjectCreditsQryIds.RE_PRCR, payload.RE_PRCR)
+                    SaveSingle(conn, tx, formName, userName, ProjectCreditsQryIds.RE_CROI, payload.RE_CROI)
+                    SaveSingle(conn, tx, formName, userName, ProjectCreditsQryIds.RE_CRGU, payload.RE_CRGU)
+                    SaveSingle(conn, tx, formName, userName, ProjectCreditsQryIds.RE_PRFU, payload.RE_PRFU)
+                    SaveListWithDiff(conn, tx, formName, userName, ProjectCreditsQryIds.RE_CRED, payload.ProjectId, payload.ProjectStatusId, payload.ProjectStatusFlowId, payload.RE_CRED)
+                    SaveListWithDiff(conn, tx, formName, userName, ProjectCreditsQryIds.RE_COST, payload.ProjectId, payload.ProjectStatusId, payload.ProjectStatusFlowId, payload.RE_COST)
+
+                    tx.Commit()
+                    sw.Stop()
+                    _logger.Information("SaveProjectCredits - Success | User: {User} | ProjectId: {ProjectId} | ElapsedMs: {ElapsedMs}ms", Cur_UserID, payload.ProjectId, sw.ElapsedMilliseconds)
+                Catch ex As Exception
+                    tx.Rollback()
+                    sw.Stop()
+                    _logger.Error(ex, "SaveProjectCredits - Failed, transaction rolled back | User: {User} | ProjectId: {ProjectId} | ElapsedMs: {ElapsedMs}ms", Cur_UserID, payload?.ProjectId, sw.ElapsedMilliseconds)
+                    Throw
+                End Try
+            End Using
+        End Using
+    End Sub
+
+    Private Function GetTableName(qryId As ProjectCreditsQryIds) As String
+        Select Case qryId
+            Case ProjectCreditsQryIds.RE_PRCR
+                Return QrerSchema & Dot & "RE_PRCR"
+            Case ProjectCreditsQryIds.RE_COST
+                Return QrerSchema & Dot & "RE_COST"
+            Case ProjectCreditsQryIds.RE_CROI
+                Return QrerSchema & Dot & "RE_CROI"
+            Case ProjectCreditsQryIds.RE_CRGU
+                Return QrerSchema & Dot & "RE_CRGU"
+            Case ProjectCreditsQryIds.RE_PRFU
+                Return QrerSchema & Dot & "RE_PRFU"
+            Case ProjectCreditsQryIds.RE_CRED
+                Return QrerSchema & Dot & "RE_CRED"
+                'Case ProjectCreditsQryIds.RE_ACTR
+                '    Return QrerSchema & Dot & "RE_ACTR"
+            Case Else
+                Throw New ArgumentOutOfRangeException(NameOf(qryId), "Invalid ProjectCreditsQryId")
+        End Select
+    End Function
+
+    Private Function RecordExists(conn As OracleConnection, tx As OracleTransaction, formName As String, userName As String, saveQryId As ProjectCreditsQryIds, entity As Object) As Boolean
+
+        Dim qry As String = "SELECT COUNT(1) FROM " & GetTableName(saveQryId) & " WHERE RE_PROJ_ID = " & entity.RE_PROJ_ID & " AND RE_PROJ_STATUS_ID = " & entity.RE_PROJ_STATUS_ID & " AND RE_PROJ_STATUS_FLOW_ID = " & entity.RE_PROJ_STATUS_FLOW_ID & If(saveQryId = ProjectCreditsQryIds.RE_CRED, " AND RE_CRED_ID = " & entity.RE_CRED_ID & "", "") & If(saveQryId = ProjectCreditsQryIds.RE_COST, " AND RE_COST_ID = " & entity.RE_COST_ID & "", "")
+        'Dim qry As String = "SELECT COUNT(1) FROM " & GetTableName(saveQryId) & " WHERE RE_PROJ_ID = " & entity.RE_PROJ_ID & " AND RE_PROJ_STATUS_ID = " & entity.RE_PROJ_STATUS_ID & " AND RE_PROJ_STATUS_FLOW_ID = " & entity.RE_PROJ_STATUS_FLOW_ID & If(saveQryId = ProjectCreditsQryIds.RE_ACTR, " AND RE_ACTR_TYPE_ID = " & entity.RE_ACTR_TYPE_ID & "", "") & If(saveQryId = ProjectCreditsQryIds.RE_CRED, " AND RE_CRED_ID = " & entity.RE_CRED_ID & "", "") & If(saveQryId = ProjectCreditsQryIds.RE_COST, " AND RE_COST_ID = " & entity.RE_COST_ID & "", "")
+        Using cmd As New OracleCommand(ReGetRecCount, conn)
+            cmd.Transaction = tx
+            cmd.CommandType = CommandType.StoredProcedure
+
+            ' Input Parameters
+            cmd.Parameters.Add("P_Formname", OracleDbType.Varchar2).Value = formName
+            cmd.Parameters.Add("P_username", OracleDbType.Varchar2).Value = userName
+            cmd.Parameters.Add("p_qry", OracleDbType.Varchar2).Value = qry
+
+            ' Output Parameters
+            Dim outCnt As New OracleParameter("p_rec_cnt", OracleDbType.Decimal)
+            outCnt.Direction = ParameterDirection.Output
+            cmd.Parameters.Add(outCnt)
+            cmd.ExecuteNonQuery()
+
+            Dim cnt As Integer = 0
+            If outCnt.Value IsNot Nothing AndAlso Not Convert.IsDBNull(outCnt.Value) Then
+                Dim outputVal As Oracle.ManagedDataAccess.Types.OracleDecimal = CType(outCnt.Value, Oracle.ManagedDataAccess.Types.OracleDecimal)
+                cnt = Convert.ToInt32(outputVal.Value)
+            End If
+
+            Return cnt > 0
+        End Using
+    End Function
+
+    Public Function GetExistingIds(conn As OracleConnection, tx As OracleTransaction, formName As String, userName As String, saveQryId As ProjectCreditsQryIds, projId As Integer, statusId As Integer, flowId As Integer) As List(Of Integer)
+
+        Dim qry As String = " WHERE PROJ.RE_PROJ_ID = " & projId & " AND RE_PROJ_STATUS_ID = " & statusId & " AND RE_PROJ_STATUS_FLOW_ID = " & flowId
+
+        Dim ids As New List(Of Integer)
+        Dim fetchQryid As Integer
+
+        Select Case saveQryId
+            Case ProjectCreditsQryIds.RE_CRED
+                fetchQryid = 3
+            Case ProjectCreditsQryIds.RE_COST
+                fetchQryid = 4
+            Case Else
+                Throw New InvalidOperationException($"GetExistingIds not supported for {saveQryId}")
+        End Select
+
+        Using cmd As New OracleCommand(RePrcrGetSpJson, conn)
+            cmd.Transaction = tx
+            cmd.CommandType = CommandType.StoredProcedure
+            cmd.BindByName = True
+
+            ' Input Parameters
+            cmd.Parameters.Add("P_Formname", OracleDbType.Varchar2).Value = formName
+            cmd.Parameters.Add("P_username", OracleDbType.Varchar2).Value = userName
+            cmd.Parameters.Add("P_qry_ID", OracleDbType.Int32).Value = fetchQryid
+            cmd.Parameters.Add("p_condition", OracleDbType.Varchar2).Value = qry
+
+            ' Output Parameters
+            Dim outJson As New OracleParameter("p_json_re_prcr_out", OracleDbType.Clob)
+            outJson.Direction = ParameterDirection.Output
+            cmd.Parameters.Add(outJson)
+            cmd.ExecuteNonQuery()
+
+            ' Processing the output
+            If outJson.Value IsNot Nothing AndAlso Not Convert.IsDBNull(outJson.Value) Then
+                Try
+                    Dim jsonString As String
+
+                    If TypeOf outJson.Value Is OracleClob Then
+                        Dim clob As OracleClob = DirectCast(outJson.Value, OracleClob)
+                        jsonString = clob.Value
+                    Else
+                        jsonString = outJson.Value.ToString()
                     End If
-                Next
+
+                    If Not String.IsNullOrEmpty(jsonString) Then
+                        ids = JsonConvert.DeserializeObject(Of List(Of Integer))(jsonString)
+                    End If
+                Catch ex As Exception
+                    Console.WriteLine("Error processing output: " & ex.Message)
+                End Try
             End If
-            'Extract CRE Project, CRE Type, Project Goal from BelfiusCreditData
-            If savedData.BelfiusCreditData IsNot Nothing AndAlso savedData.BelfiusCreditData.Any() Then
-                Dim firstCredit = savedData.BelfiusCreditData.First()
-
-                projectCreditsData.SelectedCREProjectID = firstCredit.CREProjectIdFromAdmin
-                projectCreditsData.SelectedCRETypeID = firstCredit.CRETypeIdFromAdmin
-                projectCreditsData.SelectedProjectGoalID = firstCredit.ProjectGoalIdFromAdmin
-            End If
-            Dim jsonSettings = New JsonSerializerSettings With {
-                .ContractResolver = New UseClrPropertyNamesContractResolver(),
-                .NullValueHandling = NullValueHandling.Ignore}
-            'If savedData.ActorData IsNot Nothing Then
-            '    Dim masterSacle = TcodTypeHelper.GetMasterScaleTypes()
-            '    For Each actor In savedData.ActorData
-            '        If actor.ActorId Then
-            '            actor.QualityName = masterSacle.FirstOrDefault(Function(x) x.TcodId = actor.QualityId)?.TcodDescName
-            '        End If
-            '    Next
-            'End If
-            projectCreditsData.JsonForClient = JsonConvert.SerializeObject(savedData, jsonSettings)
-
-            projectCreditsData.ProjectCreditsTabData = savedData 'full savedData for backup
-        End If
-        ' load reference type options for dropdown using the helper function
-        projectCreditsData.CREProjectOptions = TcodTypeHelper.GetCommercialReProjectTypes()
-        projectCreditsData.CRETypeOptions = TcodTypeHelper.GetReTypes()
-        projectCreditsData.ProjectGoalOptions = TcodTypeHelper.GetProjectGoalTypes()
-        projectCreditsData.PercentageGarantyBreyneOptions = TcodTypeHelper.GetPercentageGarantyBreyneTypes()
-        projectCreditsData.CreditIdentifierOptions = TcodTypeHelper.GetCreditIdentifierTypes()
-        projectCreditsData.CreditPurposeOptions = TcodTypeHelper.GetCreditPurposeTypes()
-        projectCreditsData.CreditTypeOptions = TcodTypeHelper.GetCreditTypeTypes()
-        projectCreditsData.SalesStrategyOptions = TcodTypeHelper.GetSalesStrategyServiceFlatsTypes()
-
-        ' Add yes/no options
-        projectCreditsData.YesNoOptions = TcodTypeHelper.GetYesNoTypes()
-        projectCreditsData.NumberOfProducts = New List(Of SelectListItem) From {
-        New SelectListItem With {.Text = "1", .Value = 1},
-        New SelectListItem With {.Text = "2", .Value = 2},
-        New SelectListItem With {.Text = "3", .Value = 3}
-    }
-        projectCreditsData.NumberOfREAsCollaterals = New List(Of SelectListItem) From {
-        New SelectListItem With {.Text = "SELECT", .Value = Nothing},
-        New SelectListItem With {.Text = "1", .Value = 1},
-        New SelectListItem With {.Text = "2", .Value = 2},
-        New SelectListItem With {.Text = "3", .Value = 3}
-    }
-        projectCreditsData.ProjectCosts = TcodTypeHelper.GetProjectCostsTypes()
-        _logger.Information("GetProjectCreditsData - Success | ElapsedMs: {ElapsedMs}ms", sw.ElapsedMilliseconds)
-        Return projectCreditsData
+        End Using
+        ' Return the list of ids that are in the db
+        Return ids
     End Function
 
-    Public Function GetActorData(projectId As Integer, actorId As String, Optional projectStatusId As Integer? = Nothing, Optional projectFlowId As Integer? = Nothing) As ActorViewModel Implements IProjectCreditsTabService.GetActorData
-        Dim MasterScaleOptions = TcodTypeHelper.GetMasterScaleTypes()
-        Dim ActorData = _projectCreditsTabRepository.GetActorData(projectId, actorId, projectStatusId, projectFlowId)
-        If String.IsNullOrWhiteSpace(ActorData.ACTORNAME) Then
-            Return Nothing
-        End If
-        Dim ACTORNAME = ActorData.ACTORNAME
-        Dim QUALITYNAME = MasterScaleOptions.FirstOrDefault(Function(x) x.TcodId = ActorData.RATING)?.TcodDescName
-        Return New ActorViewModel With {
-            .ActorId = actorId,
-            .ActorName = ACTORNAME,
-            .QualityId = ActorData.RATING,
-            .QualityName = QUALITYNAME}
-    End Function
 
-    Public Sub SaveProjectCreditsData(payload As ProjectCreditsTabSaveDto) Implements IProjectCreditsTabService.SaveProjectCreditsData
+    Private Sub SaveSingle(conn As OracleConnection, tx As OracleTransaction, formName As String, userName As String, saveQryId As ProjectCreditsQryIds, entity As Object)
         Dim sw = Stopwatch.StartNew()
-        _logger.Information("SaveProjectCreditsData - Started | ProjectId: {ProjectId} | StatusId: {StatusId} | FlowId: {FlowId}", payload?.ProjectId, payload?.ProjectStatusId, payload?.ProjectStatusFlowId)
-        Try
-            If payload Is Nothing Then
-                _logger.Warning("SaveProjectCreditsData - Payload is null")
-                Throw New ArgumentException("Payload cannot be null")
-            End If
-            _projectCreditsTabRepository.SaveProjectCredits(payload)
-            sw.Stop()
-            _logger.Information("SaveProjectCreditsData - Success | ProjectId: {ProjectId} | ElapsedMs: {ElapsedMs}ms", payload.ProjectId, sw.ElapsedMilliseconds)
-        Catch ex As ArgumentException
-            Throw
-        Catch ex As Exception
-            sw.Stop()
-            _logger.Error(ex, "SaveProjectCreditsData - Failed | ProjectId: {ProjectId} | ElapsedMs: {ElapsedMs}ms", payload?.ProjectId, sw.ElapsedMilliseconds)
-            Throw
-        End Try
+        _logger.Information("SaveSingle - SP call started | Username: {Username}", Cur_UserID)
+        If entity Is Nothing Then Exit Sub
+
+        Dim jsonIn = JsonConvert.SerializeObject(entity)
+
+        Dim exists = RecordExists(conn, tx, formName, userName, saveQryId, entity)
+        Dim spName = If(exists, RePrcrPutUpdSpJson, RePrcrPutInsSpJson)
+
+        Using cmd As New OracleCommand(spName, conn)
+            cmd.Transaction = tx
+            cmd.CommandType = CommandType.StoredProcedure
+            cmd.BindByName = True
+
+            cmd.Parameters.Add("P_Formname", OracleDbType.Varchar2).Value = formName
+            cmd.Parameters.Add("P_username", OracleDbType.Varchar2).Value = userName
+            cmd.Parameters.Add("P_qry_ID", OracleDbType.Int32).Value = saveQryId
+            cmd.Parameters.Add("p_json_re_prcr_IN", OracleDbType.Clob).Value = jsonIn
+
+            Dim outParam As New OracleParameter("p_json_re_prcr_OUT", OracleDbType.Clob)
+            outParam.Direction = ParameterDirection.Output
+            cmd.Parameters.Add(outParam)
+            cmd.ExecuteNonQuery()
+        End Using
+        _logger.Information("SaveSingle - Success | User: {User} | ElapsedMs: {ElapsedMs}ms", Cur_UserID, sw.ElapsedMilliseconds)
     End Sub
+
+    Private Sub SaveListWithDiff(conn As OracleConnection, tx As OracleTransaction, formName As String, userName As String, saveQryId As ProjectCreditsQryIds, projId As Integer, statusId As Integer, flowId As Integer, listData As IList)
+        If listData Is Nothing OrElse listData.Count = 0 Then Exit Sub
+
+        Dim first = If(listData.Count > 0, listData(0), Nothing)
+        If first Is Nothing Then Exit Sub
+
+        ' DB IDs
+        Dim dbIds = GetExistingIds(conn, tx, formName, userName, saveQryId, projId, statusId, flowId)
+        ' Payload IDs
+        Dim payloadIds As New HashSet(Of Integer)
+
+        For Each item In listData
+            Select Case saveQryId
+                Case ProjectCreditsQryIds.RE_CRED
+                    payloadIds.Add(item.RE_CRED_ID)
+                Case ProjectCreditsQryIds.RE_COST
+                    payloadIds.Add(item.RE_COST_ID)
+            End Select
+        Next
+
+        ' Delete the invalid records
+        DeleteInvalidRecords(conn, tx, saveQryId, formName, userName, dbIds.Except(payloadIds), projId, statusId, flowId)
+
+        ' Insert / Update current rows
+        For Each item In listData
+            SaveSingle(conn, tx, formName, userName, saveQryId, item)
+        Next
+    End Sub
+
+    'Private Sub SaveActorWithDiff(conn As OracleConnection, tx As OracleTransaction, formName As String, userName As String, saveQryId As ProjectCreditsQryIds, projId As Integer, statusId As Integer, flowId As Integer, listData As IList)
+
+    '    Dim actorTypeId As Integer = 6
+    '    'Dim first = If(listData.Count > 0, listData(0), Nothing)
+
+    '    Dim exists = RecordExists(conn, tx, formName, userName, saveQryId, New With {.RE_PROJ_ID = projId, .RE_PROJ_STATUS_ID = statusId, .RE_PROJ_STATUS_FLOW_ID = flowId, .RE_ACTR_TYPE_ID = actorTypeId})
+
+    '    ' Case 1: DB has actor but invalidated in UI -> DELETE
+    '    If exists AndAlso (listData Is Nothing OrElse listData.Count = 0) Then
+    '        DeleteInvalidRecords(conn, tx, saveQryId, formName, userName, {actorTypeId}, projId, statusId, flowId)
+    '    End If
+
+    '    ' Case 2: UI has Actor Data -> UPSERT
+    '    If listData IsNot Nothing AndAlso listData.Count = 1 Then
+    '        SaveSingle(conn, tx, formName, userName, ProjectCreditsQryIds.RE_ACTR, listData(0))
+    '    End If
+    'End Sub
+
+    Private Function BuildDeleteWhere(saveQryId As ProjectCreditsQryIds, id As Integer, projId As Integer, statusId As Integer, flowId As Integer) As String
+        Dim baseWhere = $"WHERE RE_PROJ_ID = {projId} " & $"AND RE_PROJ_STATUS_ID = {statusId} " & $"AND RE_PROJ_STATUS_FLOW_ID = {flowId} "
+
+        Select Case saveQryId
+            Case ProjectCreditsQryIds.RE_CRED
+                Return baseWhere & $"AND RE_CRED_ID = {id}"
+            Case ProjectCreditsQryIds.RE_COST
+                Return baseWhere & $"AND RE_COST_ID = {id}"
+                'Case ProjectCreditsQryIds.RE_ACTR
+                '    Return baseWhere & $"AND RE_ACTR_TYPE_ID = {id}"
+            Case Else
+                Throw New InvalidOperationException("Delete not supported")
+        End Select
+    End Function
+
+    Public Sub DeleteInvalidRecords(conn As OracleConnection, tx As OracleTransaction, saveQryId As ProjectCreditsQryIds, formName As String, userName As String, idsToDelete As IEnumerable(Of Integer), projId As Integer, statusId As Integer, flowId As Integer)
+        For Each id In idsToDelete
+            Dim whereClause As String = BuildDeleteWhere(saveQryId, id, projId, statusId, flowId)
+
+            Dim deleteQryId As Integer
+
+            Select Case saveQryId
+                Case ProjectCreditsQryIds.RE_CRED
+                    deleteQryId = 1
+                Case ProjectCreditsQryIds.RE_COST
+                    deleteQryId = 2
+                    'Case ProjectCreditsQryIds.RE_ACTR
+                    '    deleteQryId = 3
+                Case Else
+                    Throw New InvalidOperationException("Delete not supported")
+            End Select
+
+            Using cmd As New OracleCommand(RePrcrDelSpJson, conn)
+                cmd.Transaction = tx
+                cmd.CommandType = CommandType.StoredProcedure
+
+                cmd.Parameters.Add("P_Formname", OracleDbType.Varchar2).Value = formName
+                cmd.Parameters.Add("P_username", OracleDbType.Varchar2).Value = userName
+                cmd.Parameters.Add("P_qry_ID", OracleDbType.Int32).Value = deleteQryId
+                cmd.Parameters.Add("p_condition", OracleDbType.Varchar2).Value = whereClause
+
+                Dim outParam As New OracleParameter("p_json_re_prcr_OUT", OracleDbType.Clob)
+                outParam.Direction = ParameterDirection.Output
+                cmd.Parameters.Add(outParam)
+                cmd.ExecuteNonQuery()
+            End Using
+        Next
+    End Sub
+
 End Class
