@@ -1,394 +1,280 @@
-Imports System.Globalization
-Imports Newtonsoft.Json
 
-Public Class MainDebtorActorModel
+GET: Analysis/GenerateAnalysisPdf
+<HttpGet>
+Public Async Function GenerateAnalysisPdf() As Task(Of ActionResult)
+    Dim sw = Stopwatch.StartNew()
+    Dim userName = Current_LoginUser
+    _logger.Information("GenerateAnalysisPdf - Request received | User: {User}", userName)
 
-    ' Core identification properties
-    <JsonProperty("RE_PROJ_ID")>
-    Public Property ProjectId As Integer
+    Try
+        Dim sessionValidation = validateSessionParameters()
+        If Not sessionValidation.IsValid Then
+            _logger.Warning("GenerateAnalysisPdf - Session invalid | User: {User} | Reason: {Reason}", userName, sessionValidation.Message)
+            Return New HttpStatusCodeResult(400, sessionValidation.Message)
+        End If
 
-    <JsonProperty("RE_PROJ_STATUS_ID")>
-    Public Property ProjectStatusId As Integer
+        Dim projectId = sessionValidation.ProjectId
+        Dim projectStatusId = sessionValidation.ProjectStatusId
+        Dim projectFlowId = sessionValidation.ProjectFlowId
 
-    <JsonProperty("RE_PROJ_STATUS_FLOW_ID")>
-    Public Property ProjectStatusFlowId As Integer
+        Dim allFields As New List(Of AnalysisPdfFieldModel)()
 
-    ' Actor identification
-    <JsonProperty("RE_MADB_ACTOR_ID")>
-    Public Property ActorId As String
+        ' ---- Admin tab (CURATED - already matches business mockup) ----
+        Try
+            Dim adminData = Await _adminTabService.GetAdminDataAsync(projectId, projectStatusId, projectFlowId)
+            allFields.AddRange(_adminTabService.GetAdminPdfFields(adminData))
+        Catch ex As Exception
+            _logger.Error(ex, "GenerateAnalysisPdf - Admin tab failed | ProjectId: {ProjectId}", projectId)
+            allFields.Add(New AnalysisPdfFieldModel("Admin", "Error", "Note", "Admin data unavailable", 0))
+        End Try
 
-    <JsonProperty("RE_MADB_CI_ID")>
-    Public Property CI As String
-
-    <JsonProperty("RE_MADB_MASTERSCALE_ID")>
-    Public Property Rating1 As Integer?
-
-    <JsonProperty("RE_MADB_MASTERSCALE_DATE_DT")>
-    Public Property RatingDate As Date?
-
-    <JsonIgnore>
-    Public Property RatingDateDisplayFormat As String
-        Get
-            If RatingDate.HasValue Then
-                ' Ensure the date is formatted correctly as dd-MM-yyyy
-                Return RatingDate.Value.ToString("dd-MM-yyyy")
-            Else
-                Return String.Empty
+        ' ---- Actor tab (SPECIFIC FIELDS ONLY) ----
+        Try
+            If projectStatusId.HasValue AndAlso projectFlowId.HasValue Then
+                Dim actorData = Await _actorTabService.GetActorTabDataAsync(projectId, projectStatusId.Value, projectFlowId.Value)
+                ' ActorId, BelfiusClient, ActorName live on MainDebtor (MainDebtorActorModel),
+                ' NOT directly on ActorTabViewModel - point reflection at actorData.MainDebtor.
+                Dim actorFields = New String() {"ActorId", "ActorName", "BelfiusClient"}
+                allFields.AddRange(PdfFieldReflectionHelper.GetAutoPdfFields("Actor", "Main Debtor", actorData.MainDebtor, includeOnly:=actorFields))
             End If
-        End Get
-        Set(value As String)
-            If Not String.IsNullOrEmpty(value) Then
-                ' Parse the date string with the correct format
-                RatingDate = DateTime.ParseExact(value, "dd-MM-yyyy", CultureInfo.InvariantCulture)
-            Else
-                RatingDate = Nothing
+        Catch ex As Exception
+            _logger.Error(ex, "GenerateAnalysisPdf - Actor tab failed | ProjectId: {ProjectId}", projectId)
+            allFields.Add(New AnalysisPdfFieldModel("Actor", "Error", "Note", "Actor data unavailable", 0))
+        End Try
+
+        ' ---- Project & Credits tab (SPECIFIC FIELDS ONLY) ----
+        Try
+            Dim projectCreditsData = _projectCreditsTabService.GetProjectCreditsData(projectId, projectStatusId, projectFlowId)
+            ' <<< PUT PROJECT & CREDITS FIELD NAME(S) HERE >>>
+            Dim projectCreditsFields = New String() {"FieldName1"}
+            allFields.AddRange(PdfFieldReflectionHelper.GetAutoPdfFields("Project & Credits", "All Fields", projectCreditsData, includeOnly:=projectCreditsFields))
+        Catch ex As Exception
+            _logger.Error(ex, "GenerateAnalysisPdf - Project & Credits tab failed | ProjectId: {ProjectId}", projectId)
+            allFields.Add(New AnalysisPdfFieldModel("Project & Credits", "Error", "Note", "Project & Credits data unavailable", 0))
+        End Try
+
+        ' ---- Project Asset tab (SPECIFIC FIELDS ONLY) ----
+        Try
+            Dim assetData = _assetTabRepository.GetAssetData(projectId, projectStatusId, projectFlowId)
+            ' <<< PUT ASSET FIELD NAMES HERE (must match AssetTabModel property names exactly) >>>
+            Dim assetFields = New String() {"FieldName1", "FieldName2", "FieldName3"}
+            allFields.AddRange(PdfFieldReflectionHelper.GetAutoPdfFields("Project Asset", "All Fields", assetData, includeOnly:=assetFields))
+        Catch ex As Exception
+            _logger.Error(ex, "GenerateAnalysisPdf - Project Asset tab failed | ProjectId: {ProjectId}", projectId)
+            allFields.Add(New AnalysisPdfFieldModel("Project Asset", "Error", "Note", "Project Asset data unavailable", 0))
+        End Try
+
+        ' ---- Collateral tab (CURATED) ----
+        ' Mirrors GetCollateralData's EDIT/CREATE logic: prefer saved data
+        ' (what the UI actually shows), fall back to create-mode defaults
+        ' only if nothing has been saved yet.
+        Try
+            Dim collateralData = _collateralTabService.GetSavedCollateralDetails(projectId, projectStatusId, projectFlowId)
+            If collateralData Is Nothing OrElse Not collateralData.Any() Then
+                collateralData = _collateralTabService.GetCollateraldata(projectId, projectStatusId, projectFlowId)
             End If
-        End Set
-    End Property
-    <JsonProperty("RE_MADB_CLIENT_SW")>
-    Public Property BelfiusClient As Integer?
+            allFields.AddRange(_collateralTabService.GetCollateralPdfFields(collateralData))
+        Catch ex As Exception
+            _logger.Error(ex, "GenerateAnalysisPdf - Collateral tab failed | ProjectId: {ProjectId}", projectId)
+            allFields.Add(New AnalysisPdfFieldModel("Collateral", "Error", "Note", "Collateral data unavailable", 0))
+        End Try
 
-    <JsonProperty("RE_MADB_PRIVATE_WEALTH_ID")>
-    Public Property PrivateWealthProfile As Integer?
+        ' ---- Guidance tab (SPECIFIC FIELDS ONLY) ----
+        Try
+            Dim guidanceData = _guidanceTabRepository.GetGuidanceData(projectId, projectStatusId, projectFlowId)
+            ' GuidanceTabModel uses raw DB-column-style property names (PROJ_ID, PROJ_STATUS_ID, ...)
+            ' so supply friendly labels via labelOverrides instead of showing underscores in the PDF.
+            Dim guidanceFields = New String() {"PROJ_ID", "PROJ_STATUS_ID"}
+            Dim guidanceLabels = New Dictionary(Of String, String) From {
+                {"PROJ_ID", "Project ID"},
+                {"PROJ_STATUS_ID", "Project Status"}
+            }
+            allFields.AddRange(PdfFieldReflectionHelper.GetAutoPdfFields("Guidance", "All Fields", guidanceData, includeOnly:=guidanceFields, labelOverrides:=guidanceLabels))
+        Catch ex As Exception
+            _logger.Error(ex, "GenerateAnalysisPdf - Guidance tab failed | ProjectId: {ProjectId}", projectId)
+            allFields.Add(New AnalysisPdfFieldModel("Guidance", "Error", "Note", "Guidance data unavailable", 0))
+        End Try
 
-    <JsonProperty("RE_MADB_COMMERCIAL_REGIO_ID")>
-    Public Property CommercialRegion As Integer?
+        If Not allFields.Any() Then
+            _logger.Warning("GenerateAnalysisPdf - No fields resolved for any tab | ProjectId: {ProjectId}", projectId)
+            Return New HttpStatusCodeResult(500, "No report data available.")
+        End If
 
-    <JsonProperty("RE_MADB_BUSINESS_LINE_ID")>
-    Public Property BusinessLine As Integer?
+        ' Render RDLC -> PDF bytes
+        Dim lrLocalReport As New LocalReport()
+        lrLocalReport.ReportPath = Server.MapPath("~/Report/AnalysisReport.rdlc")
 
-    <JsonProperty("RE_MADB_COMMERCIAL_SEGMENT_ID")>
-    Public Property CommercialSegment As String
+        Dim reportDataSource As New ReportDataSource("AnalysisFields", allFields)
+        lrLocalReport.DataSources.Add(reportDataSource)
 
-    <JsonProperty("RE_MADB_WATCHLIST_SW")>
-    Public Property Watchlist As Integer?
+        Dim deviceInfo As String =
+            "<DeviceInfo>" &
+            "<PageHeight>297mm</PageHeight>" &
+            "<PageWidth>210mm</PageWidth>" &
+            "<MarginTop>10mm</MarginTop>" &
+            "<MarginLeft>10mm</MarginLeft>" &
+            "<MarginRight>10mm</MarginRight>" &
+            "<MarginBottom>10mm</MarginBottom>" &
+            "</DeviceInfo>"
 
-    <JsonProperty("RE_MADB_MAX_EXPOSURE_AM")>
-    Public Property ExistingExposure As Decimal?
+        Dim mimeType, encoding, extension As String
+        Dim streamIds As String()
+        Dim warnings As Warning()
 
-    <JsonProperty("RE_MADB_LTMR_AM")>
-    Public Property LMRT As Decimal?
+        Dim pdfBytes As Byte() = lrLocalReport.Render("PDF", deviceInfo, mimeType, encoding, extension, streamIds, warnings)
 
-    ' Sponsor selection (yes/no dropdown) - This comes from RE_PROJ table.
-    '<JsonProperty("RE_PROJ_SPONSOR_SW")>
-    <JsonIgnore>
-    Public Property HasSponsor As Integer
+        sw.Stop()
+        _logger.Information("GenerateAnalysisPdf - Completed | User: {User} | ProjectId: {ProjectId} | FieldCount: {Count} | SizeBytes: {Size} | ElapsedMs: {ElapsedMs}ms",
+                            userName, projectId, allFields.Count, pdfBytes.Length, sw.ElapsedMilliseconds)
 
-    <JsonIgnore>
-    Public Property ActorName As String
+        Dim fileName As String = $"Analysis_Project_{projectId}_{DateTime.Now:yyyyMMdd_HHmmss}.pdf"
+        Return File(pdfBytes, "application/pdf", fileName)
 
-    ' Display text fields for main debtor. few fields are getting from SP itself
-    ' Few fiels we are lookup into TCOD tables by category
+    Catch ex As Exception
+        sw.Stop()
+        Dim fullError As String = ex.Message
+        Dim innerEx = ex.InnerException
+        While innerEx IsNot Nothing
+            fullError &= " | Inner: " & innerEx.Message
+            innerEx = innerEx.InnerException
+        End While
+        _logger.Error(ex, "GenerateAnalysisPdf - Unhandled exception | User: {User} | ElapsedMs: {ElapsedMs}ms | FullError: {FullError}",
+                      userName, sw.ElapsedMilliseconds, fullError)
+        Return New HttpStatusCodeResult(500, "Error generating PDF: " & fullError)
+    End Try
+End Function 
 
-    ' From Stored procedure call
-    <JsonIgnore>
-    Public Property PrivateWealthProfileDisplayText As String
-    <JsonIgnore>
-    Public Property CommercialSegmentDisplayText As String
 
 
-    ' From TCOD table
-    <JsonIgnore>
-    Public Property RatingFieldDisplayText As String
 
-    <JsonIgnore>
-    Public Property WatchlistDisplayText As String
 
-    <JsonIgnore>
-    Public Property CommercialRegionDisplayText As String
-    <JsonIgnore>
-    Public Property BusinessLineDisplayText As String
 
-    ' Operation type for change tracking (INSERT, UPDATE, DELETE, or null)
-    ' Note: This property is sent from frontend to determine database operation type.
-    <JsonIgnore>
-    Public Property Operation As String
-    <JsonIgnore>
-    Public Property IsDataFromReTable As Boolean
 
-    <JsonProperty("RE_MADB_IS_VALID_ACTOR")>
-    Public Property IsValidActorId As Integer?
 
-    Public Sub New()
-        HasSponsor = 0 ' 0 = false, 1 = true ( from RE_PROJ table) initially from show the sponsor card.
-        'BelfiusClient = 1 ' 0 = false, 1 = true
-        Operation = Nothing
-        IsDataFromReTable = False
-    End Sub
+
+
+
+
+
+
+
+
+
+
+Imports System.Reflection
+
+Public Class PdfFieldReflectionHelper
+
+    ' Properties that show up on nearly every tab ViewModel but aren't real
+    ' report data - status/plumbing fields, always excluded.
+    Private Shared ReadOnly DefaultExcludedProperties As New HashSet(Of String)(StringComparer.OrdinalIgnoreCase) From {
+        "IsSuccess", "Message", "IsDirty"
+    }
+
+    ''' <summary>
+    ''' Converts any object's public simple-typed properties into a flat list
+    ''' of AnalysisPdfFieldModel rows for the given tab/section.
+    ''' </summary>
+    ''' <param name="includeOnly">
+    ''' Optional. If provided, ONLY these property names are included, in the
+    ''' order given - everything else on the object is ignored. Use this to
+    ''' show a curated subset (e.g. 3 fields) instead of every property.
+    ''' If Nothing, all simple properties are included (minus excludes) as before.
+    ''' </param>
+    ''' <param name="labelOverrides">
+    ''' Optional. Dictionary of PropertyName -> friendly display label, e.g.
+    ''' {"PROJ_ID", "Project ID"}. Use this when the underlying property names
+    ''' are raw/technical (like PROJ_STATUS_ID) and you want a readable label
+    ''' in the PDF instead. Any property not in this dictionary falls back to
+    ''' its raw property name, same as before.
+    ''' </param>
+    Public Shared Function GetAutoPdfFields(tabName As String, sectionName As String, obj As Object, Optional additionalExcludes As IEnumerable(Of String) = Nothing, Optional includeOnly As IEnumerable(Of String) = Nothing, Optional labelOverrides As Dictionary(Of String, String) = Nothing) As List(Of AnalysisPdfFieldModel)
+
+        Dim rows As New List(Of AnalysisPdfFieldModel)()
+        If obj Is Nothing Then Return rows
+
+        Dim excludeSet As New HashSet(Of String)(DefaultExcludedProperties, StringComparer.OrdinalIgnoreCase)
+        If additionalExcludes IsNot Nothing Then
+            For Each ex In additionalExcludes
+                excludeSet.Add(ex)
+            Next
+        End If
+
+        Dim order As Integer = 0
+        Dim objType = obj.GetType()
+
+        ' If includeOnly is given, walk THAT list (preserves your chosen order)
+        ' instead of reflecting over every property on the object.
+        If includeOnly IsNot Nothing Then
+            For Each propName In includeOnly
+                Dim prop As PropertyInfo = objType.GetProperty(propName)
+                If prop Is Nothing Then Continue For ' name typo or property doesn't exist - skip silently
+
+                Dim rawValue As Object
+                Try
+                    rawValue = prop.GetValue(obj)
+                Catch
+                    Continue For
+                End Try
+
+                Dim label As String = prop.Name
+                If labelOverrides IsNot Nothing AndAlso labelOverrides.ContainsKey(prop.Name) Then
+                    label = labelOverrides(prop.Name)
+                End If
+
+                rows.Add(New AnalysisPdfFieldModel(tabName, sectionName, label, FormatValue(rawValue), order))
+                order += 1
+            Next
+            Return rows
+        End If
+
+        ' Default behavior: dump every simple property (minus excludes)
+        Dim properties As PropertyInfo() = objType.GetProperties()
+
+        For Each prop As PropertyInfo In properties
+
+            If excludeSet.Contains(prop.Name) Then Continue For
+
+            ' Skip collections/lists (dropdown options, nested detail lists) -
+            ' these aren't simple Label/Value pairs and need custom handling
+            ' once this tab gets a curated mapping.
+            If GetType(System.Collections.IEnumerable).IsAssignableFrom(prop.PropertyType) AndAlso prop.PropertyType IsNot GetType(String) Then
+                Continue For
+            End If
+
+            Dim rawValue As Object
+            Try
+                rawValue = prop.GetValue(obj)
+            Catch
+                Continue For ' property getter threw - skip rather than fail the whole PDF
+            End Try
+
+            Dim displayValue As String = FormatValue(rawValue)
+
+            rows.Add(New AnalysisPdfFieldModel(tabName, sectionName, prop.Name, displayValue, order))
+            order += 1
+
+        Next
+
+        Return rows
+
+    End Function
+
+    Private Shared Function FormatValue(rawValue As Object) As String
+
+        If rawValue Is Nothing Then Return ""
+
+        If TypeOf rawValue Is DateTime Then
+            Return CType(rawValue, DateTime).ToString("dd-MM-yyyy")
+        End If
+
+        If TypeOf rawValue Is Boolean Then
+            Return If(CBool(rawValue), "Yes", "No")
+        End If
+
+        Return rawValue.ToString()
+
+    End Function
+
 End Class
 
-Public Class SponsorModel
-    ' Core identification properties
-    <JsonProperty("RE_PROJ_ID")>
-    Public Property ProjectId As Integer
-
-    <JsonProperty("RE_PROJ_STATUS_ID")>
-    Public Property ProjectStatusId As Integer
-
-    <JsonProperty("RE_PROJ_STATUS_FLOW_ID")>
-    Public Property ProjectStatusFlowId As Integer
-
-    ' Sponsor identification
-    <JsonProperty("RE_SPNS_ACTOR_ID")>
-    Public Property ActorId As String
-
-    <JsonProperty("RE_SPNS_CI_ID")>
-    Public Property CI As String
-
-    <JsonIgnore>
-    Public Property Rating1 As Integer?
-
-    <JsonProperty("RE_SPNS_MASTERSCALE_DATE_DT")>
-    Public Property RatingDate As Date?
-
-    <JsonIgnore>
-    Public Property RatingDateDisplayFormat As String
-        Get
-            If RatingDate.HasValue Then
-                ' Ensure the date is formatted correctly as dd-MM-yyyy
-                Return RatingDate.Value.ToString("dd-MM-yyyy")
-            Else
-                Return "N/A"
-            End If
-        End Get
-        Set(value As String)
-            If value = "N/A" Then
-                RatingDate = Nothing
-            ElseIf Not String.IsNullOrEmpty(value) Then
-                ' Parse the date string with the correct format
-                RatingDate = DateTime.ParseExact(value, "dd-MM-yyyy", CultureInfo.InvariantCulture)
-            Else
-                RatingDate = Nothing
-            End If
-        End Set
-    End Property
-
-    <JsonProperty("RE_SPNS_CLIENT_SW")>
-    Public Property BelfiusClient As Integer?
-
-    <JsonProperty("RE_SPNS_PRIVATE_WEALTH_ID")>
-    Public Property PrivateWealthProfile As Integer?
-
-    <JsonProperty("RE_SPNS_FINANCIAL_ID")>
-    Public Property FinancialCapacity As Integer?
-
-    <JsonProperty("RE_SPNS_EXPERIENCE_ID")>
-    Public Property ExperienceKnowHow As Integer?
-
-
-    <JsonProperty("RE_SPNS_ACTOR_NAME_NM")>
-    Public Property ActorName As String
-
-    ' Display text for private wealth profile (computed from database value)
-    <JsonIgnore>
-    Public Property PrivateWealthProfileDisplayText As String
-
-
-    ' For valid invalid actor case rating1 fields now sending the 
-    ' string value hence change datatype. 
-    <JsonProperty("RE_SPNS_MASTERSCALE_ID")>
-    Public Property RatingFieldDisplayText As String
-
-    ' Operation type for change tracking (INSERT, UPDATE, DELETE, or null)
-    ' Note: This property is sent from frontend to determine database operation type.
-    <JsonIgnore>
-    Public Property Operation As String
-
-    <JsonProperty("RE_SPNS_IS_VALID_ACTOR")>
-    Public Property IsValidActorId As Integer?
-
-
-    ' Constructor to set Default values
-    Public Sub New()
-        'BelfiusClient = 1 ' 0 = false, -1 = true
-        PrivateWealthProfile = 1 ' 0 = false, -1 = true
-        Operation = Nothing
-    End Sub
-
-End Class
-
-Public Class OtherActorModel
-    ' Core identification properties
-    <JsonProperty("RE_PROJ_ID")>
-    Public Property ProjectId As Integer
-
-    <JsonProperty("RE_PROJ_STATUS_ID")>
-    Public Property ProjectStatusId As Integer
-
-    <JsonProperty("RE_PROJ_STATUS_FLOW_ID")>
-    Public Property ProjectStatusFlowId As Integer
-
-    ' Other Actor identification
-    <JsonProperty("RE_ACTR_ACTOR_ID")>
-    Public Property ActorId As String
-
-    <JsonProperty("RE_ACTR_TYPE_ID")>
-    Public Property ActorTypeId As Integer
-
-
-    <JsonProperty("RE_ACTR_QUALITY_ID")>
-    Public Property Quality As Integer?
-
-    <JsonProperty("RE_ACTR_ACTOR_NAME_NM")>
-    Public Property ActorName As String
-
-    <JsonProperty("RE_ACTR_IS_VALID_ACTOR")>
-    Public Property IsValidActorId As Integer?
-
-    <JsonProperty("RE_ACTR_ACTOR_TYPE_SW")>
-    Public Property ActorTypeSw As Integer?
-
-
-    ' this is display text for quality when user end actorid
-    <JsonIgnore>
-    Public Property RatingFieldDisplayText As String
-
-    ' Selection status (Yes/No dropdown)
-    <JsonIgnore>
-    Public Property IsSelected As Boolean
-
-    <JsonIgnore>
-    Public Property IsSelectedTcod As Integer?
-
-    ' Operation type for change tracking (INSERT, UPDATE, DELETE, or null)
-    ' Note: This property is sent from frontend to determine database operation type.
-    <JsonIgnore>
-    Public Property Operation As String
-
-    'Public Sub New()
-    '    IsSelected = False
-    '    Operation = Nothing
-    'End Sub
-
-End Class
-
-' Redundant lookup model classes removed — all dropdown/lookup lists now use TcodModel directly
-
-' Main ViewModel for Actor tab
-Public Class ActorTabViewModel
-    ' Core data models
-    Public Property MainDebtor As MainDebtorActorModel
-    Public Property Sponsor As SponsorModel
-
-    Public Property OtherActors As List(Of OtherActorModel)
-
-    ' Lookup data (all use TcodModel directly)
-    Public Property ActorTypes As List(Of TcodModel)
-    Public Property PrivateWealthProfiles As List(Of TcodModel)
-    Public Property SponsorFinancialCapacities As List(Of TcodModel)
-    Public Property SponsorExperiance As List(Of TcodModel)
-    Public Property QualityActor As List(Of TcodModel)
-    Public Property SponsorQualities As List(Of TcodModel)
-    Public Property WillingnessSupports As List(Of TcodModel)
-    Public Property MasterScales As List(Of TcodModel)
-
-    Public Property YesNoOptions As List(Of TcodModel)
-    Public Property BusinessLines As List(Of TcodModel)
-    Public Property CommercialRegios As List(Of TcodModel)
-
-
-    ' Project identification
-    Public Property ProjectId As Integer
-    Public Property ProjectStatusId As Integer
-    Public Property ProjectFlowId As Integer
-
-    ' Conditional Logic and UI State
-    Public Property ConditionalFields As ActorConditionalFields
-    'Public Property NotApplicableFields As NotApplicableFields
-
-    ' Success/Error handling
-    Public Property IsSuccess As Boolean
-    Public Property Message As String
-
-    Public Sub New()
-        MainDebtor = New MainDebtorActorModel()
-        Sponsor = New SponsorModel()
-        OtherActors = New List(Of OtherActorModel)()
-        ConditionalFields = New ActorConditionalFields()
-        'NotApplicableFields = New NotApplicableFields()
-        IsSuccess = True
-        Message = ""
-    End Sub
-End Class
-
-' Addational models for conditional logic and UI state
-Public Class ActorConditionalFields
-    Public Property IsSponsorCardVisible As Boolean
-    Public Property IsFinancialCapacityAndLiquidityVisiable As Boolean
-    Public Property IsSponsorFieldsApplicable As Boolean
-    Public Property IsOtherActorFieldsApplicable As Boolean
-    Public Property IsMainDebtorPrivteWealthProfileVisible As Boolean
-
-    Public Property IsCreOwnUserProject As Boolean
-End Class
-
-Public Class ActorDetailsModel
-    <JsonProperty("ACTOR_ID")>
-    Public Property ActorId As String
-
-    <JsonProperty("ACTORNAME")>
-    Public Property ActorName As String
-
-    <JsonProperty("CI")>
-    Public Property CI As String
-
-    <JsonIgnore>
-    Public Property Rating1 As Integer?
-
-    <JsonProperty("MASTERSCALE_DATE_DT")>
-    Public Property RatingDate As Date?
-
-    <JsonIgnore>
-    Public Property RatingDateDisplayFormat As String
-        Get
-            If RatingDate.HasValue Then
-                ' Ensure the date is formatted correctly as dd-MM-yyyy
-                Return RatingDate.Value.ToString("dd-MM-yyyy")
-            Else
-                Return String.Empty
-            End If
-        End Get
-        Set(value As String)
-            If Not String.IsNullOrEmpty(value) Then
-                ' Parse the date string with the correct format
-                RatingDate = DateTime.ParseExact(value, "dd-MM-yyyy", CultureInfo.InvariantCulture)
-            Else
-                RatingDate = Nothing
-            End If
-        End Set
-    End Property
-
-    <JsonProperty("PRIVATE_WEALTH_ID")>
-    Public Property PrivateWealthProfile As Integer?
-
-    <JsonIgnore>
-    Public Property PrivateWealthProfileDisplayText As String
-
-    <JsonProperty("RATING")>
-    Public Property RatingFieldDisplayText As String
-
-    <JsonProperty("WATCHLIST")>
-    Public Property WatchList As String
-
-    <JsonProperty("EXISTINGEXPOSURE")>
-    Public Property ExistingExposure As Decimal?
-
-    <JsonProperty("LTMR_AM")>
-    Public Property LTMR_AM As Decimal?
-
-    <JsonProperty("COMMERCIAL_REGIO_ID")>
-    Public Property CommercialRegionID As Integer?
-
-    <JsonIgnore>
-    Public Property BusinessLineID As Integer?
-
-    <JsonProperty("BUSINESS_LINE_ID")>
-    Public Property BusinessLineIDDisplayText As String
-
-    <JsonProperty("COMMERCIAL_SEGMENT")>
-    Public Property CommercialSegment As String
-
-    <JsonIgnore>
-    Public Property IsValidActorId As Integer?
-
-End Class
