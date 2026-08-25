@@ -1,10 +1,127 @@
-<Button type="button" Class="btn btn-info analyze-btn" id="btnGenerateAnalysisReport">
-    <Span Class="glyphicon glyphicon-file"></Span>Generate Full Report PDF
-</Button>
+Imports Serilog
+Imports System.Diagnostics
+Imports Newtonsoft.Json
+Imports Oracle.ManagedDataAccess.Client
 
+Public Interface IProjectCreditsTabService
+    Function GetProjectCreditsData(projectId As Integer, Optional projectStatusId As Integer? = Nothing, Optional projectFlowId As Integer? = Nothing) As ProjectCreditsTabViewModel
+    Function GetActorData(projectId As Integer, actorId As String, Optional projectStatusId As Integer? = Nothing, Optional projectFlowId As Integer? = Nothing) As ActorViewModel
+    Sub SaveProjectCreditsData(payload As ProjectCreditsTabSaveDto)
+    'Function SaveProjectCreditsData(payload As ProjectCreditsTabSaveDto) As (IsSuccess As Boolean, Message As String)
+End Interface
+Public Class ProjectCreditsTabService
+    Implements IProjectCreditsTabService
 
+    Private ReadOnly _projectCreditsTabRepository As IProjectCreditsTabRepository
+    Private ReadOnly _logger As ILogger
 
+    Public Sub New(projectCreditsTabRepository As IProjectCreditsTabRepository)
+        _projectCreditsTabRepository = projectCreditsTabRepository
+        _logger = Log.ForContext(Of ProjectCreditsTabService)()
+    End Sub
 
-document.getElementById('btnGenerateAnalysisReport').addEventListener('click', function () {
-    window.location.href = '/Analysis/GenerateAnalysisPdf';
-});
+    Public Function GetProjectCreditsData(projectId As Integer, Optional projectStatusId As Integer? = Nothing, Optional projectFlowId As Integer? = Nothing) As ProjectCreditsTabViewModel Implements IProjectCreditsTabService.GetProjectCreditsData
+        Dim sw = Stopwatch.StartNew()
+        _logger.Information("GetProjectCreditsData - Request received")
+        Dim projectCreditsData As New ProjectCreditsTabViewModel
+
+        projectCreditsData.ProjectId = projectId
+        projectCreditsData.ProjectStatusId = projectStatusId
+        projectCreditsData.ProjectStatusFlowId = projectFlowId
+        Dim savedData As ProjectCreditsTabDataModel = _projectCreditsTabRepository.GetProjectCreditsTabData(projectId, projectStatusId, projectFlowId)
+        If savedData IsNot Nothing Then
+            If savedData.HasData Then
+                'Copying all matching properties automatically
+                For Each prop In GetType(ProjectCreditsTabDataModel).GetProperties()
+                    Dim targetProp = GetType(ProjectCreditsTabViewModel).GetProperty(prop.Name)
+                    If targetProp IsNot Nothing AndAlso targetProp.CanWrite Then
+                        targetProp.SetValue(projectCreditsData, prop.GetValue(savedData))
+                    End If
+                Next
+            End If
+            'Extract CRE Project, CRE Type, Project Goal from BelfiusCreditData
+            If savedData.BelfiusCreditData IsNot Nothing AndAlso savedData.BelfiusCreditData.Any() Then
+                Dim firstCredit = savedData.BelfiusCreditData.First()
+
+                projectCreditsData.SelectedCREProjectID = firstCredit.CREProjectIdFromAdmin
+                projectCreditsData.SelectedCRETypeID = firstCredit.CRETypeIdFromAdmin
+                projectCreditsData.SelectedProjectGoalID = firstCredit.ProjectGoalIdFromAdmin
+            End If
+            Dim jsonSettings = New JsonSerializerSettings With {
+                .ContractResolver = New UseClrPropertyNamesContractResolver(),
+                .NullValueHandling = NullValueHandling.Ignore}
+            'If savedData.ActorData IsNot Nothing Then
+            '    Dim masterSacle = TcodTypeHelper.GetMasterScaleTypes()
+            '    For Each actor In savedData.ActorData
+            '        If actor.ActorId Then
+            '            actor.QualityName = masterSacle.FirstOrDefault(Function(x) x.TcodId = actor.QualityId)?.TcodDescName
+            '        End If
+            '    Next
+            'End If
+            projectCreditsData.JsonForClient = JsonConvert.SerializeObject(savedData, jsonSettings)
+
+            projectCreditsData.ProjectCreditsTabData = savedData 'full savedData for backup
+        End If
+        ' load reference type options for dropdown using the helper function
+        projectCreditsData.CREProjectOptions = TcodTypeHelper.GetCommercialReProjectTypes()
+        projectCreditsData.CRETypeOptions = TcodTypeHelper.GetReTypes()
+        projectCreditsData.ProjectGoalOptions = TcodTypeHelper.GetProjectGoalTypes()
+        projectCreditsData.PercentageGarantyBreyneOptions = TcodTypeHelper.GetPercentageGarantyBreyneTypes()
+        projectCreditsData.CreditIdentifierOptions = TcodTypeHelper.GetCreditIdentifierTypes()
+        projectCreditsData.CreditPurposeOptions = TcodTypeHelper.GetCreditPurposeTypes()
+        projectCreditsData.CreditTypeOptions = TcodTypeHelper.GetCreditTypeTypes()
+        projectCreditsData.SalesStrategyOptions = TcodTypeHelper.GetSalesStrategyServiceFlatsTypes()
+
+        ' Add yes/no options
+        projectCreditsData.YesNoOptions = TcodTypeHelper.GetYesNoTypes()
+        projectCreditsData.NumberOfProducts = New List(Of SelectListItem) From {
+        New SelectListItem With {.Text = "1", .Value = 1},
+        New SelectListItem With {.Text = "2", .Value = 2},
+        New SelectListItem With {.Text = "3", .Value = 3}
+    }
+        projectCreditsData.NumberOfREAsCollaterals = New List(Of SelectListItem) From {
+        New SelectListItem With {.Text = "SELECT", .Value = Nothing},
+        New SelectListItem With {.Text = "1", .Value = 1},
+        New SelectListItem With {.Text = "2", .Value = 2},
+        New SelectListItem With {.Text = "3", .Value = 3}
+    }
+        projectCreditsData.ProjectCosts = TcodTypeHelper.GetProjectCostsTypes()
+        _logger.Information("GetProjectCreditsData - Success | ElapsedMs: {ElapsedMs}ms", sw.ElapsedMilliseconds)
+        Return projectCreditsData
+    End Function
+
+    Public Function GetActorData(projectId As Integer, actorId As String, Optional projectStatusId As Integer? = Nothing, Optional projectFlowId As Integer? = Nothing) As ActorViewModel Implements IProjectCreditsTabService.GetActorData
+        Dim MasterScaleOptions = TcodTypeHelper.GetMasterScaleTypes()
+        Dim ActorData = _projectCreditsTabRepository.GetActorData(projectId, actorId, projectStatusId, projectFlowId)
+        If String.IsNullOrWhiteSpace(ActorData.ACTORNAME) Then
+            Return Nothing
+        End If
+        Dim ACTORNAME = ActorData.ACTORNAME
+        Dim QUALITYNAME = MasterScaleOptions.FirstOrDefault(Function(x) x.TcodId = ActorData.RATING)?.TcodDescName
+        Return New ActorViewModel With {
+            .ActorId = actorId,
+            .ActorName = ACTORNAME,
+            .QualityId = ActorData.RATING,
+            .QualityName = QUALITYNAME}
+    End Function
+
+    Public Sub SaveProjectCreditsData(payload As ProjectCreditsTabSaveDto) Implements IProjectCreditsTabService.SaveProjectCreditsData
+        Dim sw = Stopwatch.StartNew()
+        _logger.Information("SaveProjectCreditsData - Started | ProjectId: {ProjectId} | StatusId: {StatusId} | FlowId: {FlowId}", payload?.ProjectId, payload?.ProjectStatusId, payload?.ProjectStatusFlowId)
+        Try
+            If payload Is Nothing Then
+                _logger.Warning("SaveProjectCreditsData - Payload is null")
+                Throw New ArgumentException("Payload cannot be null")
+            End If
+            _projectCreditsTabRepository.SaveProjectCredits(payload)
+            sw.Stop()
+            _logger.Information("SaveProjectCreditsData - Success | ProjectId: {ProjectId} | ElapsedMs: {ElapsedMs}ms", payload.ProjectId, sw.ElapsedMilliseconds)
+        Catch ex As ArgumentException
+            Throw
+        Catch ex As Exception
+            sw.Stop()
+            _logger.Error(ex, "SaveProjectCreditsData - Failed | ProjectId: {ProjectId} | ElapsedMs: {ElapsedMs}ms", payload?.ProjectId, sw.ElapsedMilliseconds)
+            Throw
+        End Try
+    End Sub
+End Class
