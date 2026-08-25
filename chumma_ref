@@ -1,1889 +1,394 @@
-Imports System.Data.Entity.Migrations
-Imports System.Web.Mvc
-Imports System.Threading.Tasks
-Imports System.Diagnostics
-Imports IMMO_Sample.ActorTypeMapping
+Imports System.Globalization
 Imports Newtonsoft.Json
-Imports Serilog
-Imports Microsoft.Reporting.WebForms
-Imports Serilog.Core
-Imports Microsoft.Reporting.WinForms
 
-Namespace Controllers
-    Public Class AnalysisController
-        Inherits Controller
+Public Class MainDebtorActorModel
 
-        Private ReadOnly _adminTabService As IAdminTabService
-        Private ReadOnly _actorTabService As IActorTabService
-        Private ReadOnly _projectCreditsTabService As IProjectCreditsTabService
-        Private ReadOnly _collateralTabService As ICollateralTabService
-        Private ReadOnly _loanOfficerConstructionFollowUpService As ILoanOfficerConstructionFollowUpService
-        Private ReadOnly _assetTabRepository As IAssetTabRepository
-        Private ReadOnly _guidanceTabRepository As IGuidanceTabRepository
-        Private ReadOnly _breakevenTabRepository As IBreakevenTabRepository
-        Private ReadOnly _guidelinesTabRepository As IGuidelinesTabRepository
-        Private ReadOnly _userService As IUserService
-        Private ReadOnly _analysisCommonService As IAnalysisCommonService
-        Private ReadOnly _logger As ILogger
+    ' Core identification properties
+    <JsonProperty("RE_PROJ_ID")>
+    Public Property ProjectId As Integer
 
-        Protected ReadOnly Property Current_LoginUser As String
-            Get
-                If User IsNot Nothing AndAlso
-           User.Identity IsNot Nothing AndAlso
-           Not String.IsNullOrWhiteSpace(User.Identity.Name) Then
-                    Return User.Identity.Name.ToUpper().Replace("BELWIRED\", "")
-                End If
-                Return "Anonymous"
-            End Get
-        End Property
+    <JsonProperty("RE_PROJ_STATUS_ID")>
+    Public Property ProjectStatusId As Integer
 
+    <JsonProperty("RE_PROJ_STATUS_FLOW_ID")>
+    Public Property ProjectStatusFlowId As Integer
 
-        Public Sub New(adminTabService As IAdminTabService, assetTabRepository As IAssetTabRepository, guidanceTabRepository As IGuidanceTabRepository, breakevenTabRepository As IBreakevenTabRepository, actorTabService As IActorTabService, projectCreditsTabService As IProjectCreditsTabService, collateralTabService As ICollateralTabService, guidelinesTabRepository As IGuidelinesTabRepository, loanOfficerConstructionFollowUpService As ILoanOfficerConstructionFollowUpService, userService As IUserService, analysisCommonService As IAnalysisCommonService)
-            _adminTabService = adminTabService
-            _assetTabRepository = assetTabRepository
-            _guidanceTabRepository = guidanceTabRepository
-            _breakevenTabRepository = breakevenTabRepository
-            _projectCreditsTabService = projectCreditsTabService
-            _actorTabService = actorTabService
-            _collateralTabService = collateralTabService
-            _guidelinesTabRepository = guidelinesTabRepository
-            _loanOfficerConstructionFollowUpService = loanOfficerConstructionFollowUpService
-            _userService = userService
-            _analysisCommonService = analysisCommonService
-            _logger = Log.ForContext(Of AnalysisController)()
-        End Sub
+    ' Actor identification
+    <JsonProperty("RE_MADB_ACTOR_ID")>
+    Public Property ActorId As String
 
-        ' GET: Analysis (fall back for direct access)
-        <HttpGet>
-        Public Function Index() As ActionResult
-            ViewBag.Header = AppGlobals.Analyse_Header_Text
-            ViewBag.Version = AppGlobals.Str_Version
+    <JsonProperty("RE_MADB_CI_ID")>
+    Public Property CI As String
 
-            Dim viewModel As New AnalysisViewModel()
+    <JsonProperty("RE_MADB_MASTERSCALE_ID")>
+    Public Property Rating1 As Integer?
 
-            If Session("AnalysisProjectId") IsNot Nothing Then
-                ViewBag.ProjectId = Session("AnalysisProjectId")
-                ViewBag.ProjectStatusId = Session("AnalysisProjectStatusId")
-                ViewBag.projectFlowId = Session("AnalysisProjectFlowId")
-                ViewBag.Mode = Session("AnalysisMode")
+    <JsonProperty("RE_MADB_MASTERSCALE_DATE_DT")>
+    Public Property RatingDate As Date?
 
-                ' CRE context (set after first admin save; null on first visit)
-                ViewBag.creProjectId = Session("AnalysisCreProjectId")
-                ViewBag.creTypeId = Session("AnalysisCreTypeId")
-                ViewBag.creGoalId = Session("AnalysisCreGoalId")
-                viewModel.IsSuccess = True
-
-                If Session("AnalysisProjectStatusId") < 3 Then
-                    viewModel.NameTabGuidance = "Guidance CRE"
-                Else
-                    viewModel.NameTabGuidance = "Decision"
-                End If
+    <JsonIgnore>
+    Public Property RatingDateDisplayFormat As String
+        Get
+            If RatingDate.HasValue Then
+                ' Ensure the date is formatted correctly as dd-MM-yyyy
+                Return RatingDate.Value.ToString("dd-MM-yyyy")
             Else
-                viewModel.IsSuccess = False
-                viewModel.Message = "No Project selected. please select a project from task list"
+                Return String.Empty
             End If
-
-            ' ALWAYS SET ViewBag
-            Dim userRole As String = Convert.ToString(Session("EffectiveRole"))
-            If String.IsNullOrWhiteSpace(userRole) Then
-                viewModel.IsSuccess = False
-                viewModel.Message = "Session expired. <a href='" & Url.Action("Index", "Portal") & "'>Click here</a> to go back to portal."
-                Return View(viewModel)
-            End If
-            ViewBag.UserRole = userRole
-            Return View(viewModel)
-        End Function
-
-
-        ' POST: Analysis (secure parameter passing)
-        <HttpPost>
-        Public Function Index(Optional projectId As Integer? = Nothing, Optional projectStatusId As Integer? = Nothing, Optional projectFlowId As Integer? = Nothing, Optional mode As String = "analysis", Optional projectTabId As Integer? = Nothing, Optional creProjectId As Integer? = Nothing) As ActionResult
-            ViewBag.Header = AppGlobals.Analyse_Header_Text
-            ViewBag.Version = AppGlobals.Str_Version
-
-            Dim viewModel As New AnalysisViewModel()
-
-            ' Store parameters in session for security and presistence
-            If projectId.HasValue Then
-                ' Default tab id value from tasklist
-                Dim finalProjectTabId As Integer = If(projectTabId.HasValue, projectTabId.Value, 1)
-                Dim finalProjectStatusId As Integer? = projectStatusId
-                Dim finalCreProjectId As Integer? = creProjectId
-                Dim isSameProject As Boolean = False
-                If Session("AnalysisProjectId") IsNot Nothing Then
-                    isSameProject = Convert.ToInt32(Session("AnalysisProjectId")) = projectId.Value
-                End If
-                If isSameProject Then
-                    If Session("ProjectTabId") IsNot Nothing Then
-                        finalProjectTabId = Convert.ToInt32(Session("ProjectTabId"))
-                    End If
-                    If Session("AnalysisProjectStatusId") IsNot Nothing Then
-                        finalProjectStatusId = Convert.ToInt32(Session("AnalysisProjectStatusId"))
-                    End If
-                    If Session("AnalysisCreProjectId") IsNot Nothing Then
-                        finalCreProjectId = Convert.ToInt32(Session("AnalysisCreProjectId"))
-                    End If
-                End If
-                Session("AnalysisProjectId") = projectId.Value
-                Session("AnalysisProjectStatusId") = finalProjectStatusId
-                Session("AnalysisProjectFlowId") = projectFlowId
-                Session("AnalysisMode") = mode
-                Session("ProjectTabId") = finalProjectTabId
-                Session("AnalysisCreProjectId") = finalCreProjectId
-
-                ' Also store project parameters in viewbag for javascript access
-                ViewBag.ProjectId = projectId
-                ViewBag.ProjectStatusId = finalProjectStatusId
-                ViewBag.ProjectFlowId = projectFlowId
-                ViewBag.Mode = mode
-                ViewBag.ProjectTabId = finalProjectTabId
-                ViewBag.CreProjectId = finalCreProjectId
-
-                viewModel.IsSuccess = True
-
-                If Session("AnalysisProjectStatusId") < 3 Then
-                    viewModel.NameTabGuidance = "Guidance CRE"
-                Else
-                    viewModel.NameTabGuidance = "Decision"
-                End If
+        End Get
+        Set(value As String)
+            If Not String.IsNullOrEmpty(value) Then
+                ' Parse the date string with the correct format
+                RatingDate = DateTime.ParseExact(value, "dd-MM-yyyy", CultureInfo.InvariantCulture)
             Else
-                viewModel.IsSuccess = False
-                viewModel.Message = "Invalid project parameters"
+                RatingDate = Nothing
             End If
+        End Set
+    End Property
+    <JsonProperty("RE_MADB_CLIENT_SW")>
+    Public Property BelfiusClient As Integer?
 
-            Dim userRole As String = Convert.ToString(Session("EffectiveRole"))
-            If String.IsNullOrWhiteSpace(userRole) Then
-                viewModel.IsSuccess = False
-                viewModel.Message = "Session expired. <a href='" & Url.Action("Index", "Portal") & "'>Click here</a> to go back to portal."
-                Return View(viewModel)
-            End If
-            ViewBag.UserRole = userRole
-            Return View(viewModel)
-        End Function
+    <JsonProperty("RE_MADB_PRIVATE_WEALTH_ID")>
+    Public Property PrivateWealthProfile As Integer?
 
-        ' GET: Analysis/GetTabContent
-        Public Async Function GetTabContent(tabName As String) As Task(Of PartialViewResult)
-            Dim sw = Stopwatch.StartNew()
-            Dim userName = Current_LoginUser
+    <JsonProperty("RE_MADB_COMMERCIAL_REGIO_ID")>
+    Public Property CommercialRegion As Integer?
 
-            'Log: request
-            _logger.Information("GetTabContent - Request received | Tab: {TabName} | User: {User}", tabName, userName)
-            Try
-                ' Validate session parameters
-                Dim sessionValidation = validateSessionParameters()
-                If Not sessionValidation.IsValid Then
-                    _logger.Warning("GetTabContent - session invalid | Tab: {TabName} | User: {User} | Reason: {Reason}", tabName, userName, sessionValidation.Message)
-                    Return PartialView("_Error", sessionValidation.Message)
-                End If
+    <JsonProperty("RE_MADB_BUSINESS_LINE_ID")>
+    Public Property BusinessLine As Integer?
 
-                Dim projectId = sessionValidation.ProjectId
-                Dim projectStatusId? = sessionValidation.ProjectStatusId
-                Dim projectFlowId? = sessionValidation.ProjectFlowId
-                Dim userRole As String = Convert.ToString(Session("EffectiveRole"))
-                If String.IsNullOrWhiteSpace(userRole) Then
-                    _logger.Warning("GetTabContent - EffectiveRole missing from session | Tab: {TabName} | User: {User} | ProjectId: {ProjectId}", tabName, userName, projectId)
-                    Return PartialView("_Error", "Session expired. <a href='" & Url.Action("Index", "Portal") & "'>Click here</a> to go back to portal.")
-                End If
-                Dim accessResult = AccessHelper.GetAccess(userRole, tabName)
-                If accessResult.Access = "NO_ACCESS" Then
-                    _logger.Warning("GetTabContent - access denied | Tab: {TabName} | User: {User} | Role: {Role}", tabName, userName, userRole)
-                    Return PartialView("_Error", accessResult.Message)
-                End If
+    <JsonProperty("RE_MADB_COMMERCIAL_SEGMENT_ID")>
+    Public Property CommercialSegment As String
 
-                ViewBag.Access = accessResult.Access
-                ViewBag.UserRole = userRole
+    <JsonProperty("RE_MADB_WATCHLIST_SW")>
+    Public Property Watchlist As Integer?
 
-                Select Case tabName.ToLower()
-                    Case "admin"
-                        _logger.Information("GetTabContent - Loading Admin tab | ProjectId: {ProjectId} | StatusId: {StatusId} | FlowId: {FlowId} | User: {User}",
-                                            projectId, projectStatusId, projectFlowId, userName)
-                        Dim adminData As AdminTabViewModel = Await _adminTabService.GetAdminDataAsync(projectId, projectStatusId, projectFlowId)
-                        ' Persist CRE context to session all other tabs can access it
-                        Session("AnalysisCreProjectId") = adminData.CommercialReProjId
-                        Session("AnalysisCreTypeId") = adminData.ReTypeId
-                        Session("AnalysisCreGoalId") = adminData.GoalId
+    <JsonProperty("RE_MADB_MAX_EXPOSURE_AM")>
+    Public Property ExistingExposure As Decimal?
 
-                        _logger.Information("GetTabContent - Admin tab loaded | ProjectId: {ProjectId} | User: {User} | ElapsedMs: {ElapsedMs}ms",
-                                            projectId, userName, sw.ElapsedMilliseconds)
-                        Return PartialView("_adminTab", adminData)
+    <JsonProperty("RE_MADB_LTMR_AM")>
+    Public Property LMRT As Decimal?
 
-                    Case "actors"
-                        _logger.Information("GetTabContent - Loading Actors tab | ProjectId: {ProjectId} | StatusId: {StatusId} | FlowId: {FlowId} | User: {User}",
-                                            projectId, projectStatusId, projectFlowId, userName)
-                        ' Get actor tab data with proper async handling and parameter validation
-                        If projectStatusId.HasValue AndAlso projectFlowId.HasValue Then
-                            Dim actorData As ActorTabViewModel = Await _actorTabService.GetActorTabDataAsync(projectId, projectStatusId.Value, projectFlowId.Value)
-                            _logger.Information("GetTabContent - Actors tab loaded | ProjectId: {ProjectId} | User: {User} | ElapsedMs: {ElapsedMs}ms",
-                                                projectId, userName, sw.ElapsedMilliseconds)
-                            Return PartialView("_actorsTab", actorData)
-                        Else
-                            ' Return error if required parameters are missing
-                            _logger.Warning("GetTabContent - Actors tab missing required parameters | ProjectId: {ProjectId} | StatusId: {StatusId} | FlowId: {FlowId} | User: {User}",
-                                            projectId, projectStatusId, projectFlowId, userName)
-                            Return PartialView("_Error", "Missing required parameters for actor tab. Please ensure proejct status and flowid are available.")
-                        End If
+    ' Sponsor selection (yes/no dropdown) - This comes from RE_PROJ table.
+    '<JsonProperty("RE_PROJ_SPONSOR_SW")>
+    <JsonIgnore>
+    Public Property HasSponsor As Integer
 
-                    Case "project-credits"
-                        Dim projectCreditsData As New ProjectCreditsTabViewModel
-                        projectCreditsData = _projectCreditsTabService.GetProjectCreditsData(projectId, projectStatusId, projectFlowId)
-                        Return PartialView("_projectCreditsTab", projectCreditsData)
+    <JsonIgnore>
+    Public Property ActorName As String
 
-                    Case "project-asset"
-                        Dim assetData As AssetTabModel = _assetTabRepository.GetAssetData(projectId, projectStatusId, projectFlowId)
+    ' Display text fields for main debtor. few fields are getting from SP itself
+    ' Few fiels we are lookup into TCOD tables by category
 
-                        ViewBag.SelectCreProject = New SelectList(_assetTabRepository.GetTCOD_QRER("COMMERCIAL RE PROJECT", "Asset"), "Key", "Value", assetData.PRCR_COMMERCIAL_RE_PRJ_ID)
-                        ViewBag.SelectCreType = New SelectList(_assetTabRepository.GetTCOD_QRER("RE TYPE", "Asset"), "Key", "Value", assetData.PRCR_RE_TYPE_ID)
-                        If (assetData.PRCR_RE_TYPE_ID = 3) Then
-                            ViewBag.SelectCreTypeDetail = New SelectList(New List(Of KeyValuePair(Of Integer, String)) From {New KeyValuePair(Of Integer, String)(-1, "SELECT")}.Union(_assetTabRepository.GetTCOD_QRER("CRE TYPE DETAIL - SENIOR HOUSING / SERVICE FLATS", "Asset")), "Key", "Value", assetData.PRCR_RE_TYPE_DETAIL_ID)
-                        ElseIf (assetData.PRCR_RE_TYPE_ID = 6) Then
-                            ViewBag.SelectCreTypeDetail = New SelectList(New List(Of KeyValuePair(Of Integer, String)) From {New KeyValuePair(Of Integer, String)(-1, "SELECT")}.Union(_assetTabRepository.GetTCOD_QRER("CRE TYPE DETAIL - RETAIL", "Asset")), "Key", "Value", assetData.PRCR_RE_TYPE_DETAIL_ID)
-                        ElseIf (assetData.PRCR_RE_TYPE_ID = 7) Then
-                            ViewBag.SelectCreTypeDetail = New SelectList(New List(Of KeyValuePair(Of Integer, String)) From {New KeyValuePair(Of Integer, String)(-1, "SELECT")}.Union(_assetTabRepository.GetTCOD_QRER("CRE TYPE DETAIL - RESIDENTIAL", "Asset")), "Key", "Value", assetData.PRCR_RE_TYPE_DETAIL_ID)
-                        ElseIf (assetData.PRCR_RE_TYPE_ID = 1) Then
-                            ViewBag.SelectCreTypeDetail = New SelectList(New List(Of KeyValuePair(Of Integer, String)) From {New KeyValuePair(Of Integer, String)(-1, "SELECT")}.Union(_assetTabRepository.GetTCOD_QRER("CRE TYPE DETAIL - OFFICE", "Asset")), "Key", "Value", assetData.PRCR_RE_TYPE_DETAIL_ID)
-                        ElseIf (assetData.PRCR_RE_TYPE_ID = 2) Then
-                            ViewBag.SelectCreTypeDetail = New SelectList(New List(Of KeyValuePair(Of Integer, String)) From {New KeyValuePair(Of Integer, String)(-1, "SELECT")}.Union(_assetTabRepository.GetTCOD_QRER("CRE TYPE DETAIL - LOGISTIC", "Asset")), "Key", "Value", assetData.PRCR_RE_TYPE_DETAIL_ID)
-                        End If
-                        ViewBag.SelectCountry = New SelectList(New List(Of KeyValuePair(Of Integer, String)) From {New KeyValuePair(Of Integer, String)(-1, "SELECT")}.Union(_assetTabRepository.GetTCOD_QRER("PROJECT LOCATION", "Asset")), "Key", "Value", assetData.ASST_LOCATION_ID)
-                        ViewBag.SelectBuildPerc = New SelectList(New List(Of KeyValuePair(Of Integer, String)) From {New KeyValuePair(Of Integer, String)(-1, "SELECT")}.Union(_assetTabRepository.GetTCOD_QRER("% BUILD", "Asset")), "Key", "Value", assetData.CRGU_BUILD_PERC_ID)
-                        ViewBag.SelectNature = New SelectList(New List(Of KeyValuePair(Of String, String)) From {New KeyValuePair(Of String, String)("-1", "SELECT")}.Union(_assetTabRepository.GetTCOD("GDF2").OrderBy(Function(x) x.Value)), "Key", "Value", assetData.ASST_COLLATERAL_NATURE_ID)
-                        ViewBag.SelectAttribute = New SelectList(New List(Of KeyValuePair(Of String, String)) From {New KeyValuePair(Of String, String)("-1", "")}.Union(_assetTabRepository.GetTCOD("GD59")), "Key", "Value", assetData.ASST_COLLATERAL_ATTRIBUTE_ID)
-                        ViewBag.SelectMethodConf = New SelectList(New List(Of KeyValuePair(Of Integer, String)) From {New KeyValuePair(Of Integer, String)(-1, "SELECT")}.Union(_assetTabRepository.GetTCOD_QRER("EXPERTISE METHODOLOGY CONFORMITY", "Asset")), "Key", "Value", assetData.ASST_EXPERT_METHODO_CONFIRM_ID)
-                        ViewBag.SelectMethod = New SelectList(New List(Of KeyValuePair(Of Integer, String)) From {New KeyValuePair(Of Integer, String)(-1, "")}.Union(_assetTabRepository.GetTCOD_QRER("EXPERTISE METHODOLOGY", "Asset")), "Key", "Value", assetData.ASST_EXPERTISE_METHODO_ID)
-                        ViewBag.SelectExpSource = New SelectList(New List(Of KeyValuePair(Of Integer, String)) From {New KeyValuePair(Of Integer, String)(-1, "SELECT")}.Union(_assetTabRepository.GetTCOD_QRER("EXPERTISE SOURCE", "Asset")), "Key", "Value", assetData.ASST_EXPERTISE_SOURCE_ID)
-                        ViewBag.SelectEnergyLabelType = New SelectList(New List(Of KeyValuePair(Of Integer, String)) From {New KeyValuePair(Of Integer, String)(-1, "SELECT")}.Union(_assetTabRepository.GetTCOD_QRER("ENERGY LABEL TYPE", "Asset")), "Key", "Value", assetData.ASST_ENERGY_LABEL_TYPE_ID)
-                        ViewBag.SelectEnergyLabelEPC = New SelectList(New List(Of KeyValuePair(Of Integer, String)) From {New KeyValuePair(Of Integer, String)(-1, "SELECT")}.Union(_assetTabRepository.GetTCOD_QRER("EPC LEVEL", "Asset")), "Key", "Value", assetData.ASST_ENERGY_LABEL_ID)
-                        ViewBag.SelectEnergyLabelBREEAM = New SelectList(New List(Of KeyValuePair(Of Integer, String)) From {New KeyValuePair(Of Integer, String)(-1, "SELECT")}.Union(_assetTabRepository.GetTCOD_QRER("BREEAM LEVEL", "Asset")), "Key", "Value", assetData.ASST_ENERGY_LABEL_ID)
-                        ViewBag.SelectEnergyLabelLEED = New SelectList(New List(Of KeyValuePair(Of Integer, String)) From {New KeyValuePair(Of Integer, String)(-1, "SELECT")}.Union(_assetTabRepository.GetTCOD_QRER("LEED LEVEL", "Asset")), "Key", "Value", assetData.ASST_ENERGY_LABEL_ID)
-                        ViewBag.SelectFloodRisk = New SelectList(New List(Of KeyValuePair(Of Integer, String)) From {New KeyValuePair(Of Integer, String)(-1, "SELECT")}.Union(_assetTabRepository.GetTCOD_QRER("FLOOD RISK", "Asset")), "Key", "Value", assetData.ASST_FLOOD_RISK_ID)
-                        ViewBag.SelectPrimarySource = New SelectList(New List(Of KeyValuePair(Of Integer, String)) From {New KeyValuePair(Of Integer, String)(-1, "SELECT")}.Union(_assetTabRepository.GetTCOD_QRER("HEATING, COOLING PRIMARY SOURCE", "Asset")), "Key", "Value", assetData.ASST_HEATING_COOLING_PRIMARY_SOURCE_ID)
-                        ViewBag.SelectSolarPanels = New SelectList(New List(Of KeyValuePair(Of Integer, String)) From {New KeyValuePair(Of Integer, String)(-1, "SELECT")}.Union(_assetTabRepository.GetTCOD_QRER("SOLAR PANELS", "Asset")), "Key", "Value", assetData.ASST_SOLAR_PANELS_ID)
-                        ViewBag.SelectActorQuality = New SelectList(New List(Of KeyValuePair(Of Integer, String)) From {New KeyValuePair(Of Integer, String)(-1, "SELECT")}.Union(_assetTabRepository.GetTCOD_QRER("QUALITY ACTOR", "Asset")), "Key", "Value", assetData.ACTR_QUALITY_ID)
-                        ViewBag.SelectCreCondition = New SelectList(New List(Of KeyValuePair(Of Integer, String)) From {New KeyValuePair(Of Integer, String)(-1, "SELECT")}.Union(_assetTabRepository.GetTCOD_QRER("CRE CONDITION - BUILDING LOTS", "Asset")), "Key", "Value", assetData.PRCR_CRE_CONDITION_ID)
-                        ViewBag.SelectCreConditionOffice = New SelectList(New List(Of KeyValuePair(Of Integer, String)) From {New KeyValuePair(Of Integer, String)(-1, "SELECT")}.Union(_assetTabRepository.GetTCOD_QRER("CRE CONDITION - OFFICE", "Asset")), "Key", "Value", assetData.PRCR_CRE_CONDITION_ID)
-                        ViewBag.SelectCreConditionLogistic = New SelectList(New List(Of KeyValuePair(Of Integer, String)) From {New KeyValuePair(Of Integer, String)(-1, "SELECT")}.Union(_assetTabRepository.GetTCOD_QRER("CRE CONDITION - LOGISTIC", "Asset")), "Key", "Value", assetData.PRCR_CRE_CONDITION_ID)
+    ' From Stored procedure call
+    <JsonIgnore>
+    Public Property PrivateWealthProfileDisplayText As String
+    <JsonIgnore>
+    Public Property CommercialSegmentDisplayText As String
 
-                        ViewBag.SumCredit = _assetTabRepository.GetSumBelfiusCredit(assetData.PRCR_GROUND_BUILD_SPLIT_SW, assetData.PROJ_ID, assetData.PROJ_STATUS_ID, assetData.PROJ_STATUS_FLOW_ID)
-                        ViewBag.CostToMarket = _assetTabRepository.GetCostToMarket(assetData.PROJ_ID, assetData.PROJ_STATUS_ID, assetData.PROJ_STATUS_FLOW_ID)
 
-                        Return PartialView("_assetTab", assetData)
+    ' From TCOD table
+    <JsonIgnore>
+    Public Property RatingFieldDisplayText As String
 
-                    Case "collaterals"
-                        _logger.Information("GetTabContent - Loading Collaterals tab | ProjectId: {projectId}, ProjectStatusId: {StatusId}, ProjectFlowId: {FlowId} | User: {User}", projectId, projectStatusId, projectFlowId, userName)
-                        Dim model As New CollateralScreenViewModel()
-                        model.Dropdowns = _collateralTabService.GetCollateralDropdowns()
-                        'Temp
-                        Dim wrapperList = _collateralTabService.GetCollateraldata(projectId, projectStatusId, projectFlowId)
-                        ' Calculate numColumns from service
-                        model.NumColumns = _collateralTabService.CalculateNumColumns(wrapperList)
-                        'model.OtherCollateral = _collateralTabService.GetOtherCollateralData(projectId, projectStatusId, projectFlowId)
-                        'model.coverage = _collateralTabService.GetCoverageData(projectId, projectStatusId, projectFlowId)
-                        sw.Stop()
-                        ' Log: Tab loaded successfully  
-                        _logger.Information("GetTabContent - Collaterals tab loaded | ProjectId: {ProjectId} | NumColumns: {NumColumns} | User: {User} | ElapsedMs: {ElapsedMs}ms",
-                                            projectId, model.NumColumns, userName, sw.ElapsedMilliseconds)
-                        Return PartialView("_collateralsTab", model)
+    <JsonIgnore>
+    Public Property WatchlistDisplayText As String
 
-                    Case "guidelines"
-                        Dim guidelinesData As GuidelinesTabModel = _guidelinesTabRepository.GetGuidelinesData(projectId, projectStatusId, projectFlowId)
+    <JsonIgnore>
+    Public Property CommercialRegionDisplayText As String
+    <JsonIgnore>
+    Public Property BusinessLineDisplayText As String
 
-                        ViewBag.SelectEval1 = New SelectList(_assetTabRepository.GetTCOD_QRER("STATUS EVALUATION", "Guidelines"), "Key", "Value", guidelinesData.DCRG_NO_REFIN_OTHER_BANK_EXP_SW)
-                        ViewBag.SelectEval2 = New SelectList(_assetTabRepository.GetTCOD_QRER("STATUS EVALUATION", "Guidelines"), "Key", "Value", guidelinesData.DCRG_NO_RESTRUCT_SW)
-                        ViewBag.SelectEval3 = New SelectList(_assetTabRepository.GetTCOD_QRER("STATUS EVALUATION", "Guidelines"), "Key", "Value", guidelinesData.DCRG_NO_SPECULATION_SW)
-                        ViewBag.SelectEval4 = New SelectList(_assetTabRepository.GetTCOD_QRER("STATUS EVALUATION", "Guidelines"), "Key", "Value", guidelinesData.DCRG_PERS_GUAR_MAJ_SHARE_SW)
-                        ViewBag.SelectEval5 = New SelectList(_assetTabRepository.GetTCOD_QRER("STATUS EVALUATION", "Guidelines"), "Key", "Value", guidelinesData.DCRG_REPAY_CAP_SW)
-                        ViewBag.SelectEval6 = New SelectList(_assetTabRepository.GetTCOD_QRER("STATUS EVALUATION", "Guidelines"), "Key", "Value", guidelinesData.DCRG_NO_NEG_RISK_INDIC_SW)
-                        ViewBag.SelectEval7 = New SelectList(_assetTabRepository.GetTCOD_QRER("STATUS EVALUATION", "Guidelines"), "Key", "Value", guidelinesData.DCRG_MIN_COV_RISK_SECT_SW)
-                        ViewBag.SelectEval8 = New SelectList(_assetTabRepository.GetTCOD_QRER("STATUS EVALUATION", "Guidelines"), "Key", "Value", guidelinesData.DCRG_NO_NEG_NET_ASSETS_SW)
-                        ViewBag.SelectEval9 = New SelectList(_assetTabRepository.GetTCOD_QRER("STATUS EVALUATION", "Guidelines"), "Key", "Value", guidelinesData.DCRG_NO_FUND_VAT_SW)
-                        ViewBag.SelectEval10 = New SelectList(_assetTabRepository.GetTCOD_QRER("STATUS EVALUATION", "Guidelines"), "Key", "Value", guidelinesData.DCRG_REAL_ESTATE_10Y_SW)
-                        ViewBag.SelectEval11 = New SelectList(_assetTabRepository.GetTCOD_QRER("STATUS EVALUATION", "Guidelines"), "Key", "Value", guidelinesData.DCRG_BULLET_LOANS_SW)
-                        ViewBag.SelectEval12 = New SelectList(_assetTabRepository.GetTCOD_QRER("STATUS EVALUATION", "Guidelines"), "Key", "Value", guidelinesData.DCRG_MIN_OWN_CONTRIB_SW)
+    ' Operation type for change tracking (INSERT, UPDATE, DELETE, or null)
+    ' Note: This property is sent from frontend to determine database operation type.
+    <JsonIgnore>
+    Public Property Operation As String
+    <JsonIgnore>
+    Public Property IsDataFromReTable As Boolean
 
-                        ViewBag.SelectDevMotiv_1 = New SelectList(_assetTabRepository.GetTCOD_QRER("DEVIATION MOTIVATIONS", "Guidelines").Union(New List(Of KeyValuePair(Of Integer, String)) From {New KeyValuePair(Of Integer, String)(0, "")}), "Key", "Value", guidelinesData.MOTI_ID_1)
-                        ViewBag.SelectDevMotiv_2 = New SelectList(_assetTabRepository.GetTCOD_QRER("DEVIATION MOTIVATIONS", "Guidelines").Union(New List(Of KeyValuePair(Of Integer, String)) From {New KeyValuePair(Of Integer, String)(0, "")}), "Key", "Value", guidelinesData.MOTI_ID_2)
-                        ViewBag.SelectDevMotiv_3 = New SelectList(_assetTabRepository.GetTCOD_QRER("DEVIATION MOTIVATIONS", "Guidelines").Union(New List(Of KeyValuePair(Of Integer, String)) From {New KeyValuePair(Of Integer, String)(0, "")}), "Key", "Value", guidelinesData.MOTI_ID_3)
-                        ViewBag.SelectDeciLevelId = New SelectList(_assetTabRepository.GetTCOD_QRER("DECISION LEVEL", "Guidelines"), "Key", "Value", guidelinesData.DECI_DECISION_LEVEL_ID)
-                        ViewBag.SelectDecisionId = New SelectList(_assetTabRepository.GetTCOD_QRER("DECISION", "Guidelines"), "Key", "Value", guidelinesData.DECI_DECISION_ID)
+    <JsonProperty("RE_MADB_IS_VALID_ACTOR")>
+    Public Property IsValidActorId As Integer?
 
-                        Return PartialView("_guidelinesTab", guidelinesData)
-
-                    Case "guidance"
-                        Dim guidanceData As GuidanceTabModel = _guidanceTabRepository.GetGuidanceData(projectId, projectStatusId, projectFlowId)
-
-                        ViewBag.SumBelfiusCredit = _assetTabRepository.GetSumBelfiusCredit(1, guidanceData.PROJ_ID, guidanceData.PROJ_STATUS_ID, guidanceData.PROJ_STATUS_FLOW_ID)
-                        ViewBag.CostToMarket = _guidanceTabRepository.GetTotalCost(guidanceData.PROJ_ID, guidanceData.PROJ_STATUS_ID, guidanceData.PROJ_STATUS_FLOW_ID)
-                        ViewBag.SumCredit = _assetTabRepository.GetSumBelfiusCredit(guidanceData.PRCR_GROUND_BUILD_SPLIT_SW, guidanceData.PROJ_ID, guidanceData.PROJ_STATUS_ID, guidanceData.PROJ_STATUS_FLOW_ID)
-                        ViewBag.SelectProjExperience = New SelectList(_assetTabRepository.GetTCOD_QRER("CLIENT PROJECT EXPERIENCE", "Guidance"), "Key", "Value", guidanceData.GUID_CLIENT_PRJ_EXPRNCE_ID)
-                        ViewBag.SwCreditTypeBullet = _guidanceTabRepository.GetSwCreditTypeBullet(1, guidanceData.PROJ_ID, guidanceData.PROJ_STATUS_ID, guidanceData.PROJ_STATUS_FLOW_ID)
-                        ViewBag.CreditHighestDurationBullet = _guidanceTabRepository.GetCreditHighestDuration(1, 1, guidanceData.PROJ_ID, guidanceData.PROJ_STATUS_ID, guidanceData.PROJ_STATUS_FLOW_ID)
-                        ViewBag.CreditHighestDurationNoBullet = _guidanceTabRepository.GetCreditHighestDuration(1, 0, guidanceData.PROJ_ID, guidanceData.PROJ_STATUS_ID, guidanceData.PROJ_STATUS_FLOW_ID)
-                        ViewBag.SelectDeviatMotiv_1 = New SelectList(_assetTabRepository.GetTCOD_QRER("DEVIATION MOTIVATIONS", "Guidance").Union(New List(Of KeyValuePair(Of Integer, String)) From {New KeyValuePair(Of Integer, String)(0, "")}), "Key", "Value", guidanceData.MOTI_ID_1)
-                        ViewBag.SelectDeviatMotiv_2 = New SelectList(_assetTabRepository.GetTCOD_QRER("DEVIATION MOTIVATIONS", "Guidance").Union(New List(Of KeyValuePair(Of Integer, String)) From {New KeyValuePair(Of Integer, String)(0, "")}), "Key", "Value", guidanceData.MOTI_ID_2)
-                        ViewBag.SelectDeviatMotiv_3 = New SelectList(_assetTabRepository.GetTCOD_QRER("DEVIATION MOTIVATIONS", "Guidance").Union(New List(Of KeyValuePair(Of Integer, String)) From {New KeyValuePair(Of Integer, String)(0, "")}), "Key", "Value", guidanceData.MOTI_ID_3)
-                        ViewBag.SelectDeciLevel = New SelectList(_assetTabRepository.GetTCOD_QRER("DECISION LEVEL", "Guidance"), "Key", "Value", guidanceData.DECI_DECISION_LEVEL_ID)
-                        ViewBag.SelectDecision = New SelectList(_assetTabRepository.GetTCOD_QRER("DECISION", "Guidance"), "Key", "Value", guidanceData.DECI_DECISION_ID)
-                        ViewBag.SwGuidelinesNOK = _guidanceTabRepository.GetGuidelinesNOK(guidanceData.PROJ_ID, guidanceData.PROJ_STATUS_ID, guidanceData.PROJ_STATUS_FLOW_ID)
-                        ViewBag.SelectStatus = New SelectList(_assetTabRepository.GetTCOD_QRER("PROJECT STATUS", "Guidance"), "Key", "Value", guidanceData.PROJ_STATUS_ID)
-                        ViewBag.SelectStatus_1 = New SelectList(_assetTabRepository.GetTCOD_QRER("PROJECT STATUS", "Guidance"), "Key", "Value", guidanceData.PROJ_STATUS_ID_1)
-                        ViewBag.SelectStatus_2 = New SelectList(_assetTabRepository.GetTCOD_QRER("PROJECT STATUS", "Guidance"), "Key", "Value", guidanceData.PROJ_STATUS_ID_2)
-                        ViewBag.SelectStatus_3 = New SelectList(_assetTabRepository.GetTCOD_QRER("PROJECT STATUS", "Guidance"), "Key", "Value", guidanceData.PROJ_STATUS_ID_3)
-
-                        Return PartialView("_guidanceTab", guidanceData)
-
-                    Case "breakeven"
-                        Dim breakevenData As New BreakevenTabModel
-
-                        breakevenData.RE_PROJ_ID = projectId
-                        breakevenData.RE_PROJ_STATUS_ID = projectStatusId
-                        breakevenData.RE_PROJ_STATUS_FLOW_ID = projectFlowId
-
-                        Return PartialView("_breakevenTab", breakevenData)
-
-                    Case "follow-up"
-                        Dim followUpData As LoanOfficerConstructionFollowUpViewModel =
-                            _loanOfficerConstructionFollowUpService.GetConstructionFollowUp(projectId,
-                                                                                            projectStatusId,
-                                                                                            projectFlowId)
-                        Return PartialView("_followUpLoanOfficerTab", followUpData)
-
-                    Case Else
-                        'Log: Unknown TAB
-                        _logger.Warning("GetTabContent - Unknown tab requested | Tab: {TabName} | User: {User}",
-                                        tabName, userName)
-                        Return PartialView("_Error", "Tab Not Implemented: " & tabName)
-
-                End Select
-            Catch ex As Exception
-                sw.Stop()
-                ' Log: Unhandled exception with full context
-                _logger.Error(ex, "GetTabContent - Unhandled exception | Tab: {TabName} | User: {User} | ElapsedMs: {ElapsedMs}ms",
-                              tabName, userName, sw.ElapsedMilliseconds)
-                Return PartialView("_Error", $"Error loading {tabName} tab: {ex.Message}")
-            End Try
-
-        End Function
-
-
-
-
-
-        <HttpGet>
-        Public Async Function GenerateAnalysisPdf() As Task(Of ActionResult)
-            Dim sw = Stopwatch.StartNew()
-            Dim userName = Current_LoginUser
-            _logger.Information("GenerateAnalysisPdf - Request received | User: {User}", userName)
-
-            Try
-                Dim sessionValidation = validateSessionParameters()
-                If Not sessionValidation.IsValid Then
-                    _logger.Warning("GenerateAnalysisPdf - Session invalid | User: {User} | Reason: {Reason}", userName, sessionValidation.Message)
-                    Return New HttpStatusCodeResult(400, sessionValidation.Message)
-                End If
-
-                Dim projectId = sessionValidation.ProjectId
-                Dim projectStatusId = sessionValidation.ProjectStatusId
-                Dim projectFlowId = sessionValidation.ProjectFlowId
-
-                Dim allFields As New List(Of AnalysisPdfFieldModel)()
-
-                ' --- Admin tab ---
-                Dim adminData = Await _adminTabService.GetAdminDataAsync(projectId, projectStatusId, projectFlowId)
-                allFields.AddRange(_adminTabService.GetAdminPdfFields(adminData))
-
-                ' --- Future tabs: same pattern once you have each tab's field list ---
-                ' Dim actorData = Await _actorTabService.GetActorTabDataAsync(projectId, projectStatusId.Value, projectFlowId.Value)
-                ' allFields.AddRange(_actorTabService.GetActorPdfFields(actorData))
-                ' ... project-asset, collateral, project-credits, guidance follow the same shape
-
-                ' Render RDLC -> PDF bytes
-                Dim lrLocalReport As New LocalReport()
-                lrLocalReport.ReportPath = Server.MapPath("~/Report/AnalysisReport.rdlc")  ' adjust path to wherever you put the .rdlc
-
-                Dim reportDataSource As New ReportDataSource("AnalysisFields", allFields)
-                lrLocalReport.DataSources.Add(reportDataSource)
-
-                Dim deviceInfo As String =
-            "<DeviceInfo>" &
-            "<PageHeight>297mm</PageHeight>" &
-            "<PageWidth>210mm</PageWidth>" &
-            "<MarginTop>10mm</MarginTop>" &
-            "<MarginLeft>10mm</MarginLeft>" &
-            "<MarginRight>10mm</MarginRight>" &
-            "<MarginBottom>10mm</MarginBottom>" &
-            "</DeviceInfo>"
-
-                Dim mimeType, encoding, extension As String
-                Dim streamIds As String()
-                Dim warnings As Warning()
-
-                Dim pdfBytes As Byte() = lrLocalReport.Render("PDF", deviceInfo, mimeType, encoding, extension, streamIds, warnings)
-
-                sw.Stop()
-                _logger.Information("GenerateAnalysisPdf - Completed | User: {User} | ProjectId: {ProjectId} | SizeBytes: {Size} | ElapsedMs: {ElapsedMs}ms",
-                            userName, projectId, pdfBytes.Length, sw.ElapsedMilliseconds)
-
-                Dim fileName As String = $"Analysis_Project_{projectId}_{DateTime.Now:yyyyMMdd_HHmmss}.pdf"
-                Return File(pdfBytes, "application/pdf", fileName)
-
-            Catch ex As Exception
-                sw.Stop()
-                _logger.Error(ex, "GenerateAnalysisPdf - Unhandled exception | User: {User} | ElapsedMs: {ElapsedMs}ms", userName, sw.ElapsedMilliseconds)
-                Return New HttpStatusCodeResult(500, "Error generating PDF: " & ex.Message)
-            End Try
-        End Function
-
-        ' POST Analysis/SaveAdminData
-        <HttpPost>
-        Public Async Function SaveAdminData(adminData As AdminTabViewModel) As Task(Of JsonResult)
-            Dim sw = Stopwatch.StartNew()
-            Dim userName = Current_LoginUser
-            _logger.Information("SaveAdminData - Request received | User: {User} | ProjectId: {ProjectId} | StatusId: {StatusId} | FlowId: {FlowId}",
-                                userName, adminData?.ProjectId, adminData?.ProjectStatusId, adminData?.ProjectStatusFlowId)
-            Try
-                Dim result = Await _adminTabService.SaveAdminDataAsync(adminData)
-
-                ' Persist CRE context to session all other tabs can access it
-                Session("AnalysisCreProjectId") = adminData.CommercialReProjId
-                Session("AnalysisCreTypeId") = adminData.ReTypeId
-                Session("AnalysisCreGoalId") = adminData.GoalId
-
-                sw.Stop()
-                _logger.Information("SaveAdminData - Completed | User: {User} | ProjectId: {ProjectId} | Success: {Success} | ElapsedMs: {ElapsedMs}ms",
-                                    userName, adminData?.ProjectId, result.IsSuccess, sw.ElapsedMilliseconds)
-                Return Json(New With {
-                    .success = result.IsSuccess,
-                    .message = result.Message,
-                    .data = result
-                })
-            Catch ex As Exception
-                sw.Stop()
-                _logger.Error(ex, "SaveAdminData - Unhandled exception | User: {User} | ProjectId: {ProjectId} | ElapsedMs: {ElapsedMs}ms",
-                              userName, adminData?.ProjectId, sw.ElapsedMilliseconds)
-                Return Json(New With {
-                    .success = False,
-                    .message = ex.Message
-                })
-            End Try
-        End Function
-
-        ' Get: Analysis/GetActorData
-        <HttpGet>
-        Public Async Function GetActorData(projectId As Integer, projectStatusId As Integer, projectFlowId As Integer) As Task(Of JsonResult)
-            Dim sw = Stopwatch.StartNew()
-            Dim userName = Current_LoginUser
-            _logger.Information("GetActorData - Request received | User: {User} | ProjectId: {ProjectId} | StatusId: {StatusId} | FlowId: {FlowId}",
-                                userName, projectId, projectStatusId, projectFlowId)
-            Try
-                If projectId <= 0 Then
-                    _logger.Warning("GetActorData - Invalid ProjectId | User: {User} | ProjectId: {ProjectId}", userName, projectId)
-                    Return Json(New With {
-                        .success = False,
-                        .message = "Invalid project Id"
-                    }, JsonRequestBehavior.AllowGet)
-                End If
-
-                If projectStatusId <= 0 Then
-                    _logger.Warning("GetActorData - Invalid ProjectStatusId | User: {User} | StatusId: {StatusId}", userName, projectStatusId)
-                    Return Json(New With {
-                        .success = False,
-                        .message = "Invalid project status"
-                    }, JsonRequestBehavior.AllowGet)
-                End If
-
-                If projectFlowId <= 0 Then
-                    _logger.Warning("GetActorData - Invalid ProjectFlowId | User: {User} | FlowId: {FlowId}", userName, projectFlowId)
-                    Return Json(New With {
-                        .success = False,
-                        .message = "Invalid project flow ID"
-                    }, JsonRequestBehavior.AllowGet)
-                End If
-
-                Dim actorData As ActorTabViewModel = Await _actorTabService.GetActorTabDataAsync(projectId, projectStatusId, projectFlowId)
-                sw.Stop()
-                _logger.Information("GetActorData - Completed | User: {User} | ProjectId: {ProjectId} | ElapsedMs: {ElapsedMs}ms",
-                                    userName, projectId, sw.ElapsedMilliseconds)
-                Return Json(New With {
-                    .success = True,
-                    .data = actorData
-                }, JsonRequestBehavior.AllowGet)
-            Catch ex As Exception
-                sw.Stop()
-                _logger.Error(ex, "GetActorData - Unhandled exception | User: {User} | ProjectId: {ProjectId} | StatusId: {StatusId} | FlowId: {FlowId} | ElapsedMs: {ElapsedMs}ms",
-                              userName, projectId, projectStatusId, projectFlowId, sw.ElapsedMilliseconds)
-                Return Json(New With {
-                    .success = False,
-                    .message = ex.Message
-                }, JsonRequestBehavior.AllowGet)
-            End Try
-        End Function
-
-        ' POST: Analysis/SaveAllActorData - Bulk save all actors data in single transaction
-        <HttpPost>
-        Public Async Function SaveAllActorsData(actorData As ActorTabViewModel) As Task(Of JsonResult)
-            Dim sw = Stopwatch.StartNew()
-            Dim userName = Current_LoginUser
-            _logger.Information("SaveAllActorsData - Request received | User: {User} | ProjectId: {ProjectId} | StatusId: {StatusId} | FlowId: {FlowId}",
-                                userName, actorData?.ProjectId, actorData?.ProjectStatusId, actorData?.ProjectFlowId)
-            Try
-                If actorData Is Nothing Then
-                    _logger.Warning("SaveAllActorsData - Actor data is null | User: {User}", userName)
-                    Return Json(New With {
-                        .success = False,
-                        .message = "Actor data is required"
-                    })
-                End If
-
-                If actorData.ProjectId <= 0 Then
-                    _logger.Warning("SaveAllActorsData - Invalid ProjectId | User: {User} | ProjectId: {ProjectId}", userName, actorData.ProjectId)
-                    Return Json(New With {
-                        .success = False,
-                        .message = "Valid project ID is required"
-                    })
-                End If
-
-                Dim result As Boolean = Await _actorTabService.SaveAllActorsDataAsync(actorData)
-                sw.Stop()
-                _logger.Information("SaveAllActorsData - Completed | User: {User} | ProjectId: {ProjectId} | Success: {Success} | ElapsedMs: {ElapsedMs}ms",
-                                    userName, actorData.ProjectId, result, sw.ElapsedMilliseconds)
-                Return Json(New With {
-                    .success = result,
-                    .message = If(result, "All actors data saved successfully", "Failed to save actor data")
-                })
-            Catch ex As Exception
-                sw.Stop()
-                _logger.Error(ex, "SaveAllActorsData - Unhandled exception | User: {User} | ProjectId: {ProjectId} | ElapsedMs: {ElapsedMs}ms",
-                              userName, actorData?.ProjectId, sw.ElapsedMilliseconds)
-                Return Json(New With {
-                        .success = False,
-                        .message = ex.Message
-                    })
-            End Try
-        End Function
-
-        'Get :  Analysis/GetCollateralData  
-        <HttpGet>
-        Public Function GetCollateralData(Optional projectId As Integer? = Nothing,
-                                          Optional projectStatusId As Integer? = Nothing,
-                                          Optional projectFlowId As Integer? = Nothing) As JsonResult
-            Dim sw = Stopwatch.StartNew()
-            Dim userName = Current_LoginUser
-
-            _logger.Information("GetCollateralData - Request received | User: {User} | ProjectId: {ProjectId} | ProjectStatusId: {StatusId} | ProjectFlowId: {FlowId}",
-                                userName, projectId, projectStatusId, projectFlowId)
-
-            Try
-                ' ===============================  
-                ' Resolve Project Context  
-                ' ===============================  
-                Dim finalProjectId As Integer
-                Dim finalProjectStatusId As Integer?
-                Dim finalProjectFlowId As Integer?
-
-                If projectId.HasValue AndAlso projectId.Value > 0 Then
-                    finalProjectId = projectId.Value
-                    finalProjectStatusId = projectStatusId
-                    finalProjectFlowId = projectFlowId
-                ElseIf Session("AnalysisProjectId") IsNot Nothing Then
-                    finalProjectId = CInt(Session("AnalysisProjectId"))
-                    finalProjectStatusId = If(Session("AnalysisProjectStatusId"), CType(Nothing, Integer?))
-                    finalProjectFlowId = If(Session("AnalysisProjectFlowId"), CType(Nothing, Integer?))
-                Else
-                    _logger.Warning("GetCollateralData - Project context not found in params or session | User: {User}", userName)
-                    Throw New ApplicationException("Project context not found")
-                End If
-                _logger.Information("GetCollateralData - Checking for saved data (EDIT mode check) | User: {User} | ProjectId: {ProjectId} , ProjectStatusId: {projectStatusId}, ProjectFlowId: {projectFlowId}", userName, projectId, projectStatusId, projectFlowId)
-                Dim warnings As New List(Of String)
-
-                ' =============================================
-                ' EDIT MODE (QID 1) - Saved data from CLTL table
-                ' =============================================
-                Dim saved = _collateralTabService.GetSavedCollateralDetails(
-            finalProjectId, finalProjectStatusId, finalProjectFlowId)
-
-                If saved IsNot Nothing AndAlso saved.Any() Then
-                    _logger.Information("GetCollateralData - Saved data found, loading edit mode| User: {User} | ProjectId: {ProjectId} , ProjectStatusId: {projectStatusId}, ProjectFlowId: {projectFlowId}", userName, projectId, projectStatusId, projectFlowId)
-                    Dim otherSavedCollateral = _collateralTabService.GetOtherCollateralData(finalProjectId, finalProjectStatusId, finalProjectFlowId)
-                    Dim assetData = _collateralTabService.GetCollateraldata(finalProjectId, finalProjectStatusId, finalProjectFlowId)
-                    sw.Stop()
-                    _logger.Information("GetCollateralData - EDIT mode response ready | ProjectId: {ProjectId}, ProjectStatusId: {projectStatusId}, ProjectFlowId: {projectFlowId} | ElapsedMs: {ElapsedMs}ms", finalProjectId, finalProjectStatusId, finalProjectFlowId, sw.ElapsedMilliseconds)
-                    Return Json(New With {
-                .success = True,
-                                .mode = "EDIT",
-                                .collateral = saved,
-                                .asset = assetData,
-                                .other = otherSavedCollateral
-                    }, JsonRequestBehavior.AllowGet)
-                End If
-
-                ' ===============================  
-                ' CREATE MODE (QID 2,3,4)  
-                ' ===============================
-                _logger.Information("GetCollateralData - No saved data found, loading CREATE mode |ProjectId:{projectId}, ProjectStatusId: {projectStatusId}, ProjectFlowId: {projectFlowId}", finalProjectId, finalProjectStatusId, finalProjectFlowId)
-
-                Dim collateral = _collateralTabService.GetCollateraldata(
-                    finalProjectId, finalProjectStatusId, finalProjectFlowId)
-                Console.WriteLine(collateral)
-                Dim coverage = _collateralTabService.GetCoverageData(
-                    finalProjectId, finalProjectStatusId, finalProjectFlowId)
-
-                Dim other = _collateralTabService.GetOtherCollateralData(
-                    finalProjectId, finalProjectStatusId, finalProjectFlowId)
-
-                ' Warn if all empty in CREATE mode  
-                If (collateral Is Nothing OrElse Not collateral.Any()) AndAlso coverage.TotalBelfiusCredit = 0 Then
-                    _logger.Warning("GetCollateralData - CREATE mode but all data empty | ProjectId: {ProjectId} , ProjectStatusId: {projectStatusId}, ProjectFlowId: {projectFlowId}", finalProjectId, finalProjectStatusId, finalProjectFlowId)
-                End If
-                sw.Stop()
-                _logger.Information("GetCollateralData - CREATE mode response ready | ProjectId: {ProjectId}, ProjectStatusId: {projectStatusId}, ProjectFlowId: {projectFlowId}| CollateralCount: {CollCount} | TotalBelfiusCredit: {Credit} | ElapsedMs: {ElapsedMs}ms",
-                                    finalProjectId, finalProjectStatusId, finalProjectId, collateral?.Count, coverage?.TotalBelfiusCredit, sw.ElapsedMilliseconds)
-
-                Return Json(New With {
-            .success = True,
-            .mode = "CREATE",
-            .collateral = collateral,
-            .coverage = coverage,
-            .other = other,
-            .warnings = warnings
-        }, JsonRequestBehavior.AllowGet)
-            Catch ex As Exception
-                sw.Stop()
-                ' Unknown/unexpected error  
-                _logger.Error(ex, "GetCollateralData - Unhandled exception | User: {User} | ProjectId: {ProjectId}, ProjectStatusId: {projectStatusId}, ProjectFlowId: {projectFlowId} | ElapsedMs: {ElapsedMs}ms", userName, projectId, projectStatusId, projectFlowId, sw.ElapsedMilliseconds)
-                Return Json(New With {
-            .success = False,
-            .message = ex.Message
-        }, JsonRequestBehavior.AllowGet)
-            End Try
-        End Function
-
-
-
-        ' GET: Analysis/GetActorDetailsByActorId
-        <HttpGet>
-        Public Async Function GetActorDetailsByActorId(actorId As String, fromCard As String) As Task(Of JsonResult)
-            Dim sw = Stopwatch.StartNew()
-            Dim userName = Current_LoginUser
-            _logger.Information("GetActorDetailsByActorId - Request received | User: {User} | ActorId: {ActorId} | FromCard: {FromCard}",
-                                userName, actorId, fromCard)
-            Try
-                If String.IsNullOrWhiteSpace(actorId) Then
-                    _logger.Warning("GetActorDetailsByActorId - ActorId is empty | User: {User}", userName)
-                    Return Json(New With {
-                        .success = False,
-                        .message = "Actor ID is required"
-                    }, JsonRequestBehavior.AllowGet)
-                End If
-
-                Dim sessionValidation = validateSessionParameters()
-                If Not sessionValidation.IsValid Then
-                    _logger.Warning("GetActorDetailsByActorId - Session invalid | User: {User} | Reason: {Reason}", userName, sessionValidation.Message)
-                    Return Json(New With {
-                        .success = False,
-                        .message = sessionValidation.Message
-                    }, JsonRequestBehavior.AllowGet)
-                End If
-
-                If Not sessionValidation.ProjectStatusId.HasValue Then
-                    Return Json(New With {
-                        .success = False,
-                        .message = "Project status is required for actor details lookup"
-                    }, JsonRequestBehavior.AllowGet)
-                End If
-
-                If Not sessionValidation.ProjectFlowId.HasValue Then
-                    Return Json(New With {
-                        .success = False,
-                        .message = "Project Flow ID is required for actor details lookup"
-                    }, JsonRequestBehavior.AllowGet)
-                End If
-
-                Dim projectId As Integer = sessionValidation.ProjectId
-                Dim projectStatusId As Integer = sessionValidation.ProjectStatusId.Value
-                Dim projectFlowId? = sessionValidation.ProjectFlowId.Value
-
-                Dim actorDetails As ActorDetailsModel = Await _actorTabService.GetActorDetailsByIdAsync(projectId, projectStatusId, projectFlowId, actorId, fromCard)
-
-                sw.Stop()
-                If String.IsNullOrWhiteSpace(actorDetails.ActorName) Then
-                    _logger.Warning("GetActorDetailsByActorId - Actor not found | User: {User} | ActorId: {ActorId} | ProjectId: {ProjectId} | ElapsedMs: {ElapsedMs}ms",
-                                    userName, actorId, projectId, sw.ElapsedMilliseconds)
-                    Return Json(New With {
-                        .success = False,
-                        .message = $"Actor with ID '{actorId}' not found",
-                        .data = actorDetails
-                    }, JsonRequestBehavior.AllowGet)
-                End If
-
-                _logger.Information("GetActorDetailsByActorId - Completed | User: {User} | ActorId: {ActorId} | ProjectId: {ProjectId} | ElapsedMs: {ElapsedMs}ms",
-                                    userName, actorId, projectId, sw.ElapsedMilliseconds)
-                Return Json(New With {
-                        .success = True,
-                        .data = actorDetails
-                }, JsonRequestBehavior.AllowGet)
-
-
-            Catch ex As Exception
-                sw.Stop()
-                _logger.Error(ex, "GetActorDetailsByActorId - Unhandled exception | User: {User} | ActorId: {ActorId} | ElapsedMs: {ElapsedMs}ms",
-                              userName, actorId, sw.ElapsedMilliseconds)
-                Return Json(New With {
-                        .success = False,
-                        .message = ex.Message
-                }, JsonRequestBehavior.AllowGet)
-            End Try
-        End Function
-
-        ' Helper method to validate session parameters
-        Private Function validateSessionParameters() As (IsValid As Boolean, ProjectId As Integer, ProjectStatusId As Integer?, ProjectFlowId As Integer?, Message As String)
-            Try
-                Dim projectId As Integer = 1 ' default numeric project id for demo
-                Dim projectStatusId As Integer? = Nothing
-                Dim projectFlowId As Integer? = Nothing
-                Dim mode As String = "analysis"
-
-                If Session("AnalysisProjectId") IsNot Nothing Then
-                    projectId = CInt(Session("AnalysisProjectId"))
-                End If
-
-                If Session("AnalysisProjectStatusId") IsNot Nothing Then
-                    projectStatusId = CInt(Session("AnalysisProjectStatusId"))
-                End If
-
-                If Session("AnalysisProjectFlowId") IsNot Nothing Then
-                    projectFlowId = CInt(Session("AnalysisProjectFlowId"))
-                End If
-
-                If Session("AnalysisMode") IsNot Nothing Then
-                    mode = Session("AnalysisMode")
-                End If
-
-                ' Validate that we have minimum required parameters
-                If projectId <= 0 Then
-                    Return (False, 0, Nothing, Nothing, "Invalid project ID in session")
-                End If
-                Return (True, projectId, projectStatusId, projectFlowId, "")
-            Catch ex As Exception
-                Return (False, 0, Nothing, Nothing, $"Error validating session parameters: {ex.Message}")
-            End Try
-        End Function
-
-        <HttpGet>
-        Public Function GetActorDetails(actorId As String) As JsonResult
-            Try
-                Dim projectId As Integer
-                Dim projectStatusId As Integer
-                Dim projectFlowId As Integer
-                Dim sessionValidation = validateSessionParameters()
-
-                If Not sessionValidation.IsValid Then
-                    Return Json(New With {.error = "Invalid session"}, JsonRequestBehavior.AllowGet)
-                End If
-
-                projectId = sessionValidation.ProjectId
-                projectStatusId = sessionValidation.ProjectStatusId.Value
-                projectFlowId = sessionValidation.ProjectFlowId.Value
-
-                Dim result = _projectCreditsTabService.GetActorData(projectId, actorId, projectStatusId, projectFlowId)
-                If result Is Nothing Then
-                    Return Json(New With {.error = "Actor not found"}, JsonRequestBehavior.AllowGet)
-                End If
-                Return Json(result, JsonRequestBehavior.AllowGet)
-            Catch ex As Exception
-                Return Json(New With {.error = "An error occurred while fetching actor data"}, JsonRequestBehavior.AllowGet)
-            End Try
-        End Function
-
-
-        <HttpPost>
-        Public Function SaveProjectCreditsData() As JsonResult
-            Dim sw = Stopwatch.StartNew()
-            Dim userName = Current_LoginUser
-            _logger.Information("SaveProjectCreditsData - Request received | User: {User}", userName)
-            Try
-                'Read raw JSON
-                Dim screenData As String
-                Using reader As New IO.StreamReader(Request.InputStream)
-                    screenData = reader.ReadToEnd()
-                End Using
-                If String.IsNullOrWhiteSpace(screenData) Then
-                    _logger.Warning("SaveProjectCreditsData - Empty payload | User: {User}", userName)
-                    Return Json(New With {.success = False, .message = "Empty payload"})
-                End If
-                'Deserialize
-                Dim payload As ProjectCreditsTabSaveDto = JsonConvert.DeserializeObject(Of ProjectCreditsTabSaveDto)(screenData)
-                'Inject session values
-                Dim sessionValidation = validateSessionParameters()
-
-                payload.ProjectId = sessionValidation.ProjectId
-                payload.ProjectStatusId = sessionValidation.ProjectStatusId.Value
-                payload.ProjectStatusFlowId = sessionValidation.ProjectFlowId.Value
-                InjectContextFromSession(payload)
-                'STORE BREYNE LAW IN SESSION
-                If payload.RE_PRCR IsNot Nothing Then
-                    Session("BreyneLaw") = payload.RE_PRCR.RE_PRCR_BREYNE_LAW_SW
-                End If
-
-                _logger.Information("SaveProjectCreditsData - Saving | User: {User} | ProjectId: {ProjectId} | StatusId: {StatusId} | FlowId: {FlowId}",
-                                    userName, payload.ProjectId, payload.ProjectStatusId, payload.ProjectStatusFlowId)
-                'Call service
-                _projectCreditsTabService.SaveProjectCreditsData(payload)
-                sw.Stop()
-                _logger.Information("SaveProjectCreditsData - Success | User: {User} | ProjectId: {ProjectId} | ElapsedMs: {ElapsedMs}ms", userName, payload.ProjectId, sw.ElapsedMilliseconds)
-                Return Json(New With {.success = True, .message = "Saved Sucessfully"})
-            Catch ex As Exception
-                sw.Stop()
-                _logger.Error(ex, "SaveProjectCreditsData - Unhandled exception | User: {User} | ElapsedMs: {ElapsedMs}ms", userName, sw.ElapsedMilliseconds)
-                Return Json(New With {
-                            .success = False,
-                            .message = ex.Message})
-            End Try
-        End Function
-
-        Private Sub InjectContextFromSession(req As ProjectCreditsTabSaveDto)
-            Dim sw = Stopwatch.StartNew()
-            _logger.Information("InjectContextFromSession - Request received")
-            Dim projectId As Integer
-            Dim projectStatusId As Integer
-            Dim projectFlowId As Integer
-            Dim sessionValidation = validateSessionParameters()
-
-            projectId = sessionValidation.ProjectId
-            projectStatusId = sessionValidation.ProjectStatusId.Value
-            projectFlowId = sessionValidation.ProjectFlowId.Value
-            Dim applyContext = Sub(obj As Object)
-                                   If obj Is Nothing Then
-                                       Exit Sub
-                                   End If
-                                   Dim t = obj.GetType()
-                                   t.GetProperty("RE_PROJ_ID")?.SetValue(obj, projectId)
-                                   t.GetProperty("RE_PROJ_STATUS_ID")?.SetValue(obj, projectStatusId)
-                                   t.GetProperty("RE_PROJ_STATUS_FLOW_ID")?.SetValue(obj, projectFlowId)
-                               End Sub
-            applyContext(req.RE_PRCR)
-            applyContext(req.RE_CROI)
-            applyContext(req.RE_CRGU)
-            applyContext(req.RE_PRFU)
-            If req.RE_CRED IsNot Nothing Then
-                req.RE_CRED.ForEach(Sub(x) applyContext(x))
-            End If
-            If req.RE_COST IsNot Nothing Then
-                req.RE_COST.ForEach(Sub(x) applyContext(x))
-            End If
-            _logger.Information("InjectContextFromSession - Success | ElapsedMs: {ElapsedMs}ms", sw.ElapsedMilliseconds)
-            'If req.RE_ACTR IsNot Nothing Then
-            '    req.RE_ACTR.ForEach(Sub(x) applyContext(x))
-            'End If
-        End Sub
-
-        ' POST Analysis/KRWGSearch
-        <HttpPost>
-        Public Function KRWGSearch(
-                                  postcode As String,
-                                  streetname As String,
-                                  Optional projectId As Integer? = Nothing,
-                                  Optional projectStatusId As Integer? = Nothing,
-                                  Optional projectFlowId As Integer? = Nothing,
-                                  Optional pageNumber As Integer = 1
-                                ) As ActionResult
-
-            Dim sw = Stopwatch.StartNew()
-            Dim userName = Current_LoginUser
-            _logger.Information("KRWGSearch - Request received | User: {User} | Postcode: {Postcode} | Street: {Street} | Page: {Page} | ProjectId: {ProjectId} | StatusId: {StatusId} | FlowId: {FlowId}",
-                                userName, postcode, streetname, pageNumber, projectId, projectStatusId, projectFlowId)
-
-            Try
-                postcode = If(postcode, String.Empty).Trim()
-                streetname = If(streetname, String.Empty).Trim()
-
-                If String.IsNullOrWhiteSpace(postcode) AndAlso String.IsNullOrWhiteSpace(streetname) Then
-                    _logger.Warning("KRWGSearch - Both postcode and streetname are empty | User: {User} | ProjectId: {ProjectId} | StatusId: {StatusId} | FlowId: {FlowId}",
-                                    userName, projectId, projectStatusId, projectFlowId)
-                    Return Content("{}", "application/json")
-                End If
-
-                ' -------- Resolve Project Context --------
-                Dim finalProjectId As Integer
-                Dim finalProjectStatusId As Integer?
-                Dim finalProjectFlowId As Integer?
-
-                If projectId.HasValue AndAlso projectId.Value > 0 Then
-                    finalProjectId = projectId.Value
-                    finalProjectStatusId = projectStatusId
-                    finalProjectFlowId = projectFlowId
-                ElseIf Session("AnalysisProjectId") IsNot Nothing Then
-                    finalProjectId = CInt(Session("AnalysisProjectId"))
-                    If Session("AnalysisProjectStatusId") IsNot Nothing Then
-                        finalProjectStatusId = CInt(Session("AnalysisProjectStatusId"))
-                    Else
-                        finalProjectStatusId = Nothing
-                    End If
-                    If Session("AnalysisProjectFlowId") IsNot Nothing Then
-                        finalProjectFlowId = CInt(Session("AnalysisProjectFlowId"))
-                    Else
-                        finalProjectFlowId = Nothing
-                    End If
-                Else
-                    _logger.Warning("KRWGSearch - Project context not found in params or session | User: {User}", userName)
-                    Throw New ApplicationException("Project context not found")
-                End If
-
-                ' -------- Service Call (DI only) --------
-                Dim paged = _collateralTabService.GetKrwgData(postcode, streetname,
-                                                                finalProjectId,
-                                                                finalProjectStatusId,
-                                                                finalProjectFlowId,
-                                                                pageNumber
-                                                            )
-                If paged Is Nothing Then
-                    _logger.Warning("KRWGSearch - Service returned null, using empty response | User: {User} | ProjectId: {ProjectId} | StatusId: {StatusId} | FlowId: {FlowId}",
-                                    userName, finalProjectId, finalProjectStatusId, finalProjectFlowId)
-                    paged = New KrwgPagedResponse()
-                End If
-                ' Empty result  
-                If paged.Data Is Nothing OrElse Not paged.Data.Any() Then
-                    _logger.Warning("KRWGSearch - No results found | User: {User} | Postcode: {Postcode} | Street: {Street} | ProjectId: {ProjectId} | StatusId: {StatusId} | FlowId: {FlowId}",
-                                    userName, postcode, streetname, finalProjectId, finalProjectStatusId, finalProjectFlowId)
-                End If
-                Dim settings = New Newtonsoft.Json.JsonSerializerSettings With {
-                    .ReferenceLoopHandling = Newtonsoft.Json.ReferenceLoopHandling.Ignore,
-                    .NullValueHandling = Newtonsoft.Json.NullValueHandling.Ignore
-                }
-
-                sw.Stop()
-                'Success
-                _logger.Information("KRWGSearch - Success | User: {User} | ResultCount: {Count} | Page: {Page} | ProjectId: {ProjectId} | StatusId: {StatusId} | FlowId: {FlowId} | ElapsedMs: {ElapsedMs}ms",
-                                    userName, paged.Data?.Count, pageNumber, finalProjectId, finalProjectStatusId, finalProjectFlowId, sw.ElapsedMilliseconds)
-
-                Return Content(
-                    Newtonsoft.Json.JsonConvert.SerializeObject(paged, settings), "application/json")
-
-            Catch ex As ApplicationException
-                sw.Stop()
-                ' Known error  
-                _logger.Warning("KRWGSearch - Application error | User: {User} | Message: {Message} | ProjectId: {ProjectId} | StatusId: {StatusId} | FlowId: {FlowId} | ElapsedMs: {ElapsedMs}ms",
-                    userName, ex.Message, projectId, projectStatusId, projectFlowId, sw.ElapsedMilliseconds)
-                Return New JsonResult With {
-                    .Data = New With {.success = False, .message = ex.Message},
-                    .JsonRequestBehavior = JsonRequestBehavior.AllowGet
-                }
-            Catch ex As Exception
-                sw.Stop()
-                ' Unknown error  
-                _logger.Error(ex, "KRWGSearch - Unhandled exception | User: {User} | Postcode: {Postcode} | Street: {Street} | ProjectId: {ProjectId} | StatusId: {StatusId} | FlowId: {FlowId} | ElapsedMs: {ElapsedMs}ms",
-                    userName, postcode, streetname, projectId, projectStatusId, projectFlowId, sw.ElapsedMilliseconds)
-                Return New JsonResult With {
-                    .Data = New With {.success = False, .message = ex.Message},
-                    .JsonRequestBehavior = JsonRequestBehavior.AllowGet
-                }
-
-            End Try
-        End Function
-
-        ' GET: /Analysis/GetOfiBelfius
-        <HttpGet>
-        Public Function GetOfiBelfius(krwgRef As String) As ActionResult
-            Dim sw = Stopwatch.StartNew()
-            Dim userName = Current_LoginUser
-            'Request received
-            _logger.Information("GetOfiBelfius - Request received | User: {User} | KrwgRef: {KrwgRef}",
-            userName, krwgRef)
-
-
-            Try
-
-                If String.IsNullOrWhiteSpace(krwgRef) Then
-                    _logger.Warning("GetOfiBelfius - KrwgRef is empty | User: {User}", userName)
-                    Return New HttpStatusCodeResult(400, "krwgRef required")
-                End If
-
-                Dim dto = _collateralTabService.GetOfiBelfiusData(krwgRef)
-                sw.Stop()
-
-                ' No data found
-                If dto Is Nothing Then
-                    _logger.Warning("GetOfiBelfius - No data found | User: {User} | KrwgRef: {KrwgRef} | ElapsedMs: {ElapsedMs}ms",
-                                    userName, krwgRef, sw.ElapsedMilliseconds)
-                    Return Json(New With {Key .success = True, Key .data = Nothing}, JsonRequestBehavior.AllowGet)
-                End If
-                ' Success
-                _logger.Information("GetOfiBelfius - Success | User: {User} | KrwgRef: {KrwgRef} | Ofi: {Ofi} | Belfius: {Belfius} | ElapsedMs: {ElapsedMs}ms",
-                userName, krwgRef, dto.Ofi, dto.Belfius, sw.ElapsedMilliseconds)
-
-                Return Json(New With {Key .success = True, Key .data = dto}, JsonRequestBehavior.AllowGet)
-
-            Catch ex As Exception
-                sw.Stop()
-                _logger.Error(ex, "GetOfiBelfius - Unhandled exception | User: {User} | KrwgRef: {KrwgRef} | ElapsedMs: {ElapsedMs}ms",
-                userName, krwgRef, sw.ElapsedMilliseconds)
-                Return New HttpStatusCodeResult(500, "Server error")
-            End Try
-        End Function
-
-        'POST /Analysis/GetNotary Data
-        <HttpPost>
-        Public Function GetNotaryData(searchText As String) As ActionResult
-            Dim sw = Stopwatch.StartNew()
-            Dim userName = Current_LoginUser
-            'Request received
-            _logger.Information("GetNotaryData - Request received | User: {User} | SearchText: {SearchText}", userName, searchText)
-            Try
-                searchText = If(searchText, String.Empty).Trim()
-
-                ' Empty search
-                If String.IsNullOrWhiteSpace(searchText) Then
-                    _logger.Warning("GetNotaryData - SearchText is empty | User: {User}", userName)
-                End If
-
-                Dim list = _collateralTabService.GetNotaryData(searchText)
-                If list Is Nothing Then
-                    _logger.Warning("GetNotaryData - Service returned null, using empty list | User: {User} | SearchText: {SearchText}", userName, searchText)
-                    list = New List(Of NotaryDataModel)()
-                End If
-
-                ' No results
-                If Not list.Any() Then
-                    _logger.Warning("GetNotaryData - No results found | User: {User} | SearchText: {SearchText}", userName, searchText)
-                End If
-
-
-                Dim settings = New Newtonsoft.Json.JsonSerializerSettings With {
-                    .ReferenceLoopHandling = Newtonsoft.Json.ReferenceLoopHandling.Ignore,
-                    .NullValueHandling = Newtonsoft.Json.NullValueHandling.Ignore
-                }
-                sw.Stop()
-                ' success
-                _logger.Information("GetNotaryData - Success | User: {User} | SearchText: {SearchText} | ResultCount: {Count} | ElapsedMs: {ElapsedMs}ms",
-                                    userName, searchText, list.Count, sw.ElapsedMilliseconds)
-
-                Dim json = Newtonsoft.Json.JsonConvert.SerializeObject(list, settings)
-                Return Content(json, "application/json")
-
-            Catch ex As Exception
-                sw.Stop()
-                ' Unexpected error
-                _logger.Error(ex, "GetNotaryData - Unhandled exception | User: {User} | SearchText: {SearchText} | ElapsedMs: {ElapsedMs}ms",
-                              userName, searchText, sw.ElapsedMilliseconds)
-                Return Json(New With {
-                    .success = False,
-                    .message = ex.Message
-                }, JsonRequestBehavior.AllowGet)
-            End Try
-        End Function
-
-        ' Get /Analysis/GetKrwgAssetValues?krwgRef=<ID>
-        ' for re-evaluation mode
-        <HttpGet>
-        Public Function GetKrwgAssetValues(krwgRef As String) As ActionResult
-            Dim sw = Stopwatch.StartNew()
-            Dim userName = Current_LoginUser
-            ' Request received
-            _logger.Information("GetKrwgAssetValues - Request received | User: {User} | KrwgRef: {KrwgRef}",
-                                userName, krwgRef)
-            Try
-                If String.IsNullOrWhiteSpace(krwgRef) Then
-                    _logger.Warning("GetKrwgAssetValues - KrwgRef is empty | User: {User}", userName)
-                    Return New HttpStatusCodeResult(400, "krwgRef required")
-                End If
-
-                Dim data = _collateralTabService.GetKrwgAssetValues(krwgRef)
-
-                sw.Stop()
-                ' No data
-                If data Is Nothing Then
-                    _logger.Warning("GetKrwgAssetValues - No data found | User: {User} | KrwgRef: {KrwgRef} | ElapsedMs: {ElapsedMs}ms",
-                   userName, krwgRef, sw.ElapsedMilliseconds)
-                Else
-                    _logger.Information("GetKrwgAssetValues - Success | User: {User} | KrwgRef: {KrwgRef} | ElapsedMs: {ElapsedMs}ms",
-                   userName, krwgRef, sw.ElapsedMilliseconds)
-                End If
-
-                Return Json(New With {
-                            .success = True,
-                            .data = data
-                            }, JsonRequestBehavior.AllowGet)
-            Catch ex As Exception
-                sw.Stop()
-                _logger.Error(ex, "GetKrwgAssetValues - Unhandled exception | User: {User} | KrwgRef: {KrwgRef} | ElapsedMs: {ElapsedMs}ms",
-                              userName, krwgRef, sw.ElapsedMilliseconds)
-                Return Json(New With {
-                            .success = False,
-                            .message = ex.Message
-                            }, JsonRequestBehavior.AllowGet)
-            End Try
-        End Function
-
-        ' POST Analysis/SaveCollateral
-        <HttpPost>
-        Public Function SaveCollateral(payload As SaveAllCollateralDto) As JsonResult
-            Dim sw = Stopwatch.StartNew()
-            Dim userName = Current_LoginUser
-
-            ' Request received
-            _logger.Information("SaveCollateral - Request received | User: {User} | CollateralCount: {CCount} | OtherCount: {OCount} | NotaryCount: {NCount}",
-                                userName, payload?.Collaterals?.Count, payload?.OtherCollaterals?.Count, payload?.Notary?.Count)
-            Try
-                If payload Is Nothing _
-                    OrElse (
-                    (payload.Collaterals Is Nothing OrElse payload.Collaterals.Count = 0) _
-                    AndAlso (payload.OtherCollaterals Is Nothing OrElse payload.OtherCollaterals.Count = 0) _
-                    AndAlso (payload.Notary Is Nothing OrElse payload.Notary.Count = 0)
-                    ) Then
-                    _logger.Warning("SaveCollateral - Payload is empty | User: {User}", userName)
-                    Throw New ApplicationException("payload empty")
-                End If
-
-                Dim projectId As Integer = CInt(Session("AnalysisProjectId"))
-                Dim statusId As Integer = CInt(Session("AnalysisProjectStatusId"))
-                Dim flowId As Integer = CInt(Session("AnalysisProjectFlowId"))
-
-                _logger.Information("SaveCollateral - Saving | User: {User} | ProjectId: {ProjectId} | StatusId: {StatusId} | FlowId: {FlowId} | CollateralCount: {CCount} | OtherCount: {OCount} | NotaryCount: {NCount}",
-                                    userName, projectId, statusId, flowId, payload.Collaterals?.Count, payload.OtherCollaterals?.Count, payload.Notary?.Count)
-
-
-                _collateralTabService.SaveCollateral(
-                    projectId,
-                    statusId,
-                    flowId,
-                    payload.Collaterals,
-                    payload.OtherCollaterals,
-                    payload.Notary,
-                    payload.NumColumns
-                  )
-                sw.Stop()
-                ' Success
-                _logger.Information("SaveCollateral - Success | User: {User} | ProjectId: {ProjectId} | StatusId: {StatusId} | FlowId: {FlowId} | ElapsedMs: {ElapsedMs}ms",
-                                    userName, projectId, statusId, flowId, sw.ElapsedMilliseconds)
-
-                Return Json(New With {
-                .success = True,
-                .message = "Collateral form saved successfully"
-                })
-
-            Catch ex As ApplicationException
-                sw.Stop()
-                ' Known error
-                _logger.Warning("SaveCollateral - Application error | User: {User} | Message: {Message} | ElapsedMs: {ElapsedMs}ms",
-               userName, ex.Message, sw.ElapsedMilliseconds)
-                Return Json(New With {
-                            .success = False,
-                            .message = ex.Message
-                })
-            Catch ex As Exception
-                sw.Stop()
-                ' Unexpected error
-                _logger.Error(ex, "SaveCollateral - Unhandled exception | User: {User} | ElapsedMs: {ElapsedMs}ms",
-                              userName, sw.ElapsedMilliseconds)
-                Return Json(New With {
-                            .success = False,
-                            .message = ex.Message
-                })
-            End Try
-        End Function
-
-        Function Save_RE_ASST(model As AssetTabModel) As ActionResult
-
-            If ModelState.IsValid Then
-                _assetTabRepository.SubmitFormAsset(model)
-                Return Json(New With {.success = True})
-            End If
-
-            Return Json(New With {.success = False})
-
-        End Function
-
-        Function Save_RE_GUID(model As GuidanceTabModel) As ActionResult
-
-            If ModelState.IsValid Then
-                _guidanceTabRepository.SubmitFormGuidance(model)
-                Return Json(New With {.success = True})
-            End If
-
-            Return Json(New With {.success = False})
-
-        End Function
-
-        Function Save_RE_DECI(model As GuidanceTabModel) As ActionResult
-
-            If ModelState.IsValid Then
-                _guidanceTabRepository.SubmitFormDecision(model)
-                Return Json(New With {.success = True})
-            End If
-
-            Return Json(New With {.success = False})
-
-        End Function
-
-        Function Save_RE_CRGU(model As IndicatorsModel) As ActionResult
-
-            If ModelState.IsValid Then
-                _guidanceTabRepository.SubmitFormIndicators(model)
-                Return Json(New With {.success = True})
-            End If
-
-            Return Json(New With {.success = False})
-
-        End Function
-
-        Function Get_RE_BREV(RE_PROJ_ID As Double, RE_PROJ_STATUS_ID As Double, RE_PROJ_STATUS_FLOW_ID As Double) As JsonResult
-
-            Dim breakeven As BreakevenTabModel = _breakevenTabRepository.Get_RE_BREV(RE_PROJ_ID, RE_PROJ_STATUS_ID, RE_PROJ_STATUS_FLOW_ID)
-            Return Json(breakeven)
-
-        End Function
-
-        Function Save_RE_BREV(jsonData As BreakevenTabModel) As JsonResult
-
-            If ModelState.IsValid Then
-                _breakevenTabRepository.Save_RE_BREV(jsonData)
-                Return Json(New With {.success = True})
-            End If
-
-            Return Json(New With {.success = False})
-
-        End Function
-
-        Function Save_RE_DCRG(model As GuidelinesTabModel) As ActionResult
-
-            If ModelState.IsValid Then
-                _guidelinesTabRepository.SubmitFormGuidelines(model)
-                Return Json(New With {.success = True})
-            End If
-
-            Return Json(New With {.success = False})
-
-        End Function
-
-        Function Save_ContactPerson(model As ContactPersonModel) As ActionResult
-
-            If ModelState.IsValid Then
-                _guidelinesTabRepository.SubmitContactPerson(model)
-                Return Json(New With {.success = True})
-            End If
-
-            Return Json(New With {.success = False})
-
-        End Function
-
-        ' POST Analysis/SaveFollowup
-        <HttpPost>
-        Public Function SaveFollowUp(payload As List(Of FollowUpSaveDto)) As JsonResult
-            Try
-                If payload Is Nothing OrElse Not payload.Any() Then
-                    Throw New ApplicationException("Payload empty")
-                End If
-                If Session("AnalysisProjectId") Is Nothing Then
-                    Throw New ApplicationException("Project session expired")
-                End If
-                Dim projectId As Integer = CInt(Session("AnalysisProjectId"))
-                Dim statusId As Integer = CInt(Session("AnalysisProjectStatusId"))
-                Dim flowId As Integer = CInt(Session("AnalysisProjectFlowId"))
-                _loanOfficerConstructionFollowUpService.SaveFollowUp(projectId, statusId, flowId, payload)
-                Return Json(New With {.success = True, .message = "Follow-Up saved successfully"})
-            Catch ex As Exception
-                Return Json(New With {.success = False, .message = ex.Message})
-            End Try
-        End Function
-
-        Public Function KRWGSearchModal() As ActionResult
-            Return PartialView("_KRWGSearchModal")
-        End Function
-
-
-        Public Function NotarySearchModal() As ActionResult
-            Return PartialView("_NotarySearchModal")
-        End Function
-
-        <HttpPost>
-        Public Function SaveAnalysisLastTab(jsonInput As String, projectTabId As Integer?, projectStatusId As Integer?, creProjectId As Integer?) As JsonResult
-            Dim sw = Stopwatch.StartNew()
-            Dim userName = Current_LoginUser
-            _logger.Information("SaveAnalysisLastTab - Request received | User: {User} | ProjectTabId: {TabId} | ProjectStatusId: {StatusId} | CreProjectId: {CreId}", userName, projectTabId, projectStatusId, creProjectId)
-            Try
-                If String.IsNullOrWhiteSpace(jsonInput) Then
-                    _logger.Warning("SaveAnalysisLastTab - Empty input | User: {User}", userName)
-                    Return Json(New With {.success = False, .message = "Last access tab input is empty."})
-                End If
-                Dim result = _analysisCommonService.SaveAnalysisLastTab(jsonInput)
-
-                If projectTabId.HasValue Then
-                    Session("ProjectTabId") = projectTabId.Value
-                End If
-                If projectStatusId.HasValue Then
-                    Session("AnalysisProjectStatusId") = projectStatusId.Value
-                End If
-                If creProjectId.HasValue Then
-                    Session("AnalysisCreProjectId") = creProjectId.Value
-                End If
-                sw.Stop()
-                _logger.Information("SaveAnalysisLastTab - Success | User: {User} | ElapsedMs: {ElapsedMs}ms", userName, sw.ElapsedMilliseconds)
-                Return Json(New With {.success = True, .message = result})
-            Catch ex As Exception
-                sw.Stop()
-                _logger.Error(ex, "SaveAnalysisLastTab - Unhandled exception | User: {User} | ElapsedMs: {ElapsedMs}ms", userName, sw.ElapsedMilliseconds)
-                Return Json(New With {.success = False, .message = ex.Message})
-            End Try
-        End Function
-
-        <HttpGet>
-        Public Function RefreshTcodData() As JsonResult
-            Try
-                Dim userName As String = ""
-                If User IsNot Nothing AndAlso User.Identity IsNot Nothing Then
-                    userName = User.Identity.Name.ToUpper().Replace("BELWIRED\", "")
-                End If
-
-                Dim allowedUsers As New List(Of String) From {ALLOWED_USER_HOOR, ALLOWED_USER_USR, ALLOWED_USER_BOSE}
-                If Not allowedUsers.Contains(userName) Then
-                    Return Json(New With {
-                            .success = False,
-                            .message = "Not authorized to access this URL"
-                    }, JsonRequestBehavior.AllowGet)
-                End If
-
-                Dim refreshed As Boolean = TcodTypeHelper.RefreshCache()
-                Dim count As Integer = TcodTypeHelper.GetAllTcodTypes().Count
-                Return Json(New With {
-                    .success = refreshed,
-                    .count = count,
-                    .message = If(refreshed, $"Reference data cache refreshed ({count} items loaded).", "Reference data cache refreshed failed. see server logs.")
-                }, JsonRequestBehavior.AllowGet)
-            Catch ex As Exception
-                Console.WriteLine($"Error in RefreshReferenceData: {ex.Message}")
-                Return Json(New With {.success = False, .message = ex.Message}, JsonRequestBehavior.AllowGet)
-            End Try
-        End Function
-
-    End Class
-End Namespace
-
-
-
-
-for actor tab it is 
-Function GetActorTabDataAsync(projectId As Integer, projectStatus As Integer, projectFlowId As Integer) As Task(Of ActorTabViewModel)
-for project and credit tab it is 
-Function GetActorData(projectId As Integer, actorId As String, Optional projectStatusId As Integer? = Nothing, Optional projectFlowId As Integer? = Nothing) As ActorViewModel
-
-
-
-
-for collateral i have 
-Imports IMMO_Sample.Models
-Imports IMMO_Sample.Repositories
-Imports Newtonsoft.Json
-Imports IMMO_Sample.Services
-Imports Serilog
-Imports Microsoft.VisualBasic.ApplicationServices
-
-Public Class CollateralTabService
-    Implements ICollateralTabService
-
-    Private ReadOnly _collateralRepository As ICollateralRepository
-    Private ReadOnly _logger As ILogger
-
-    Public Sub New(collateralRepository As ICollateralRepository)
-        _collateralRepository = collateralRepository
-        _logger = Log.ForContext(Of CollateralTabService)()
+    Public Sub New()
+        HasSponsor = 0 ' 0 = false, 1 = true ( from RE_PROJ table) initially from show the sponsor card.
+        'BelfiusClient = 1 ' 0 = false, 1 = true
+        Operation = Nothing
+        IsDataFromReTable = False
     End Sub
+End Class
 
-    '==========Get dropdown for collateral tab ==============
-    Public Function GetCollateralDropdowns() As CollateralDropdownViewModel _
-    Implements ICollateralTabService.GetCollateralDropdowns
+Public Class SponsorModel
+    ' Core identification properties
+    <JsonProperty("RE_PROJ_ID")>
+    Public Property ProjectId As Integer
 
-        Dim sw = Stopwatch.StartNew()
-        _logger.Information("GetCollateralDropdowns - Started loading all dropdowns"
-                            )
-        Dim dropdowns As New CollateralDropdownViewModel()
+    <JsonProperty("RE_PROJ_STATUS_ID")>
+    Public Property ProjectStatusId As Integer
 
-        Try
-            _logger.Debug("GetCollateralDropdowns - Loading TCOD dropdowns from cache")
-            ' TCOD dropdowns
-            dropdowns.ProjectCollateralOptions = TcodTypeHelper.GetProjectCollateralTypes()
-            dropdowns.PariPassuOptions = TcodTypeHelper.GetParriPassuTypes()
-            dropdowns.ProjectLocationOptions = TcodTypeHelper.GetProjectLocationTypes()
-            dropdowns.ExpertiseMethodologyOptions = TcodTypeHelper.GetExpertiseMethodologyTypes()
-            dropdowns.ExpertiseMethodologyConformityOptions = TcodTypeHelper.GetExpertiseMethodologyConformityTypes()
-            dropdowns.YesNoOptions = TcodTypeHelper.GetYesNoTypes()
+    <JsonProperty("RE_PROJ_STATUS_FLOW_ID")>
+    Public Property ProjectStatusFlowId As Integer
 
-            'Log: Warn if any TCOD dropdown is empty  
-            If dropdowns.ProjectCollateralOptions Is Nothing OrElse Not dropdowns.ProjectCollateralOptions.Any() Then
-                _logger.Warning("GetCollateralDropdowns - ProjectCollateralOptions is empty from TCOD cache")
-            End If
-            If dropdowns.PariPassuOptions Is Nothing OrElse Not dropdowns.PariPassuOptions.Any() Then
-                _logger.Warning("GetCollateralDropdowns - PariPassuOptions is empty from TCOD cache")
-            End If
-            _logger.Debug("GetCollateralDropdowns - TCOD dropdowns loaded")
-            ' GECO dropdowns (from SP)  
-            _logger.Information("GetCollateralDropdowns - Loading GECO dropdowns from SP | Tables: GDF2, GD59")
+    ' Sponsor identification
+    <JsonProperty("RE_SPNS_ACTOR_ID")>
+    Public Property ActorId As String
 
-            ' GECO dropdowns
-            Dim natureModel = _collateralRepository.GetGecoDropDownData("GDF2")
-            Dim attributeModel = _collateralRepository.GetGecoDropDownData("GD59")
-            dropdowns.NatureOptions = MapKeyValueToTcodModel(natureModel.NatureOptions)
-            dropdowns.AttributeOptions = MapKeyValueToTcodModel(attributeModel.AttributeOptions)
+    <JsonProperty("RE_SPNS_CI_ID")>
+    Public Property CI As String
 
-            ' Log: Warn if GECO dropdown is empty  
-            If dropdowns.NatureOptions Is Nothing OrElse Not dropdowns.NatureOptions.Any() Then
-                _logger.Warning("GetCollateralDropdowns - NatureOptions is empty after SP call (GDF2)")
-            End If
-            If dropdowns.AttributeOptions Is Nothing OrElse Not dropdowns.AttributeOptions.Any() Then
-                _logger.Warning("GetCollateralDropdowns - AttributeOptions is empty after SP call (GD59)")
-            End If
-            sw.Stop()
-            'Log: Success  
-            _logger.Information("GetCollateralDropdowns - All dropdowns loaded successfully | ElapsedMs: {ElapsedMs}ms", sw.ElapsedMilliseconds)
-        Catch ex As Exception
-            sw.Stop()
-            'Log: Dropdown load fail  
-            _logger.Error(ex, "GetCollateralDropdowns - Failed to load dropdowns | ElapsedMs: {ElapsedMs}ms", sw.ElapsedMilliseconds)
-            Throw
-        End Try
+    <JsonIgnore>
+    Public Property Rating1 As Integer?
 
-        Return dropdowns
-    End Function
+    <JsonProperty("RE_SPNS_MASTERSCALE_DATE_DT")>
+    Public Property RatingDate As Date?
 
-    '=============== Get Collateral 1st column Data ================'
-    Public Function GetCollateralTabData(
-        projectId As Integer,
-        Optional projectStatusId As Integer? = Nothing,
-        Optional projectFlowId As Integer? = Nothing
-    ) As List(Of CollateralDetailsWrapperViewModel) _
-        Implements ICollateralTabService.GetCollateraldata
-        Dim sw = Stopwatch.StartNew()
-        _logger.Information("GetCollateralTabData - Started | ProjectId: {ProjectId} | ProjectStatusId: {StatusId} | ProjectFlowId: {FlowId}",
-            projectId, projectStatusId, projectFlowId)
-        Try
-            Dim wrapperList = _collateralRepository.GetCollateralDetails(projectId, projectStatusId, projectFlowId)
-            'Log: No data returned  
-            If wrapperList Is Nothing OrElse Not wrapperList.Any() Then
-                _logger.Warning("GetCollateralTabData - No collateral data found | ProjectId: {ProjectId}, ProjectStatusId: {projectStatusId}, ProjectFlowId: {projectFlowId}", projectId, projectStatusId, projectFlowId)
-                Return New List(Of CollateralDetailsWrapperViewModel)
-            End If
-            _logger.Debug("GetCollateralTabData - Processing {Count} wrapper records | ProjectId: {ProjectId}, ProjectStatusId: {projectStatusId}, ProjectFlowId: {projectFlowId}",
-                wrapperList.Count, projectId, projectStatusId, projectFlowId)
-            ' Ensure project id  
-            Dim nullCollateralCount = 0
-            For Each wrapper In wrapperList
-                If wrapper?.COLLATERAL IsNot Nothing Then
-                    wrapper.COLLATERAL.RE_PROJ_ID = projectId
-                Else
-                    nullCollateralCount += 1
-                End If
-            Next
-            'Log: Null collateral records warn  
-            If nullCollateralCount > 0 Then
-                _logger.Warning("GetCollateralTabData - {NullCount} wrapper(s) had null COLLATERAL | ProjectId: {ProjectId}, ProjectStatusId: {projectStatusId}, ProjectFlowId: {projectFlowId}",
-                    nullCollateralCount, projectId, projectStatusId, projectFlowId)
-            End If
-            ' ProjectCollateralId assignment  
-            For Each wrapper In wrapperList
-                Dim coll = wrapper?.COLLATERAL
-                If coll Is Nothing Then Continue For
-                Dim count = coll.RE_PRCR_RE_AS_COLLATERALS_NR
-                Dim isProjectCollateral = coll.RE_PRCR_CRE_PROJECT_COLLATERAL_ID
-                coll.ProjectCollateralId1 = Nothing
-                coll.ProjectCollateralId2 = Nothing
-                coll.ProjectCollateralId3 = Nothing
-                If isProjectCollateral = 1 Then
-                    coll.ProjectCollateralId1 = 2
-                    If count >= 2 Then coll.ProjectCollateralId2 = 3
-                    If count >= 3 Then coll.ProjectCollateralId3 = 3
-                Else
-                    coll.ProjectCollateralId1 = 3
-                    If count >= 2 Then coll.ProjectCollateralId2 = 3
-                    If count >= 3 Then coll.ProjectCollateralId3 = 3
-                    coll.RE_ASST_COLLATERAL_NATURE_ID = Nothing
-                    coll.RE_ASST_COLLATERAL_ATTRIBUTE_ID = Nothing
-                    coll.RE_ASST_STREET_NM = Nothing
-                    coll.RE_ASST_STREET_NR_NM = Nothing
-                    coll.RE_ASST_POSTAL_CODE_ID = Nothing
-                    coll.RE_ASST_CITY_NM = Nothing
-                    coll.RE_ASST_LOCATION_ID = Nothing
-                    coll.RE_ASST_MARKET_VALUE_AM = Nothing
-                    coll.RE_ASST_FORCED_SALE_VALUE_AM = Nothing
-                    coll.RE_ASST_MARKET_VALUE_EXPERT_AM = Nothing
-                    coll.RE_ASST_FORCED_SALE_VALUE_EXPERT_AM = Nothing
-                    coll.RE_ASST_EXPERTISE_METHODO_ID = Nothing
-                    coll.RE_ASST_EXPERT_METHODO_CONFIRM_ID = Nothing
-                End If
-            Next
-            sw.Stop()
-            'Log: Success  
-            _logger.Information("GetCollateralTabData - Completed | ProjectId: {ProjectId}, ProjectStatusId: {projectStatusId}, ProjectFlowId: {projectFlowId} | RecordCount: {Count} | ElapsedMs: {ElapsedMs}ms",
-                projectId, projectStatusId, projectFlowId, wrapperList.Count, sw.ElapsedMilliseconds)
-            Return wrapperList
-        Catch ex As Exception
-            sw.Stop()
-            'Log: Fail  
-            _logger.Error(ex, "GetCollateralTabData - Failed | ProjectId: {ProjectId}, ProjectStatusId: {projectStatusId}, ProjectFlowId: {projectFlowId} | ElapsedMs: {ElapsedMs}ms",
-                projectId, projectStatusId, projectFlowId, sw.ElapsedMilliseconds)
-            Throw
-        End Try
-    End Function
-
-
-    Public Function CalculateNumColumns(wrapperList As List(Of CollateralDetailsWrapperViewModel)) As Integer _
-        Implements ICollateralTabService.CalculateNumColumns
-        _logger.Debug("CalculateNumColumns - Started")
-        Try
-            If wrapperList Is Nothing OrElse Not wrapperList.Any() Then
-                'Log: No data, default 1 column  
-                _logger.Warning("CalculateNumColumns - WrapperList is empty, defaulting to 1 column")
-                Return 1
-            End If
-            Dim firstColl = wrapperList.FirstOrDefault()?.COLLATERAL
-            If firstColl Is Nothing Then
-                _logger.Warning("CalculateNumColumns - First COLLATERAL is null, defaulting to 1 column")
-                Return 1
-            End If
-            Dim count = If(firstColl.RE_PRCR_RE_AS_COLLATERALS_NR > 0, firstColl.RE_PRCR_RE_AS_COLLATERALS_NR, 1)
-            Return count
-            'Log: Result  
-            _logger.Information("CalculateNumColumns - Result: {NumColumns} columns | CollateralsNr: {CollateralsNr} | ProjectCollateralId: {ProjectCollateralId}",
-                count,
-                firstColl.RE_PRCR_RE_AS_COLLATERALS_NR,
-                firstColl.RE_PRCR_CRE_PROJECT_COLLATERAL_ID)
-            Return count
-        Catch ex As Exception
-            _logger.Error(ex, "CalculateNumColumns - Failed, defaulting to 1 column")
-            Return 1
-        End Try
-    End Function
-
-
-    ' =================== KRWG search (popup data with pagination) ===================
-    Public Function GetKrwgData(postcode As String, streetname As String,
-                                projectId As Integer,
-                                Optional projectStatusId As Integer? = Nothing,
-                                Optional projectFlowId As Integer? = Nothing,
-                                Optional pageNumber As Integer = 1) _
-                                As KrwgPagedResponse Implements ICollateralTabService.GetKrwgData
-        Dim sw = Stopwatch.StartNew()
-        Dim safePostcode = If(postcode, String.Empty).Trim()
-        Dim safeStreet = If(streetname, String.Empty).Trim()
-        'Service started  
-        _logger.Information("GetKrwgData - Started | Postcode: {Postcode} | Street: {Street} | Page: {Page} | ProjectId: {ProjectId} | StatusId: {StatusId} | FlowId: {FlowId}",
-        safePostcode, safeStreet, pageNumber, projectId, projectStatusId, projectFlowId)
-        Try
-            Dim paged = _collateralRepository.GetKrwgData(
-            safePostcode, safeStreet,
-            projectId, projectStatusId, projectFlowId,
-            pageNumber)
-            'Null from repo  
-            If paged Is Nothing Then
-                _logger.Warning("GetKrwgData - Repository returned null, using empty response | ProjectId: {ProjectId} | StatusId: {StatusId} | FlowId: {FlowId}",
-                projectId, projectStatusId, projectFlowId)
-                Return New KrwgPagedResponse()
-            End If
-            sw.Stop()
-            'Success  
-            _logger.Information("GetKrwgData - Success | ResultCount: {Count} | Page: {Page} | ProjectId: {ProjectId} | StatusId: {StatusId} | FlowId: {FlowId} | ElapsedMs: {ElapsedMs}ms",
-            paged.Data?.Count, pageNumber, projectId, projectStatusId, projectFlowId, sw.ElapsedMilliseconds)
-            Return paged
-        Catch ex As Exception
-            sw.Stop()
-            _logger.Error(ex, "GetKrwgData - Failed | Postcode: {Postcode} | Street: {Street} | ProjectId: {ProjectId} | StatusId: {StatusId} | FlowId: {FlowId} | ElapsedMs: {ElapsedMs}ms",
-            safePostcode, safeStreet, projectId, projectStatusId, projectFlowId, sw.ElapsedMilliseconds)
-            Throw New ApplicationException("Error in GetKrwgData service: " & ex.Message, ex)
-        End Try
-    End Function
-
-
-    ' =================== OFI/Belfius data ===================
-    Public Function GetOfiBelfiusData(krwgRef As String) As OfiBelfiusDataModel _
-       Implements ICollateralTabService.GetOfiBelfiusData
-
-        Dim sw = Stopwatch.StartNew()
-
-        'Started
-        _logger.Information("GetOfiBelfiusData - Started | KrwgRef: {KrwgRef}", krwgRef)
-
-        If String.IsNullOrWhiteSpace(krwgRef) Then
-            _logger.Warning("GetOfiBelfiusData - KrwgRef is empty, returning Nothing")
-            Return Nothing
-        End If
-        Try
-            Dim result = _collateralRepository.GetOfiBelfiusData(krwgRef)
-            If result Is Nothing Then
-                _logger.Warning("GetOfiBelfiusData - Repository returned null | KrwgRef: {KrwgRef}", krwgRef)
-                Return Nothing
-            End If
-            ' Normalize field names (SP returns OFS but UI needs OFI)
-            Dim normalized As New OfiBelfiusDataModel With {
-               .KrwgRef = result.KrwgRef,
-               .Ofi = result.Ofi,
-               .Belfius = result.Belfius
-            }
-
-            sw.Stop()
-            ' Success
-            _logger.Information("GetOfiBelfiusData - Success | KrwgRef: {KrwgRef} | Ofi: {Ofi} | Belfius: {Belfius} | ElapsedMs: {ElapsedMs}ms",
-                krwgRef, normalized.Ofi, normalized.Belfius, sw.ElapsedMilliseconds)
-            Return normalized
-        Catch ex As Exception
-            sw.Stop()
-            ' Error - original code silently returned Nothing, ab log hoga
-            _logger.Error(ex, "GetOfiBelfiusData - Failed | KrwgRef: {KrwgRef} | ElapsedMs: {ElapsedMs}ms",
-                krwgRef, sw.ElapsedMilliseconds)
-            Return Nothing
-        End Try
-    End Function
-
-    Public Function GetNotaryData(searchText As String) As List(Of NotaryDataModel) Implements ICollateralTabService.GetNotaryData
-        Dim sw = Stopwatch.StartNew()
-        ' Started
-        _logger.Information("GetNotaryData - Started | SearchText: {SearchText}", searchText)
-
-        ' Empty input
-        If String.IsNullOrWhiteSpace(searchText) Then
-            _logger.Warning("GetNotaryData - SearchText is empty, returning Nothing")
-            Return Nothing
-        End If
-
-        Try
-            Dim result = _collateralRepository.GetNotaryData(searchText)
-            ' Null from repo
-            If result Is Nothing Then
-                _logger.Warning("GetNotaryData - Repository returned null | SearchText: {SearchText}", searchText)
-                Return Nothing
-            End If
-            sw.Stop()
-            ' Success
-            _logger.Information("GetNotaryData - Success | SearchText: {SearchText} | ResultCount: {Count} | ElapsedMs: {ElapsedMs}ms",
-                                searchText, result.Count, sw.ElapsedMilliseconds)
-            Return result
-
-        Catch ex As Exception
-            sw.Stop()
-            _logger.Error(ex, "GetNotaryData - Failed | SearchText: {SearchText} | ElapsedMs: {ElapsedMs}ms",
-                          searchText, sw.ElapsedMilliseconds)
-            Return Nothing
-        End Try
-    End Function
-
-    Public Function GetCoverageData(projectId As Integer,
-                              Optional projectStatusId As Integer? = Nothing,
-                              Optional projectFlowId As Integer? = Nothing) As CoverageViewModel _
-                              Implements ICollateralTabService.GetCoverageData
-
-        Dim sw = Stopwatch.StartNew()
-        _logger.Information("GetCoverageData - Started | ProjectId: {ProjectId} , ProjectStatusId: {projectStatusId}, ProjectFlowId: {projectFlowId}", projectId, projectStatusId, projectFlowId)
-
-        Try
-            Dim result As New CoverageViewModel()
-
-            Dim coverageList = _collateralRepository.GetCoverageData(projectId, projectStatusId, projectFlowId)
-
-            If coverageList Is Nothing OrElse coverageList.Count = 0 Then
-                _logger.Warning("GetCoverageData - No coverage data found | ProjectId: {ProjectId} , ProjectStatusId: {projectStatusId}, ProjectFlowId: {projectFlowId}", projectId, projectStatusId, projectFlowId)
-                result.TotalBelfiusCredit = 0
-                result.ValidationMessage = "No coverage data found."
-                Return result
-            End If
-
-            Dim totalBelfius As Double = coverageList.
-            Where(Function(c) c.Coverage IsNot Nothing).
-            Sum(Function(c) c.Coverage.RE_CRED_BELFIUS_CREDIT_AM)
-
-            ' Warn if total is 0 (unexpected)  
-            If totalBelfius = 0 Then
-                _logger.Warning("GetCoverageData - TotalBelfiusCredit is 0 | ProjectId: {ProjectId} , ProjectStatusId: {projectStatusId}, ProjectFlowId: {projectFlowId} | RecordCount: {Count}",
-                projectId, projectStatusId, projectFlowId, coverageList.Count)
-            End If
-
-            result.TotalBelfiusCredit = totalBelfius
-            result.ValidationMessage = String.Empty
-
-            sw.Stop()
-            _logger.Information("GetCoverageData - Success | ProjectId: {ProjectId}, ProjectStatusId: {projectStatusId}, ProjectFlowId: {projectFlowId} | RecordCount: {Count} | TotalBelfiusCredit: {Total} | ElapsedMs: {ElapsedMs}ms",
-            projectId, projectStatusId, projectFlowId, coverageList.Count, totalBelfius, sw.ElapsedMilliseconds)
-
-            Return result
-
-        Catch ex As Exception
-            sw.Stop()
-            _logger.Error(ex, "GetCoverageData - Failed | ProjectId: {ProjectId}, ProjectStatusId: {projectStatusId}, ProjectFlowId: {projectFlowId} | ElapsedMs: {ElapsedMs}ms",
-            projectId, projectStatusId, projectFlowId, sw.ElapsedMilliseconds)
-            Throw
-        End Try
-    End Function
-
-    Public Function GetOtherCollateralData(projectId As Integer, projectStatusId As Integer, projectFlowId As Integer) As OtherCollateralViewModel Implements ICollateralTabService.GetOtherCollateralData
-        Dim sw = Stopwatch.StartNew()
-        _logger.Information("GetOtherCollateralData - Started | ProjectId: {ProjectId}, ProjectStatusId: {projectStatusId}, ProjectFlowId: {projectFlowId}", projectId, projectStatusId, projectFlowId)
-
-        Try
-            Dim result = _collateralRepository.GetOtherCollateralData(projectId, projectStatusId, projectFlowId)
-            If result Is Nothing Then
-                _logger.Warning("GetOtherCollateralData - Repository returned null, using empty model | ProjectId: {ProjectId}, ProjectStatusId: {projectStatusId}, ProjectFlowId: {projectFlowId}", projectId, projectStatusId, projectFlowId)
-                Return New OtherCollateralViewModel()
-            End If
-            If result.OwnerIds Is Nothing Then
-                _logger.Warning("GetOtherCollateralData - OwnerIds is null, initializing empty list | ProjectId: {ProjectId}, ProjectStatusId: {projectStatusId}, ProjectFlowId: {projectFlowId}", projectId, projectStatusId, projectFlowId)
-                result.OwnerIds = New List(Of OwnerViewModel)()
-            End If
-            ' ---- CORE BUSINESS LOGIC ----
-            ' Sponsor client check
-            result.HasSponser = result.OwnerIds.Any(Function(x) x.SourceSystem = "SPONSER")
-            result.AllowedOwners = result.OwnerIds
-            ' Warn if no allowed owners
-            If result.AllowedOwners Is Nothing OrElse Not result.AllowedOwners.Any() Then
-                _logger.Warning("GetOtherCollateralData - No allowed owners found | ProjectId: {ProjectId},ProjectStatusId: {projectStatusId}, ProjectFlowId: {projectFlowId} | IsSponsorClient: {IsSponsor}",
-                    projectId, projectStatusId, projectFlowId, result.HasSponser)
-            End If
-
-            sw.Stop()
-            _logger.Information("GetOtherCollateralData - Success | ProjectId: {ProjectId}, ProjectStatusId: {projectStatusId}, ProjectFlowId: {projectFlowId} | TotalOwners: {Total} | AllowedOwners: {Allowed} | ElapsedMs: {ElapsedMs}ms",
-                                projectId, projectStatusId, projectFlowId, result.OwnerIds.Count, result.AllowedOwners?.Count, sw.ElapsedMilliseconds)
-            Return result
-        Catch ex As Exception
-            sw.Stop()
-            _logger.Error(ex, "GetOtherCollateralData - Failed | ProjectId: {ProjectId}, ProjectStatusId: {projectStatusId}, ProjectFlowId: {projectFlowId} | ElapsedMs: {ElapsedMs}ms",
-                          projectId, projectStatusId, projectFlowId, sw.ElapsedMilliseconds)
-            Throw
-        End Try
-    End Function
-
-
-    Public Sub SaveCollateral(
-            projectId As Integer, projectStatusId As Integer,
-            projectFlowId As Integer, collaterals As List(Of CollateralSaveDto),
-            otherCollaterals As List(Of OtherCollateralSaveDto),
-            notary As List(Of ProjectNotarySaveDto), numColumns As Integer) Implements ICollateralTabService.SaveCollateral
-
-        Dim sw = Stopwatch.StartNew()
-        _logger.Information("SaveCollateral - Started | ProjectId: {ProjectId} | StatusId: {StatusId} | FlowId: {FlowId} | CollateralCount: {CCount} | OtherCount: {OCount} | NotaryCount: {NCount}",
-                            projectId, projectStatusId, projectFlowId, collaterals?.Count, otherCollaterals?.Count, notary?.Count)
-
-        Try
-            If collaterals IsNot Nothing Then
-                For Each c In collaterals
-                    c.RE_PROJ_ID = projectId
-                    c.RE_PROJ_STATUS_ID = projectStatusId
-                    c.RE_PROJ_STATUS_FLOW_ID = projectFlowId
-                Next
-                _logger.Debug("SaveCollateral - ProjectId injected into {Count} collateral(s) | ProjectId: {ProjectId} | StatusId: {StatusId} | FlowId: {FlowId}",
-                              collaterals.Count, projectId, projectStatusId, projectFlowId)
-            End If
-
-            If otherCollaterals IsNot Nothing Then
-                For Each o In otherCollaterals
-                    o.RE_PROJ_ID = projectId
-                    o.RE_PROJ_STATUS_ID = projectStatusId
-                    o.RE_PROJ_STATUS_FLOW_ID = projectFlowId
-                Next
-                _logger.Debug("SaveCollateral - ProjectId injected into {Count} other collateral(s) | ProjectId: {ProjectId} | StatusId: {StatusId} | FlowId: {FlowId}",
-                             otherCollaterals.Count, projectId, projectStatusId, projectFlowId)
-            End If
-
-            If notary IsNot Nothing Then
-                For Each n In notary
-                    n.RE_PROJ_ID = projectId
-                    n.RE_PROJ_STATUS_ID = projectStatusId
-                    n.RE_PROJ_STATUS_FLOW_ID = projectFlowId
-                Next
-                _logger.Debug("SaveCollateral - ProjectId injected into {Count} notary record(s) | ProjectId: {ProjectId} | StatusId: {StatusId} | FlowId: {FlowId}",
-                   notary.Count, projectId, projectStatusId, projectFlowId)
-            End If
-
-            _collateralRepository.SaveCollateral(
-                    projectId,
-                    projectStatusId,
-                    projectFlowId,
-                    collaterals,
-                    otherCollaterals,
-                    notary,
-                    numColumns
-                )
-            sw.Stop()
-            _logger.Information("SaveCollateral - Completed | ProjectId: {ProjectId} | StatusId: {StatusId} | FlowId: {FlowId} | ElapsedMs: {ElapsedMs}ms",
-                                projectId, projectStatusId, projectFlowId, sw.ElapsedMilliseconds)
-        Catch ex As Exception
-            sw.Stop()
-            _logger.Error(ex, "SaveCollateral - Failed | ProjectId: {ProjectId} | StatusId: {StatusId} | FlowId: {FlowId} | ElapsedMs: {ElapsedMs}ms",
-                projectId, projectStatusId, projectFlowId, sw.ElapsedMilliseconds)
-            Throw
-        End Try
-    End Sub
-
-    Public Function GetSavedCollateralDetails(
-    projectId As Integer,
-    Optional projectStatusId As Integer? = Nothing,
-    Optional projectFlowId As Integer? = Nothing
-) As List(Of CollateralDetailsWrapperViewModel) _
-    Implements ICollateralTabService.GetSavedCollateralDetails
-
-        Dim sw = Stopwatch.StartNew()
-        _logger.Information("GetSavedCollateralDetails - Started | ProjectId: {projectId}, ProjectStatusId: {projectStatusId}, ProjectFlowId: {projectFlowId}", projectId, projectStatusId, projectFlowId)
-
-        Try
-            '--- Get SAVED collateral data from SP (QID = 1) ---
-            Dim wrapperList = _collateralRepository.GetSavedCollateralDetails(projectId, projectStatusId, projectFlowId)
-            If wrapperList Is Nothing OrElse wrapperList.Count = 0 Then
-                _logger.Information("GetSavedCollateralDetails - No saved data found, Create mode will be used | ProjectId: {projectId}, ProjectStatusId: {projectStatusId}, ProjectFlowId: {projectFlowId}", projectId, projectStatusId, projectFlowId)
-                Return New List(Of CollateralDetailsWrapperViewModel)
-            End If
-
-            '--- Ensure ProjectId is set (important for refs / JS) ---
-            Dim nullCount = 0
-            For Each wrapper In wrapperList
-                If wrapper IsNot Nothing AndAlso wrapper.COLLATERAL IsNot Nothing Then
-                    wrapper.COLLATERAL.RE_PROJ_ID = projectId
-                Else
-                    nullCount += 1
-                End If
-            Next
-            If nullCount > 0 Then
-                _logger.Warning("GetSavedCollateraletails - {NullCount} wrapper(s) had null COLLATERAL | ProjectId: {projectId}, ProjectStatusId: {projectStatusId}, ProjectFlowId: {projectFlowId}", nullCount, projectId, projectStatusId, projectFlowId)
-            End If
-            sw.Stop()
-            _logger.Information("GetSavedCollateralDetails - Success | ProjectId: {ProjectId}, ProjectStatusId: {projectStatusId}, ProjectFlowId: {projectFlowId} | RecordCount: {Count} | ElapsedMs: {ElapsedMs}ms", projectId, projectStatusId, projectFlowId, wrapperList.Count, sw.ElapsedMilliseconds)
-
-            Return wrapperList
-        Catch ex As Exception
-            sw.Stop()
-            _logger.Error(ex, "GetSavedCollateralDetails - Failed | ProjectId: {ProjectId}, ProjectStatusId: {projectStatusId}, ProjectFlowId: {projectFlowId} | ElapsedMs: {ElapsedMs}ms", projectId, projectStatusId, projectFlowId, sw.ElapsedMilliseconds)
-            Throw
-        End Try
-    End Function
-
-    ' Helper - Convert KeyValuePairs to TcodModel
-    Private Function MapKeyValueToTcodModel(list As List(Of KeyValuePair(Of String, String))) As List(Of TcodModel)
-        If list Is Nothing Then Return New List(Of TcodModel)
-        Return list.Select(Function(x)
-                               Dim tcodId As Integer
-                               If Integer.TryParse(x.Key, tcodId) Then
-                                   Return New TcodModel With {.TcodId = tcodId, .TcodDescName = x.Value}
-                               Else
-                                   Return New TcodModel With {.TcodId = 0, .TcodDescName = x.Value}
-                               End If
-                           End Function).ToList()
-    End Function
-
-    Public Function GetKrwgAssetValues(krwgRef As String) As CollateralViewModel _
-    Implements ICollateralTabService.GetKrwgAssetValues
-        Dim sw = Stopwatch.StartNew()
-        _logger.Information("GetKrwgAssetValues - Started | KrwgRef: {KrwgRef}", krwgRef)
-        Try
-            Dim result = _collateralRepository.GetKrwgAssetValues(krwgRef)
-            sw.Stop()
-            If result Is Nothing Then
-                _logger.Warning("GetKrwgAssetValues - Repository returned null | KrwgRef: {KrwgRef} | ElapsedMs: {ElapsedMs}ms", krwgRef, sw.ElapsedMilliseconds)
+    <JsonIgnore>
+    Public Property RatingDateDisplayFormat As String
+        Get
+            If RatingDate.HasValue Then
+                ' Ensure the date is formatted correctly as dd-MM-yyyy
+                Return RatingDate.Value.ToString("dd-MM-yyyy")
             Else
-                _logger.Information("GetKrwgAssetValues - Success | KrwgRef: {KrwgRef} | ElapsedMs: {ElapsedMs}ms", krwgRef, sw.ElapsedMilliseconds)
+                Return "N/A"
             End If
-            Return result
-        Catch ex As Exception
-            sw.Stop()
-            _logger.Error(ex, "GetKrwgAssetValues - Failed | KrwgRef: {KrwgRef} | ElapsedMs: {ElapsedMs}ms", krwgRef, sw.ElapsedMilliseconds)
-            Throw
-        End Try
-    End Function
+        End Get
+        Set(value As String)
+            If value = "N/A" Then
+                RatingDate = Nothing
+            ElseIf Not String.IsNullOrEmpty(value) Then
+                ' Parse the date string with the correct format
+                RatingDate = DateTime.ParseExact(value, "dd-MM-yyyy", CultureInfo.InvariantCulture)
+            Else
+                RatingDate = Nothing
+            End If
+        End Set
+    End Property
+
+    <JsonProperty("RE_SPNS_CLIENT_SW")>
+    Public Property BelfiusClient As Integer?
+
+    <JsonProperty("RE_SPNS_PRIVATE_WEALTH_ID")>
+    Public Property PrivateWealthProfile As Integer?
+
+    <JsonProperty("RE_SPNS_FINANCIAL_ID")>
+    Public Property FinancialCapacity As Integer?
+
+    <JsonProperty("RE_SPNS_EXPERIENCE_ID")>
+    Public Property ExperienceKnowHow As Integer?
+
+
+    <JsonProperty("RE_SPNS_ACTOR_NAME_NM")>
+    Public Property ActorName As String
+
+    ' Display text for private wealth profile (computed from database value)
+    <JsonIgnore>
+    Public Property PrivateWealthProfileDisplayText As String
+
+
+    ' For valid invalid actor case rating1 fields now sending the 
+    ' string value hence change datatype. 
+    <JsonProperty("RE_SPNS_MASTERSCALE_ID")>
+    Public Property RatingFieldDisplayText As String
+
+    ' Operation type for change tracking (INSERT, UPDATE, DELETE, or null)
+    ' Note: This property is sent from frontend to determine database operation type.
+    <JsonIgnore>
+    Public Property Operation As String
+
+    <JsonProperty("RE_SPNS_IS_VALID_ACTOR")>
+    Public Property IsValidActorId As Integer?
+
+
+    ' Constructor to set Default values
+    Public Sub New()
+        'BelfiusClient = 1 ' 0 = false, -1 = true
+        PrivateWealthProfile = 1 ' 0 = false, -1 = true
+        Operation = Nothing
+    End Sub
 
 End Class
 
+Public Class OtherActorModel
+    ' Core identification properties
+    <JsonProperty("RE_PROJ_ID")>
+    Public Property ProjectId As Integer
+
+    <JsonProperty("RE_PROJ_STATUS_ID")>
+    Public Property ProjectStatusId As Integer
+
+    <JsonProperty("RE_PROJ_STATUS_FLOW_ID")>
+    Public Property ProjectStatusFlowId As Integer
+
+    ' Other Actor identification
+    <JsonProperty("RE_ACTR_ACTOR_ID")>
+    Public Property ActorId As String
+
+    <JsonProperty("RE_ACTR_TYPE_ID")>
+    Public Property ActorTypeId As Integer
 
 
-for asset tab i have 
- Function GetAssetData(projectId As Integer, Optional projectStatusId As Integer? = Nothing, Optional projectFlowId As Integer? = Nothing) As AssetTabModel
+    <JsonProperty("RE_ACTR_QUALITY_ID")>
+    Public Property Quality As Integer?
+
+    <JsonProperty("RE_ACTR_ACTOR_NAME_NM")>
+    Public Property ActorName As String
+
+    <JsonProperty("RE_ACTR_IS_VALID_ACTOR")>
+    Public Property IsValidActorId As Integer?
+
+    <JsonProperty("RE_ACTR_ACTOR_TYPE_SW")>
+    Public Property ActorTypeSw As Integer?
+
+
+    ' this is display text for quality when user end actorid
+    <JsonIgnore>
+    Public Property RatingFieldDisplayText As String
+
+    ' Selection status (Yes/No dropdown)
+    <JsonIgnore>
+    Public Property IsSelected As Boolean
+
+    <JsonIgnore>
+    Public Property IsSelectedTcod As Integer?
+
+    ' Operation type for change tracking (INSERT, UPDATE, DELETE, or null)
+    ' Note: This property is sent from frontend to determine database operation type.
+    <JsonIgnore>
+    Public Property Operation As String
+
+    'Public Sub New()
+    '    IsSelected = False
+    '    Operation = Nothing
+    'End Sub
+
+End Class
+
+' Redundant lookup model classes removed — all dropdown/lookup lists now use TcodModel directly
+
+' Main ViewModel for Actor tab
+Public Class ActorTabViewModel
+    ' Core data models
+    Public Property MainDebtor As MainDebtorActorModel
+    Public Property Sponsor As SponsorModel
+
+    Public Property OtherActors As List(Of OtherActorModel)
+
+    ' Lookup data (all use TcodModel directly)
+    Public Property ActorTypes As List(Of TcodModel)
+    Public Property PrivateWealthProfiles As List(Of TcodModel)
+    Public Property SponsorFinancialCapacities As List(Of TcodModel)
+    Public Property SponsorExperiance As List(Of TcodModel)
+    Public Property QualityActor As List(Of TcodModel)
+    Public Property SponsorQualities As List(Of TcodModel)
+    Public Property WillingnessSupports As List(Of TcodModel)
+    Public Property MasterScales As List(Of TcodModel)
+
+    Public Property YesNoOptions As List(Of TcodModel)
+    Public Property BusinessLines As List(Of TcodModel)
+    Public Property CommercialRegios As List(Of TcodModel)
+
+
+    ' Project identification
+    Public Property ProjectId As Integer
+    Public Property ProjectStatusId As Integer
+    Public Property ProjectFlowId As Integer
+
+    ' Conditional Logic and UI State
+    Public Property ConditionalFields As ActorConditionalFields
+    'Public Property NotApplicableFields As NotApplicableFields
+
+    ' Success/Error handling
+    Public Property IsSuccess As Boolean
+    Public Property Message As String
+
+    Public Sub New()
+        MainDebtor = New MainDebtorActorModel()
+        Sponsor = New SponsorModel()
+        OtherActors = New List(Of OtherActorModel)()
+        ConditionalFields = New ActorConditionalFields()
+        'NotApplicableFields = New NotApplicableFields()
+        IsSuccess = True
+        Message = ""
+    End Sub
+End Class
+
+' Addational models for conditional logic and UI state
+Public Class ActorConditionalFields
+    Public Property IsSponsorCardVisible As Boolean
+    Public Property IsFinancialCapacityAndLiquidityVisiable As Boolean
+    Public Property IsSponsorFieldsApplicable As Boolean
+    Public Property IsOtherActorFieldsApplicable As Boolean
+    Public Property IsMainDebtorPrivteWealthProfileVisible As Boolean
+
+    Public Property IsCreOwnUserProject As Boolean
+End Class
+
+Public Class ActorDetailsModel
+    <JsonProperty("ACTOR_ID")>
+    Public Property ActorId As String
+
+    <JsonProperty("ACTORNAME")>
+    Public Property ActorName As String
+
+    <JsonProperty("CI")>
+    Public Property CI As String
+
+    <JsonIgnore>
+    Public Property Rating1 As Integer?
+
+    <JsonProperty("MASTERSCALE_DATE_DT")>
+    Public Property RatingDate As Date?
+
+    <JsonIgnore>
+    Public Property RatingDateDisplayFormat As String
+        Get
+            If RatingDate.HasValue Then
+                ' Ensure the date is formatted correctly as dd-MM-yyyy
+                Return RatingDate.Value.ToString("dd-MM-yyyy")
+            Else
+                Return String.Empty
+            End If
+        End Get
+        Set(value As String)
+            If Not String.IsNullOrEmpty(value) Then
+                ' Parse the date string with the correct format
+                RatingDate = DateTime.ParseExact(value, "dd-MM-yyyy", CultureInfo.InvariantCulture)
+            Else
+                RatingDate = Nothing
+            End If
+        End Set
+    End Property
+
+    <JsonProperty("PRIVATE_WEALTH_ID")>
+    Public Property PrivateWealthProfile As Integer?
+
+    <JsonIgnore>
+    Public Property PrivateWealthProfileDisplayText As String
+
+    <JsonProperty("RATING")>
+    Public Property RatingFieldDisplayText As String
+
+    <JsonProperty("WATCHLIST")>
+    Public Property WatchList As String
+
+    <JsonProperty("EXISTINGEXPOSURE")>
+    Public Property ExistingExposure As Decimal?
+
+    <JsonProperty("LTMR_AM")>
+    Public Property LTMR_AM As Decimal?
+
+    <JsonProperty("COMMERCIAL_REGIO_ID")>
+    Public Property CommercialRegionID As Integer?
+
+    <JsonIgnore>
+    Public Property BusinessLineID As Integer?
+
+    <JsonProperty("BUSINESS_LINE_ID")>
+    Public Property BusinessLineIDDisplayText As String
+
+    <JsonProperty("COMMERCIAL_SEGMENT")>
+    Public Property CommercialSegment As String
+
+    <JsonIgnore>
+    Public Property IsValidActorId As Integer?
+
+End Class
