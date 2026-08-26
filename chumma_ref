@@ -1,280 +1,261 @@
+Imports System.Web.Optimization
 
-GET: Analysis/GenerateAnalysisPdf
-<HttpGet>
-Public Async Function GenerateAnalysisPdf() As Task(Of ActionResult)
-    Dim sw = Stopwatch.StartNew()
-    Dim userName = Current_LoginUser
-    _logger.Information("GenerateAnalysisPdf - Request received | User: {User}", userName)
+Public Module BundleConfig
+    ' For more information on bundling, visit https://go.microsoft.com/fwlink/?LinkId=301862
+    Public Sub RegisterBundles(ByVal bundles As BundleCollection)
 
-    Try
-        Dim sessionValidation = validateSessionParameters()
-        If Not sessionValidation.IsValid Then
-            _logger.Warning("GenerateAnalysisPdf - Session invalid | User: {User} | Reason: {Reason}", userName, sessionValidation.Message)
-            Return New HttpStatusCodeResult(400, sessionValidation.Message)
-        End If
+        bundles.Add(New ScriptBundle("~/bundles/jquery").Include(
+                    "~/Scripts/jquery-{version}.js"))
 
-        Dim projectId = sessionValidation.ProjectId
-        Dim projectStatusId = sessionValidation.ProjectStatusId
-        Dim projectFlowId = sessionValidation.ProjectFlowId
+        bundles.Add(New ScriptBundle("~/bundles/jqueryui").Include(
+                    "~/Scripts/jquery-ui-{version}.js"))
 
-        Dim allFields As New List(Of AnalysisPdfFieldModel)()
+        bundles.Add(New ScriptBundle("~/bundles/jqueryval").Include(
+                    "~/Scripts/jquery.validate*"))
 
-        ' ---- Admin tab (CURATED - already matches business mockup) ----
-        Try
-            Dim adminData = Await _adminTabService.GetAdminDataAsync(projectId, projectStatusId, projectFlowId)
-            allFields.AddRange(_adminTabService.GetAdminPdfFields(adminData))
-        Catch ex As Exception
-            _logger.Error(ex, "GenerateAnalysisPdf - Admin tab failed | ProjectId: {ProjectId}", projectId)
-            allFields.Add(New AnalysisPdfFieldModel("Admin", "Error", "Note", "Admin data unavailable", 0))
-        End Try
+        ' Use the development version of Modernizr to develop with and learn from. Then, when you're
+        ' ready for production, use the build tool at https://modernizr.com to pick only the tests you need.
+        bundles.Add(New ScriptBundle("~/bundles/modernizr").Include(
+                    "~/Scripts/modernizr-*"))
 
-        ' ---- Actor tab (SPECIFIC FIELDS ONLY) ----
-        Try
-            If projectStatusId.HasValue AndAlso projectFlowId.HasValue Then
-                Dim actorData = Await _actorTabService.GetActorTabDataAsync(projectId, projectStatusId.Value, projectFlowId.Value)
-                ' ActorId, BelfiusClient, ActorName live on MainDebtor (MainDebtorActorModel),
-                ' NOT directly on ActorTabViewModel - point reflection at actorData.MainDebtor.
-                Dim actorFields = New String() {"ActorId", "ActorName", "BelfiusClient"}
-                allFields.AddRange(PdfFieldReflectionHelper.GetAutoPdfFields("Actor", "Main Debtor", actorData.MainDebtor, includeOnly:=actorFields))
-            End If
-        Catch ex As Exception
-            _logger.Error(ex, "GenerateAnalysisPdf - Actor tab failed | ProjectId: {ProjectId}", projectId)
-            allFields.Add(New AnalysisPdfFieldModel("Actor", "Error", "Note", "Actor data unavailable", 0))
-        End Try
+        bundles.Add(New ScriptBundle("~/bundles/bootstrap").Include(
+                  "~/Scripts/bootstrap.js"))
 
-        ' ---- Project & Credits tab (SPECIFIC FIELDS ONLY) ----
-        Try
-            Dim projectCreditsData = _projectCreditsTabService.GetProjectCreditsData(projectId, projectStatusId, projectFlowId)
-            ' <<< PUT PROJECT & CREDITS FIELD NAME(S) HERE >>>
-            Dim projectCreditsFields = New String() {"FieldName1"}
-            allFields.AddRange(PdfFieldReflectionHelper.GetAutoPdfFields("Project & Credits", "All Fields", projectCreditsData, includeOnly:=projectCreditsFields))
-        Catch ex As Exception
-            _logger.Error(ex, "GenerateAnalysisPdf - Project & Credits tab failed | ProjectId: {ProjectId}", projectId)
-            allFields.Add(New AnalysisPdfFieldModel("Project & Credits", "Error", "Note", "Project & Credits data unavailable", 0))
-        End Try
-
-        ' ---- Project Asset tab (SPECIFIC FIELDS ONLY) ----
-        Try
-            Dim assetData = _assetTabRepository.GetAssetData(projectId, projectStatusId, projectFlowId)
-            ' <<< PUT ASSET FIELD NAMES HERE (must match AssetTabModel property names exactly) >>>
-            Dim assetFields = New String() {"FieldName1", "FieldName2", "FieldName3"}
-            allFields.AddRange(PdfFieldReflectionHelper.GetAutoPdfFields("Project Asset", "All Fields", assetData, includeOnly:=assetFields))
-        Catch ex As Exception
-            _logger.Error(ex, "GenerateAnalysisPdf - Project Asset tab failed | ProjectId: {ProjectId}", projectId)
-            allFields.Add(New AnalysisPdfFieldModel("Project Asset", "Error", "Note", "Project Asset data unavailable", 0))
-        End Try
-
-        ' ---- Collateral tab (CURATED) ----
-        ' Mirrors GetCollateralData's EDIT/CREATE logic: prefer saved data
-        ' (what the UI actually shows), fall back to create-mode defaults
-        ' only if nothing has been saved yet.
-        Try
-            Dim collateralData = _collateralTabService.GetSavedCollateralDetails(projectId, projectStatusId, projectFlowId)
-            If collateralData Is Nothing OrElse Not collateralData.Any() Then
-                collateralData = _collateralTabService.GetCollateraldata(projectId, projectStatusId, projectFlowId)
-            End If
-            allFields.AddRange(_collateralTabService.GetCollateralPdfFields(collateralData))
-        Catch ex As Exception
-            _logger.Error(ex, "GenerateAnalysisPdf - Collateral tab failed | ProjectId: {ProjectId}", projectId)
-            allFields.Add(New AnalysisPdfFieldModel("Collateral", "Error", "Note", "Collateral data unavailable", 0))
-        End Try
-
-        ' ---- Guidance tab (SPECIFIC FIELDS ONLY) ----
-        Try
-            Dim guidanceData = _guidanceTabRepository.GetGuidanceData(projectId, projectStatusId, projectFlowId)
-            ' GuidanceTabModel uses raw DB-column-style property names (PROJ_ID, PROJ_STATUS_ID, ...)
-            ' so supply friendly labels via labelOverrides instead of showing underscores in the PDF.
-            Dim guidanceFields = New String() {"PROJ_ID", "PROJ_STATUS_ID"}
-            Dim guidanceLabels = New Dictionary(Of String, String) From {
-                {"PROJ_ID", "Project ID"},
-                {"PROJ_STATUS_ID", "Project Status"}
-            }
-            allFields.AddRange(PdfFieldReflectionHelper.GetAutoPdfFields("Guidance", "All Fields", guidanceData, includeOnly:=guidanceFields, labelOverrides:=guidanceLabels))
-        Catch ex As Exception
-            _logger.Error(ex, "GenerateAnalysisPdf - Guidance tab failed | ProjectId: {ProjectId}", projectId)
-            allFields.Add(New AnalysisPdfFieldModel("Guidance", "Error", "Note", "Guidance data unavailable", 0))
-        End Try
-
-        If Not allFields.Any() Then
-            _logger.Warning("GenerateAnalysisPdf - No fields resolved for any tab | ProjectId: {ProjectId}", projectId)
-            Return New HttpStatusCodeResult(500, "No report data available.")
-        End If
-
-        ' Render RDLC -> PDF bytes
-        Dim lrLocalReport As New LocalReport()
-        lrLocalReport.ReportPath = Server.MapPath("~/Report/AnalysisReport.rdlc")
-
-        Dim reportDataSource As New ReportDataSource("AnalysisFields", allFields)
-        lrLocalReport.DataSources.Add(reportDataSource)
-
-        Dim deviceInfo As String =
-            "<DeviceInfo>" &
-            "<PageHeight>297mm</PageHeight>" &
-            "<PageWidth>210mm</PageWidth>" &
-            "<MarginTop>10mm</MarginTop>" &
-            "<MarginLeft>10mm</MarginLeft>" &
-            "<MarginRight>10mm</MarginRight>" &
-            "<MarginBottom>10mm</MarginBottom>" &
-            "</DeviceInfo>"
-
-        Dim mimeType, encoding, extension As String
-        Dim streamIds As String()
-        Dim warnings As Warning()
-
-        Dim pdfBytes As Byte() = lrLocalReport.Render("PDF", deviceInfo, mimeType, encoding, extension, streamIds, warnings)
-
-        sw.Stop()
-        _logger.Information("GenerateAnalysisPdf - Completed | User: {User} | ProjectId: {ProjectId} | FieldCount: {Count} | SizeBytes: {Size} | ElapsedMs: {ElapsedMs}ms",
-                            userName, projectId, allFields.Count, pdfBytes.Length, sw.ElapsedMilliseconds)
-
-        Dim fileName As String = $"Analysis_Project_{projectId}_{DateTime.Now:yyyyMMdd_HHmmss}.pdf"
-        Return File(pdfBytes, "application/pdf", fileName)
-
-    Catch ex As Exception
-        sw.Stop()
-        Dim fullError As String = ex.Message
-        Dim innerEx = ex.InnerException
-        While innerEx IsNot Nothing
-            fullError &= " | Inner: " & innerEx.Message
-            innerEx = innerEx.InnerException
-        End While
-        _logger.Error(ex, "GenerateAnalysisPdf - Unhandled exception | User: {User} | ElapsedMs: {ElapsedMs}ms | FullError: {FullError}",
-                      userName, sw.ElapsedMilliseconds, fullError)
-        Return New HttpStatusCodeResult(500, "Error generating PDF: " & fullError)
-    End Try
-End Function 
+        bundles.Add(New StyleBundle("~/Content/css").Include(
+                  "~/Content/bootstrap.css",
+                  "~/Content/site.css"))
+    End Sub
+End Module
 
 
+Imports System.Web
+Imports System.Web.Mvc
 
+Public Module FilterConfig
+    Public Sub RegisterGlobalFilters(ByVal filters As GlobalFilterCollection)
+        filters.Add(New HandleErrorAttribute())
+    End Sub
+End Module
 
+Imports Serilog
+Imports Serilog.Events
+Imports System.Configuration
+Imports System.IO
 
+Namespace App_Start
+    Public Class LoggerConfig
+        ''' <summary>  
+        ''' Configure Serilog logger with settings from Web.config  
+        ''' </summary>  
+        Public Shared Sub ConfigureLogger()
+            Try
+                ' Read settings from Web.config  
+                Dim logBasePath = If(ConfigurationManager.AppSettings("Serilog:LogBasePath"), Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Logs"))
+                Dim retentionDays = Integer.Parse(If(ConfigurationManager.AppSettings("Serilog:RetentionDays"), "90"))
+                Dim minLevel = If(ConfigurationManager.AppSettings("Serilog:MinimumLevel"), "Information")
+                Dim enableConsole = Boolean.Parse(If(ConfigurationManager.AppSettings("Serilog:EnableConsole"), "true"))
+                Dim appName = If(ConfigurationManager.AppSettings("ApplicationName"), "ImmoSample")
+                Dim environment = If(ConfigurationManager.AppSettings("Environment"), "Development")
 
-
-
-
-
-
-
-
-
-
-
-
-
-Imports System.Reflection
-
-Public Class PdfFieldReflectionHelper
-
-    ' Properties that show up on nearly every tab ViewModel but aren't real
-    ' report data - status/plumbing fields, always excluded.
-    Private Shared ReadOnly DefaultExcludedProperties As New HashSet(Of String)(StringComparer.OrdinalIgnoreCase) From {
-        "IsSuccess", "Message", "IsDirty"
-    }
-
-    ''' <summary>
-    ''' Converts any object's public simple-typed properties into a flat list
-    ''' of AnalysisPdfFieldModel rows for the given tab/section.
-    ''' </summary>
-    ''' <param name="includeOnly">
-    ''' Optional. If provided, ONLY these property names are included, in the
-    ''' order given - everything else on the object is ignored. Use this to
-    ''' show a curated subset (e.g. 3 fields) instead of every property.
-    ''' If Nothing, all simple properties are included (minus excludes) as before.
-    ''' </param>
-    ''' <param name="labelOverrides">
-    ''' Optional. Dictionary of PropertyName -> friendly display label, e.g.
-    ''' {"PROJ_ID", "Project ID"}. Use this when the underlying property names
-    ''' are raw/technical (like PROJ_STATUS_ID) and you want a readable label
-    ''' in the PDF instead. Any property not in this dictionary falls back to
-    ''' its raw property name, same as before.
-    ''' </param>
-    Public Shared Function GetAutoPdfFields(tabName As String, sectionName As String, obj As Object, Optional additionalExcludes As IEnumerable(Of String) = Nothing, Optional includeOnly As IEnumerable(Of String) = Nothing, Optional labelOverrides As Dictionary(Of String, String) = Nothing) As List(Of AnalysisPdfFieldModel)
-
-        Dim rows As New List(Of AnalysisPdfFieldModel)()
-        If obj Is Nothing Then Return rows
-
-        Dim excludeSet As New HashSet(Of String)(DefaultExcludedProperties, StringComparer.OrdinalIgnoreCase)
-        If additionalExcludes IsNot Nothing Then
-            For Each ex In additionalExcludes
-                excludeSet.Add(ex)
-            Next
-        End If
-
-        Dim order As Integer = 0
-        Dim objType = obj.GetType()
-
-        ' If includeOnly is given, walk THAT list (preserves your chosen order)
-        ' instead of reflecting over every property on the object.
-        If includeOnly IsNot Nothing Then
-            For Each propName In includeOnly
-                Dim prop As PropertyInfo = objType.GetProperty(propName)
-                If prop Is Nothing Then Continue For ' name typo or property doesn't exist - skip silently
-
-                Dim rawValue As Object
-                Try
-                    rawValue = prop.GetValue(obj)
-                Catch
-                    Continue For
-                End Try
-
-                Dim label As String = prop.Name
-                If labelOverrides IsNot Nothing AndAlso labelOverrides.ContainsKey(prop.Name) Then
-                    label = labelOverrides(prop.Name)
+                ' Validate log path  
+                If String.IsNullOrWhiteSpace(logBasePath) Then
+                    logBasePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Logs")
                 End If
 
-                rows.Add(New AnalysisPdfFieldModel(tabName, sectionName, label, FormatValue(rawValue), order))
-                order += 1
-            Next
-            Return rows
-        End If
+                ' Parse minimum level  
+                Dim logLevel As LogEventLevel = LogEventLevel.Information
+                Select Case minLevel.ToLower()
+                    Case "debug"
+                        logLevel = LogEventLevel.Debug
+                    Case "information"
+                        logLevel = LogEventLevel.Information
+                    Case "warning"
+                        logLevel = LogEventLevel.Warning
+                    Case "error"
+                        logLevel = LogEventLevel.Error
+                    Case Else
+                        logLevel = LogEventLevel.Information
+                End Select
 
-        ' Default behavior: dump every simple property (minus excludes)
-        Dim properties As PropertyInfo() = objType.GetProperties()
+                ' Create log directories  
+                Dim infoLogPath = Path.Combine(logBasePath, "Application", "Info")
+                Dim errorLogPath = Path.Combine(logBasePath, "Application", "Error")
+                Directory.CreateDirectory(infoLogPath)
+                Directory.CreateDirectory(errorLogPath)
 
-        For Each prop As PropertyInfo In properties
+                ' Configure Serilog  
+                Dim config = New LoggerConfiguration() _
+                    .MinimumLevel.Is(logLevel) _
+                    .MinimumLevel.Override("Microsoft", LogEventLevel.Warning) _
+                    .MinimumLevel.Override("System", LogEventLevel.Warning) _
+                    .Enrich.WithProperty("Application", appName) _
+                    .Enrich.WithProperty("Environment", environment) _
+                    .Enrich.WithMachineName() _
+                    .Enrich.WithThreadId()
 
-            If excludeSet.Contains(prop.Name) Then Continue For
+                ' Console sink (for development)  
+                If enableConsole Then
+                    config = config.WriteTo.Console(
+                        outputTemplate:="[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj}{NewLine}{Exception}"
+                    )
+                End If
 
-            ' Skip collections/lists (dropdown options, nested detail lists) -
-            ' these aren't simple Label/Value pairs and need custom handling
-            ' once this tab gets a curated mapping.
-            If GetType(System.Collections.IEnumerable).IsAssignableFrom(prop.PropertyType) AndAlso prop.PropertyType IsNot GetType(String) Then
-                Continue For
-            End If
+                ' Information logs  
+                config = config.WriteTo.File(
+                    path:=Path.Combine(infoLogPath, "app-.txt"),
+                    restrictedToMinimumLevel:=LogEventLevel.Information,
+                    rollingInterval:=RollingInterval.Day,
+                    retainedFileCountLimit:=retentionDays,
+                    fileSizeLimitBytes:=52428800,
+                    rollOnFileSizeLimit:=True,
+                    shared:=True,
+                    outputTemplate:="{Timestamp:yyyy-MM-dd HH:mm:ss.fff} [{Level:u3}] [{MachineName}] [{ThreadId}] {SourceContext} - {Message:lj}{NewLine}{Exception}"
+                )
 
-            Dim rawValue As Object
-            Try
-                rawValue = prop.GetValue(obj)
-            Catch
-                Continue For ' property getter threw - skip rather than fail the whole PDF
+                ' Error logs  
+                config = config.WriteTo.File(
+                    path:=Path.Combine(errorLogPath, "error-.txt"),
+                    restrictedToMinimumLevel:=LogEventLevel.Error,
+                    rollingInterval:=RollingInterval.Day,
+                    retainedFileCountLimit:=retentionDays * 2,
+                    fileSizeLimitBytes:=104857600,
+                    rollOnFileSizeLimit:=True,
+                    shared:=True,
+                    outputTemplate:="{Timestamp:yyyy-MM-dd HH:mm:ss.fff} [{Level:u3}] {SourceContext}{NewLine}Message: {Message:lj}{NewLine}{Exception}{NewLine}---{NewLine}"
+                )
+
+                ' Create logger  
+                Log.Logger = config.CreateLogger()
+
+                ' Startup log  
+                Log.Information("========== Application Started ==========")
+                Log.Information("Application: {AppName}, Environment: {Environment}", appName, environment)
+                Log.Information("Log Path: {LogPath}, Retention: {Days} days", logBasePath, retentionDays)
+                Log.Information("========================================")
+            Catch ex As Exception
+                ' Fallback logger if configuration fails  
+                Log.Logger = New LoggerConfiguration() _
+                    .WriteTo.Console() _
+                    .CreateLogger()
+                Log.Fatal(ex, "Failed to configure logger - using fallback console logger")
             End Try
+        End Sub
 
-            Dim displayValue As String = FormatValue(rawValue)
+        ''' <summary>  
+        ''' Shutdown logger and flush pending logs  
+        ''' </summary>  
+        Public Shared Sub ShutdownLogger()
+            Log.Information("========== Application Stopped ==========")
+            Log.CloseAndFlush()
+        End Sub
+    End Class
+End Namespace
+Imports System
+Imports System.Collections.Generic
+Imports System.Linq
+Imports System.Web
+Imports System.Web.Mvc
+Imports System.Web.Routing
 
-            rows.Add(New AnalysisPdfFieldModel(tabName, sectionName, prop.Name, displayValue, order))
-            order += 1
+Public Module RouteConfig
+    Public Sub RegisterRoutes(ByVal routes As RouteCollection)
+        routes.IgnoreRoute("{resource}.axd/{*pathInfo}")
 
-        Next
+        routes.MapRoute(
+            name:="Default",
+            url:="{controller}/{action}/{id}",
+            defaults:=New With {.controller = "Portal", .action = "Index", .id = UrlParameter.Optional} 'Loading Welcome Page on Fresh load
+        )
+    End Sub
+End Module
 
-        Return rows
 
-    End Function
+Imports System.Data.Entity.Core.Metadata.Edm
+Imports System.Web.Mvc
+Imports Unity
+Imports Unity.Mvc5
 
-    Private Shared Function FormatValue(rawValue As Object) As String
+''' <summary>
+'''  Using the Unity for Dependancy Injection
+''' </summary>
+Public Class UnityConfig
+    Public Shared Sub RegisterComponents()
+        Dim container = New UnityContainer()
 
-        If rawValue Is Nothing Then Return ""
+        ' Register your dependencies here
+        ' This tell unity: when some one ask for IAdminTabRepository give them AdminTabRepository
+        container.RegisterType(Of IAdminTabRepository, AdminTabRepository)()
+        container.RegisterType(Of IAdminTabService, AdminTabService)()
+        container.RegisterType(Of IActorTabRepository, ActorTabRepository)()
+        container.RegisterType(Of IActorTabService, ActorTabService)()
+        container.RegisterType(Of ITcodCacheRepository, TcodCacheRepository)()
+        container.RegisterType(Of ITcodCacheService, TcodCacheService)()
+        container.RegisterType(Of IAssetTabRepository, AssetTabRepository)()
+        container.RegisterType(Of IGuidanceTabRepository, GuidanceTabRepository)()
+        container.RegisterType(Of IBreakevenTabRepository, BreakevenTabRepository)()
+        container.RegisterType(Of IGuidelinesTabRepository, GuidelinesTabRepository)()
+        container.RegisterType(Of IProjectCreditsTabService, ProjectCreditsTabService)()
+        container.RegisterType(Of IProjectCreditsTabRepository, ProjectCreditsTabRepository)
+        container.RegisterType(Of ICollateralTabService, CollateralTabService)()
+        container.RegisterType(Of ICollateralRepository, CollateralRepository)()
+        container.RegisterType(Of ILoanOfficerConstructionFollowUpRepository, LoanOfficerConstructionFollowUpRepository)()
+        container.RegisterType(Of ILoanOfficerConstructionFollowUpService, LoanOfficerConstructionFollowUpService)()
+        container.RegisterType(Of IUserRepository, UserRoleRepository)()
+        container.RegisterType(Of IUserService, UserService)()
+        container.RegisterType(Of IWelcomeRepository, WelcomeRepository)()
+        container.RegisterType(Of IAnalysisCommonRepository, AnalysisCommonRepository)()
+        container.RegisterType(Of IAnalysisCommonService, AnalysisCommonService)()
 
-        If TypeOf rawValue Is DateTime Then
-            Return CType(rawValue, DateTime).ToString("dd-MM-yyyy")
-        End If
 
-        If TypeOf rawValue Is Boolean Then
-            Return If(CBool(rawValue), "Yes", "No")
-        End If
+        'RegisterByConvention(container)
 
-        Return rawValue.ToString()
+        ' set Unity as the dependency resolver for mvc
+        DependencyResolver.SetResolver(New UnityDependencyResolver(container))
 
-    End Function
-
+    End Sub
 End Class
+
+
+in analysis controller is this correct ?
+ Private ReadOnly _adminTabService As IAdminTabService
+ Private ReadOnly _actorTabService As IActorTabService
+ Private ReadOnly _projectCreditsTabService As IProjectCreditsTabService
+ Private ReadOnly _collateralTabService As ICollateralTabService
+ Private ReadOnly _loanOfficerConstructionFollowUpService As ILoanOfficerConstructionFollowUpService
+ Private ReadOnly _assetTabRepository As IAssetTabRepository
+ Private ReadOnly _guidanceTabRepository As IGuidanceTabRepository
+ Private ReadOnly _breakevenTabRepository As IBreakevenTabRepository
+ Private ReadOnly _guidelinesTabRepository As IGuidelinesTabRepository
+ Private ReadOnly _userService As IUserService
+ Private ReadOnly _analysisCommonService As IAnalysisCommonService
+ Private ReadOnly _logger As ILogger
+ Private ReadOnly _analysisPdfService As IAnalysisPdfService
+
+ Protected ReadOnly Property Current_LoginUser As String
+     Get
+         If User IsNot Nothing AndAlso
+    User.Identity IsNot Nothing AndAlso
+    Not String.IsNullOrWhiteSpace(User.Identity.Name) Then
+             Return User.Identity.Name.ToUpper().Replace("BELWIRED\", "")
+         End If
+         Return "Anonymous"
+     End Get
+ End Property
+
+
+ Public Sub New(adminTabService As IAdminTabService, assetTabRepository As IAssetTabRepository, guidanceTabRepository As IGuidanceTabRepository, breakevenTabRepository As IBreakevenTabRepository, actorTabService As IActorTabService, projectCreditsTabService As IProjectCreditsTabService, collateralTabService As ICollateralTabService, guidelinesTabRepository As IGuidelinesTabRepository, loanOfficerConstructionFollowUpService As ILoanOfficerConstructionFollowUpService, userService As IUserService, analysisCommonService As IAnalysisCommonService, analysisPdfService As IAnalysisPdfService)
+     _adminTabService = adminTabService
+     _assetTabRepository = assetTabRepository
+     _guidanceTabRepository = guidanceTabRepository
+     _breakevenTabRepository = breakevenTabRepository
+     _projectCreditsTabService = projectCreditsTabService
+     _actorTabService = actorTabService
+     _collateralTabService = collateralTabService
+     _guidelinesTabRepository = guidelinesTabRepository
+     _loanOfficerConstructionFollowUpService = loanOfficerConstructionFollowUpService
+     _userService = userService
+     _analysisCommonService = analysisCommonService
+     _analysisPdfService = analysisPdfService
+     _logger = Log.ForContext(Of AnalysisController)()
+ End Sub
 
