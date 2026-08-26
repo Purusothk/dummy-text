@@ -1,363 +1,343 @@
-<?xml version="1.0" encoding="utf-8"?>
+Public Class AssetTabModel
 
-<Report xmlns="http://schemas.microsoft.com/sqlserver/reporting/2008/01/reportdefinition" xmlns:rd="http://schemas.microsoft.com/SQLServer/reporting/reportdesigner">
-	<DataSources>
-		<DataSource Name="DataSource1">
-			<ConnectionProperties>
-				<DataProvider>System.Data.DataSet</DataProvider>
-				<ConnectString>/* Local Connection */</ConnectString>
-			</ConnectionProperties>
-			<rd:DataSourceID>a1111111-1111-1111-1111-111111111111</rd:DataSourceID>
-		</DataSource>
-	</DataSources>
-	<DataSets>
-		<DataSet Name="AnalysisFields">
-			<Fields>
-				<Field Name="TabName">
-					<DataField>TabName</DataField>
-					<rd:TypeName>System.String</rd:TypeName>
-				</Field>
-				<Field Name="SectionName">
-					<DataField>SectionName</DataField>
-					<rd:TypeName>System.String</rd:TypeName>
-				</Field>
-				<Field Name="Label">
-					<DataField>Label</DataField>
-					<rd:TypeName>System.String</rd:TypeName>
-				</Field>
-				<Field Name="Value">
-					<DataField>Value</DataField>
-					<rd:TypeName>System.String</rd:TypeName>
-				</Field>
-				<Field Name="SortOrder">
-					<DataField>SortOrder</DataField>
-					<rd:TypeName>System.Int32</rd:TypeName>
-				</Field>
-			</Fields>
-			<Query>
-				<DataSourceName>DataSource1</DataSourceName>
-				<CommandText></CommandText>
-			</Query>
-		</DataSet>
-	</DataSets>
-	<Body>
-		<ReportItems>
-			<Textbox Name="TitleTextbox">
-				<CanGrow>true</CanGrow>
-				<Height>0.3in</Height>
-				<Width>6.5in</Width>
-				<Paragraphs>
-					<Paragraph>
-						<TextRuns>
-							<TextRun>
-								<Value>Project Analysis Report</Value>
-								<Style>
-									<FontFamily>Segoe UI</FontFamily>
-									<FontSize>14pt</FontSize>
-									<FontWeight>Bold</FontWeight>
-								</Style>
-							</TextRun>
-						</TextRuns>
-						<Style />
-					</Paragraph>
-				</Paragraphs>
-				<Style>
-					<Border>
-						<Style>None</Style>
-					</Border>
-				</Style>
-				<Top>0in</Top>
-				<Left>0in</Left>
-			</Textbox>
-			<Tablix Name="Tablix1">
-				<TablixBody>
-					<TablixColumns>
-						<TablixColumn>
-							<Width>2in</Width>
-						</TablixColumn>
-						<TablixColumn>
-							<Width>4.5in</Width>
-						</TablixColumn>
-					</TablixColumns>
-					<TablixRows>
-						<!-- Row 0: TabName group header. Two cells, same background color and
-                 no border between them, so it reads as one solid bar across the
-                 row without relying on ColSpan (not valid on TablixCell in this schema). -->
-						<TablixRow>
-							<Height>0.3in</Height>
-							<TablixCells>
-								<TablixCell>
-									<CellContents>
-										<Textbox Name="TabNameHeaderTextbox">
-											<CanGrow>true</CanGrow>
-											<Paragraphs>
-												<Paragraph>
-													<TextRuns>
-														<TextRun>
-															<Value>=Fields!TabName.Value</Value>
-															<Style>
-																<FontFamily>Segoe UI</FontFamily>
-																<FontSize>12pt</FontSize>
-																<FontWeight>Bold</FontWeight>
-																<Color>White</Color>
-															</Style>
-														</TextRun>
-													</TextRuns>
-													<Style />
-												</Paragraph>
-											</Paragraphs>
-											<Style>
-												<BackgroundColor>#34495E</BackgroundColor>
-												<PaddingLeft>4pt</PaddingLeft>
-												<PaddingTop>2pt</PaddingTop>
-												<PaddingBottom>2pt</PaddingBottom>
-												<Border>
-													<Style>None</Style>
-												</Border>
-											</Style>
-										</Textbox>
-									</CellContents>
-								</TablixCell>
-								<TablixCell>
-									<CellContents>
-										<Textbox Name="TabNameHeaderFillTextbox">
-											<CanGrow>true</CanGrow>
-											<Paragraphs>
-												<Paragraph>
-													<TextRuns>
-														<TextRun>
-															<Value></Value>
-															<Style>
-																<FontFamily>Segoe UI</FontFamily>
-																<FontSize>12pt</FontSize>
-															</Style>
-														</TextRun>
-													</TextRuns>
-													<Style />
-												</Paragraph>
-											</Paragraphs>
-											<Style>
-												<BackgroundColor>#34495E</BackgroundColor>
-												<Border>
-													<Style>None</Style>
-												</Border>
-											</Style>
-										</Textbox>
-									</CellContents>
-								</TablixCell>
-							</TablixCells>
-						</TablixRow>
-						<!-- Row 1: SectionName group header. Same two-cell-same-color technique. -->
-						<TablixRow>
-							<Height>0.25in</Height>
-							<TablixCells>
-								<TablixCell>
-									<CellContents>
-										<Textbox Name="SectionNameHeaderTextbox">
-											<CanGrow>true</CanGrow>
-											<Paragraphs>
-												<Paragraph>
-													<TextRuns>
-														<TextRun>
-															<Value>=Fields!SectionName.Value</Value>
-															<Style>
-																<FontFamily>Segoe UI</FontFamily>
-																<FontSize>10pt</FontSize>
-																<FontWeight>Bold</FontWeight>
-																<Color>White</Color>
-															</Style>
-														</TextRun>
-													</TextRuns>
-													<Style />
-												</Paragraph>
-											</Paragraphs>
-											<Style>
-												<BackgroundColor>#5D6D7E</BackgroundColor>
-												<PaddingLeft>4pt</PaddingLeft>
-												<PaddingTop>2pt</PaddingTop>
-												<PaddingBottom>2pt</PaddingBottom>
-												<Border>
-													<Style>None</Style>
-												</Border>
-											</Style>
-										</Textbox>
-									</CellContents>
-								</TablixCell>
-								<TablixCell>
-									<CellContents>
-										<Textbox Name="SectionNameHeaderFillTextbox">
-											<CanGrow>true</CanGrow>
-											<Paragraphs>
-												<Paragraph>
-													<TextRuns>
-														<TextRun>
-															<Value></Value>
-															<Style>
-																<FontFamily>Segoe UI</FontFamily>
-																<FontSize>10pt</FontSize>
-															</Style>
-														</TextRun>
-													</TextRuns>
-													<Style />
-												</Paragraph>
-											</Paragraphs>
-											<Style>
-												<BackgroundColor>#5D6D7E</BackgroundColor>
-												<Border>
-													<Style>None</Style>
-												</Border>
-											</Style>
-										</Textbox>
-									</CellContents>
-								</TablixCell>
-							</TablixCells>
-						</TablixRow>
-						<!-- Row 2: Detail row - Label | Value -->
-						<TablixRow>
-							<Height>0.2in</Height>
-							<TablixCells>
-								<TablixCell>
-									<CellContents>
-										<Textbox Name="LabelTextbox">
-											<CanGrow>true</CanGrow>
-											<Paragraphs>
-												<Paragraph>
-													<TextRuns>
-														<TextRun>
-															<Value>=Fields!Label.Value</Value>
-															<Style>
-																<FontFamily>Segoe UI</FontFamily>
-																<FontSize>9pt</FontSize>
-																<FontWeight>Bold</FontWeight>
-															</Style>
-														</TextRun>
-													</TextRuns>
-													<Style />
-												</Paragraph>
-											</Paragraphs>
-											<Style>
-												<BackgroundColor>#F5F5F5</BackgroundColor>
-												<PaddingLeft>4pt</PaddingLeft>
-												<Border>
-													<Style>Solid</Style>
-													<Color>LightGrey</Color>
-													<Width>0.5pt</Width>
-												</Border>
-											</Style>
-										</Textbox>
-									</CellContents>
-								</TablixCell>
-								<TablixCell>
-									<CellContents>
-										<Textbox Name="ValueTextbox">
-											<CanGrow>true</CanGrow>
-											<Paragraphs>
-												<Paragraph>
-													<TextRuns>
-														<TextRun>
-															<Value>=Fields!Value.Value</Value>
-															<Style>
-																<FontFamily>Segoe UI</FontFamily>
-																<FontSize>9pt</FontSize>
-															</Style>
-														</TextRun>
-													</TextRuns>
-													<Style />
-												</Paragraph>
-											</Paragraphs>
-											<Style>
-												<PaddingLeft>4pt</PaddingLeft>
-												<Border>
-													<Style>Solid</Style>
-													<Color>LightGrey</Color>
-													<Width>0.5pt</Width>
-												</Border>
-											</Style>
-										</Textbox>
-									</CellContents>
-								</TablixCell>
-							</TablixCells>
-						</TablixRow>
-					</TablixRows>
-				</TablixBody>
-				<TablixColumnHierarchy>
-					<TablixMembers>
-						<TablixMember />
-						<TablixMember />
-					</TablixMembers>
-				</TablixColumnHierarchy>
-				<TablixRowHierarchy>
-					<TablixMembers>
-						<!-- TabNameGroup: dynamic, one iteration per distinct TabName.
-                 Not itself a leaf - it has two children below. -->
-						<TablixMember>
-							<Group Name="TabNameGroup">
-								<GroupExpressions>
-									<GroupExpression>=Fields!TabName.Value</GroupExpression>
-								</GroupExpressions>
-							</Group>
-							<SortExpressions>
-								<SortExpression>
-									<Value>=Fields!TabName.Value</Value>
-								</SortExpression>
-							</SortExpressions>
-							<TablixMembers>
-								<!-- Static leaf: the TabName header row itself. No Group ->
-                     appears exactly once per TabNameGroup iteration.
-                     Maps to TablixRow[0]. -->
-								<TablixMember />
-								<!-- SectionNameGroup: dynamic, one iteration per distinct
-                     SectionName within this Tab. Not a leaf - has two children. -->
-								<TablixMember>
-									<Group Name="SectionNameGroup">
-										<GroupExpressions>
-											<GroupExpression>=Fields!SectionName.Value</GroupExpression>
-										</GroupExpressions>
-									</Group>
-									<SortExpressions>
-										<SortExpression>
-											<Value>=Fields!SectionName.Value</Value>
-										</SortExpression>
-									</SortExpressions>
-									<TablixMembers>
-										<!-- Static leaf: the SectionName header row itself.
-                         Maps to TablixRow[1]. -->
-										<TablixMember />
-										<!-- Details: dynamic leaf, one row per underlying data
-                         row (field). Maps to TablixRow[2]. -->
-										<TablixMember>
-											<Group Name="Details" />
-											<SortExpressions>
-												<SortExpression>
-													<Value>=Fields!SortOrder.Value</Value>
-												</SortExpression>
-											</SortExpressions>
-										</TablixMember>
-									</TablixMembers>
-								</TablixMember>
-							</TablixMembers>
-						</TablixMember>
-					</TablixMembers>
-				</TablixRowHierarchy>
-				<DataSetName>AnalysisFields</DataSetName>
-				<Top>0.4in</Top>
-				<Left>0in</Left>
-				<Height>0.75in</Height>
-				<Width>6.5in</Width>
-			</Tablix>
-		</ReportItems>
-		<Height>8in</Height>
-	</Body>
-	<Width>6.5in</Width>
-	<Page>
-		<PageHeight>11in</PageHeight>
-		<PageWidth>8.5in</PageWidth>
-		<LeftMargin>1in</LeftMargin>
-		<RightMargin>1in</RightMargin>
-		<TopMargin>1in</TopMargin>
-		<BottomMargin>1in</BottomMargin>
-		<ColumnSpacing>0in</ColumnSpacing>
-	</Page>
-	<rd:ReportUnitType>Inch</rd:ReportUnitType>
-	<rd:ReportID>b2222222-2222-2222-2222-222222222222</rd:ReportID>
-</Report>
+    Public Property PROJ_ID As Integer
+    Public Property PROJ_STATUS_ID As Integer
+    Public Property PROJ_STATUS_FLOW_ID As Integer
+    Public Property ASST_RE_EVALUATION_REFERENCE_NM As String
+    Public Property PRCR_COMMERCIAL_RE_PRJ_ID As Integer
+    Public Property PRCR_RE_TYPE_ID As Integer
+    Public Property PRCR_RE_TYPE_DETAIL_ID As Integer
+    Public Property PRCR_GROUND_BUILD_SPLIT_SW As Integer
+    Public Property PRCR_GOAL_ID As Integer
+    Public Property PRCR_BREYNE_LAW_SW As Integer
+    Public Property PRCR_CRE_CONDITION_ID As Integer
+    Public Property CRGU_BUILDING_YEAR As Integer
+    Public Property CRGU_RENOVATION_YEAR As Integer
+    Public Property CRGU_FIRST_USAGE_YEAR As Integer
+    Public Property CRGU_COMPLIANT_BUILDING_SW As Integer
+    Public Property CRGU_PRIME_LOCATION_SW As Integer
+    Public Property CRGU_CONTAMINATED_SOILS_SW As Integer
+    Public Property CRGU_BUILD_PERC_ID As Integer
+    Public Property CRGU_PROJECT_ALIGNED_SW As Integer
+    Public Property ASST_STREET_NM As String
+    Public Property ASST_STREET_NR_NM As String
+    Public Property ASST_STREET_BOX_NM As String
+    Public Property ASST_CITY_NM As String
+    Public Property ASST_POSTAL_CODE_ID As String
+    Public Property ASST_LOCATION_ID As Integer
+    Public Property ASST_OTHER_LOCATION_REFERENCE_NM As String
+    Public Property ASST_SURFACE_AM As Integer
+    Public Property ASST_MAIN_UNITS_AM As Integer
+    Public Property ASST_COLLATERAL_NATURE_ID As String
+    Public Property ASST_COLLATERAL_ATTRIBUTE_ID As String
+    Public Property ASST_MARKET_VALUE_AM As Decimal
+    Public Property ASST_FORCED_SALE_VALUE_AM As Decimal
+    Public Property ASST_EXPERT_METHODO_CONFIRM_ID As Integer
+    Public Property ASST_EXPERTISE_METHODO_ID As Integer
+    Public Property ASST_MARKET_VALUE_EXPERT_AM As Decimal
+    Public Property ASST_FORCED_SALE_VALUE_EXPERT_AM As Decimal
+    Public Property ASST_EXPERTISE_SOURCE_ID As Integer
+    Public Property ASST_EXPERTISE_SOURCE_OTHER_NM As String
+    Public Property ASST_EXPERTISE_DATE_DT As Date
+    Public Property ASST_ENERGY_LABEL_TYPE_ID As Integer
+    Public Property ASST_ENERGY_LABEL_ID As Integer
+    Public Property ASST_ENERGY_LABEL_DATE_DT As Date
+    Public Property ASST_FLOOD_RISK_ID As Integer
+    Public Property ASST_HEATING_COOLING_PRIMARY_SOURCE_ID As Integer
+    Public Property ASST_SOLAR_PANELS_ID As Integer
+    Public Property ASST_KWH_M_YEAR_AM As Decimal
+    Public Property ASST_CO_EMISSIONS_AM As Decimal
+    Public Property ASST_TOTAL_EXPECTED_SALES_PRICE_AM As Decimal
+    Public Property ASST_YEARLY_ESTIMATED_RENTAL_INCOME_AM As Decimal
+    Public Property ASST_YEARLY_CONTRACTED_RENTAL_INCOME_AM As Decimal
+    Public Property ASST_SURFACE_RENTED_AM As Integer
+    Public Property ASST_ALL_SOLD_EXPECTED_DATE_DT As Date
+    Public Property ASST_ANNUAL_OPER_EXPENSE_AM As Decimal
+    Public Property ASST_NEXT_RENTAL_BREAK_DATE_DT As Date
+    Public Property ASST_END_DATE_CONTRACT_DT As Date
+    Public Property ACTR_ACTOR_ID As String
+    Public Property ACTR_QUALITY_ID As Integer
+    Public Property ACTR_ACTOR_NAME_NM As String
+    Public Property RE_CROI_COMM_CONTINU_PRJ_SW As Integer?
+End Class
+
+Public Class GuidanceTabModel
+
+    Public Property PROJ_ID As Integer
+    Public Property PROJ_STATUS_ID As Integer
+    Public Property PROJ_STATUS_FLOW_ID As Integer
+    Public Property PROJ_STATUS_DATE As Date
+    Public Property MADB_CLIENT_SW As Integer
+    Public Property MADB_ACTOR_ID As String
+    Public Property MADB_PRIVATE_WEALTH_ID As Integer
+    Public Property ACTR_NM_NAME1 As String
+    Public Property ACTR_NM_NAME2 As String
+    Public Property ACTR_NM_FSTNAME As String
+    Public Property MADB_MASTERSCALE_ID As Integer
+    Public Property MADB_MASTERSCALE_LBL As String
+    Public Property MADB_MASTERSCALE_DATE_DT As Date
+    Public Property PRCR_COMMERCIAL_RE_PRJ_ID As Integer
+    Public Property PRCR_COMMERCIAL_RE_PRJ_LBL As String
+    Public Property PRCR_RE_TYPE_ID As Integer
+    Public Property PRCR_RE_TYPE_LBL As String
+    Public Property PRCR_GROUND_BUILD_SPLIT_SW As Integer
+    Public Property PRCR_ENVIRONMENT_PERMIT_SW As Integer
+    Public Property PRCR_CRE_CONDITION_ID As Integer
+    Public Property PRCR_RE_TYPE_DETAIL_ID As Integer
+    Public Property PRCR_RE_AS_COLLATERALS_NR As Integer
+    Public Property PRCR_OTHER_PROPOSED_COLLATERALS_SW As Integer
+    Public Property PRCR_GOAL_ID As Integer
+    Public Property PRCR_BREYNE_LAW_SW As Integer
+    Public Property PRCR_CRE_PROJECT_COLLATERAL_ID As Integer
+    Public Property CLTL_PROJECT_COLLATERAL_ID_1 As Integer
+    Public Property CLTL_PROJECT_COLLATERAL_LBL_1 As String
+    Public Property CLTL_MARKET_VALUE_AM_1 As Decimal
+    Public Property CLTL_OUTSTANDING_AM_1 As Decimal
+    Public Property CLTL_MARKET_VALUE_AM_2 As Decimal
+    Public Property CLTL_OUTSTANDING_AM_2 As Decimal
+    Public Property CLTL_MARKET_VALUE_AM_3 As Decimal
+    Public Property CLTL_OUTSTANDING_AM_3 As Decimal
+    Public Property CLTL_COUNTRY_ID_1 As Integer
+    Public Property CLTL_COUNTRY_ID_2 As Integer
+    Public Property CLTL_COUNTRY_ID_3 As Integer
+    Public Property CLOT_OTHER_COLLATERAL_AM As Decimal
+    Public Property CLOT_SECURITIES_ACCOUNTS_AM As Decimal
+    Public Property GUID_OTHER_REAL_ESTATE_AM As Decimal
+    Public Property GUID_OTHER_REAL_ESTATE_OUTSTANDING_AM As Decimal
+    Public Property CROI_CREDIT_CHARGE_CAPITAL_AM As Decimal
+    Public Property CROI_CREDIT_CHARGE_INTEREST_AM As Decimal
+    Public Property CROI_COMM_CONTINU_PRJ_SW As Integer
+    Public Property GUID_RENTAL_INCOMES_EXISTING_AM As Decimal
+    Public Property GUID_CREDIT_CHARGES_EXISTING_AM As Decimal
+    Public Property GUID_EBIDTA_AM As Decimal
+    Public Property GUID_MAX_PRJ_RISK_AM As Decimal
+    Public Property GUID_CLIENT_PRJ_EXPRNCE_ID As Integer
+    Public Property GUID_DECISION_LEVEL_ID As Integer
+    Public Property GUID_OTHER_COMMENT_NM As String
+    Public Property ASST_SURFACE_AM As Decimal
+    Public Property ASST_MAIN_UNITS_AM As Decimal
+    Public Property ASST_LOCATION_ID As Integer
+    Public Property ASST_LOCATION_LBL As String
+    Public Property ASST_TOTAL_EXPECTED_SALES_PRICE_AM As Decimal
+    Public Property ASST_YEARLY_ESTIMATED_RENTAL_INCOME_AM As Decimal
+    Public Property ASST_EXPERTISE_METHODO_ID As Integer
+    Public Property ASST_SURFACE_RENTED_AM As Integer
+    Public Property SPNS_NET_ASSETS_AM As Decimal
+    Public Property SPNS_SECURED_INCOME_AM As Decimal
+    Public Property PRFU_CLIENT_CONTRIBUTION_AM As Decimal
+    Public Property PRFU_SPONSOR_CONTRIBUTION_AM As Decimal
+    Public Property PRFU_DEPOSIT_PRESALES_AM As Decimal
+    Public Property PRFU_SIGNED_PRESALES_AM As Decimal
+    Public Property PRFU_OTHER_AM As Decimal
+    Public Property PRFU_BELFIUS_CREDITS_TOTAL_AM As Decimal
+    Public Property SUM_CLTL_MARKET_VALUE_AM_PROJ As Decimal
+    Public Property SUM_CLTL_MARKET_VALUE_EXPERT_AM_PROJ As Decimal
+    Public Property SUM_CLTL_MARKET_VALUE_AM_EXT As Decimal
+    Public Property SUM_CLTL_MARKET_VALUE_EXPERT_AM_EXT As Decimal
+    Public Property SUM_CLTL_MARKET_VALUE_AM_GLOB As Decimal
+    Public Property SUM_CLTL_MARKET_VALUE_EXPERT_AM_GLOB As Decimal
+    Public Property SUM_CLTL_OUTSTANDING_AM As Decimal
+    Public Property CRED_1_DURATION_AM As Integer
+    Public Property CRGU_SALES_STRATEGY_ID As Integer
+    Public Property CRGU_SALES_STRATEGY_LBL As String
+    Public Property CRGU_CONTINU_BUSS_MODEL_SW As Integer
+    Public Property CRGU_LT_TENANCY_AGREEMENT_SW As Integer
+    Public Property CRGU_FIXED_EXIT_SW As Integer
+    Public Property CRGU_CONTAMINATED_SOILS_SW As Integer
+    Public Property CRGU_PROJECT_ALIGNED_SW As Integer
+    Public Property CRGU_RENOVATION_YEAR As Integer
+    Public Property CRGU_PRIME_LOCATION_SW As Integer
+    Public Property CRGU_RENTING_PROSPECTS_SW As Integer
+    Public Property CRGU_COMPLIANT_BUILDING_SW As Integer
+    Public Property ACTR_5_ACTOR_ID As String
+    Public Property ACTR_5_IS_VALID_ACTOR As Integer
+    Public Property ACTR_5_QUALITY_ID As Integer
+    Public Property ACTR_5_QUALITY_LBL As String
+    Public Property ACIR_5_CO_MSALCCC As String
+    Public Property ACIR_5_ID_MSALCCC As Integer
+    Public Property COST_1_AMOUNT_AM As Decimal
+    Public Property MOTI_ID_1 As Integer
+    Public Property MOTI_ID_2 As Integer
+    Public Property MOTI_ID_3 As Integer
+    Public Property DECI_IMMOTOOL_SW As Integer
+    Public Property DECI_DECISION_LEVEL_ID As String
+    Public Property DECI_DECISION_ID As Integer
+    Public Property DECI_DECISION_DATE_DT As Date
+    Public Property DECI_RATIONALE_NM As String
+    Public Property DECI_CONDTIONS_NM As String
+    Public Property DECI_COLLATERALS_NM As String
+    Public Property DECI_CONTACT_NM As String
+    Public Property DECI_CONTACT_EMAIL_NM As String
+    Public Property DECI_CONTACT_PHONE_NR As String
+    Public Property DECM_USER_ID_1 As String
+    Public Property DECM_USER_ID_2 As String
+    Public Property DECM_USER_ID_3 As String
+    Public Property DECM_USER_ID_4 As String
+    Public Property DECM_USER_ID_5 As String
+    Public Property DECM_USER_ID_6 As String
+    Public Property DECM_USER_ID_7 As String
+    Public Property DECM_USER_ID_8 As String
+    Public Property DECM_USER_ID_9 As String
+    Public Property DECM_USER_ID_10 As String
+    Public Property PROJ_STATUS_ID_1 As Integer
+    Public Property PROJ_STATUS_FLOW_ID_1 As Integer
+    Public Property PROJ_STATUS_DATE_1 As Date
+    Public Property CRGU_CLR_LICENSE_ISSUED_ID_1 As String
+    Public Property CRGU_CLR_LTV_PROJECT_ID_1 As String
+    Public Property CRGU_CLR_LOCATION_ID_1 As String
+    Public Property CRGU_CLR_OWN_FUNDS_PRESALES_ID_1 As String
+    Public Property CRGU_CLR_OWN_FUNDS_ID_1 As String
+    Public Property CRGU_CLR_PRESALES_ID_1 As String
+    Public Property CRGU_CLR_DURATION_ID_1 As String
+    Public Property CRGU_CLR_LTR_ID_1 As String
+    Public Property CRGU_CLR_BULLET_ID_1 As String
+    Public Property CRGU_CLR_COMM_CONT_PROJECT_ID_1 As String
+    Public Property CRGU_CLR_CONTAMINATED_SOILS_ID_1 As String
+    Public Property CRGU_CLR_PROJECT_ALIGNED_ID_1 As String
+    Public Property CRGU_CLR_COMPLIANT_BUILDING_ID_1 As String
+    Public Property CRGU_CLR_REBUILDING_YEAR_ID_1 As String
+    Public Property CRGU_CLR_PRIME_LOCATION_ID_1 As String
+    Public Property CRGU_CLR_COWORKING_ID_1 As String
+    Public Property CRGU_CLR_SALES_STRATEGY_ID_1 As String
+    Public Property CRGU_CLR_FIXED_EXIT_ID_1 As String
+    Public Property CRGU_CLR_DURATION_SPECIFIC_ID_1 As String
+    Public Property CRGU_CLR_COMPLIANT_AFTER_TRANSF_ID_1 As String
+    Public Property CRGU_CLR_RENTING_PROSPECTS_ID_1 As String
+    Public Property CRGU_CLR_CONTINU_BUSS_MODEL_ID_1 As String
+    Public Property CRGU_CLR_LT_TENANCY_AGREEMENT_ID_1 As String
+    Public Property CRGU_CLR_QUALITY_OPERATOR_ID_1 As String
+    Public Property CRGU_CLR_SPONSOR_CONTRIB_ID_1 As String
+    Public Property CRGU_LICENSE_ISSUED_SW_1 As Integer
+    Public Property CRGU_LTV_PROJECT_AM_1 As Decimal
+    Public Property CRGU_LOCATION_NM_1 As String
+    Public Property CRGU_OWN_FUNDS_PRESALES_AM_1 As Decimal
+    Public Property CRGU_OWN_FUNDS_AM_1 As Decimal
+    Public Property CRGU_PRESALES_AM_1 As Decimal
+    Public Property CRGU_DURATION_AM_1 As Integer
+    Public Property CRGU_LTR_AM_1 As Decimal
+    Public Property CRGU_BULLET_SW_1 As Integer
+    Public Property CRGU_COMM_CONT_PROJECT_SW_1 As Integer
+    Public Property CRGU_CONTAMINATED_SOILS_SW_1 As Integer
+    Public Property CRGU_PROJECT_ALIGNED_SW_1 As Integer
+    Public Property CRGU_COMPLIANT_BUILDING_SW_1 As Integer
+    Public Property CRGU_REBUILDING_YEAR_AM_1 As Integer
+    Public Property CRGU_PRIME_LOCATION_SW_1 As Integer
+    Public Property CRGU_COWORKING_SW_1 As Integer
+    Public Property CRGU_SALES_STRATEGY_NM_1 As String
+    Public Property CRGU_FIXED_EXIT_SW_1 As Integer
+    Public Property CRGU_DURATION_SPECIFIC_AM_1 As Integer
+    Public Property CRGU_COMPLIANT_AFTER_TRANSF_SW_1 As Integer
+    Public Property CRGU_RENTING_PROSPECTS_SW_1 As Integer
+    Public Property CRGU_CONTINU_BUSS_MODEL_SW_1 As Integer
+    Public Property CRGU_LT_TENANCY_AGREEMENT_SW_1 As Integer
+    Public Property CRGU_QUALITY_OPERATOR_NM_1 As String
+    Public Property CRGU_SPONSOR_CONTRIB_AM_1 As Decimal
+    Public Property PROJ_STATUS_ID_2 As Integer
+    Public Property PROJ_STATUS_FLOW_ID_2 As Integer
+    Public Property PROJ_STATUS_DATE_2 As Date
+    Public Property CRGU_CLR_LICENSE_ISSUED_ID_2 As String
+    Public Property CRGU_CLR_LTV_PROJECT_ID_2 As String
+    Public Property CRGU_CLR_LOCATION_ID_2 As String
+    Public Property CRGU_CLR_OWN_FUNDS_PRESALES_ID_2 As String
+    Public Property CRGU_CLR_OWN_FUNDS_ID_2 As String
+    Public Property CRGU_CLR_PRESALES_ID_2 As String
+    Public Property CRGU_CLR_DURATION_ID_2 As String
+    Public Property CRGU_CLR_LTR_ID_2 As String
+    Public Property CRGU_CLR_BULLET_ID_2 As String
+    Public Property CRGU_CLR_COMM_CONT_PROJECT_ID_2 As String
+    Public Property CRGU_CLR_CONTAMINATED_SOILS_ID_2 As String
+    Public Property CRGU_CLR_PROJECT_ALIGNED_ID_2 As String
+    Public Property CRGU_CLR_COMPLIANT_BUILDING_ID_2 As String
+    Public Property CRGU_CLR_REBUILDING_YEAR_ID_2 As String
+    Public Property CRGU_CLR_PRIME_LOCATION_ID_2 As String
+    Public Property CRGU_CLR_COWORKING_ID_2 As String
+    Public Property CRGU_CLR_SALES_STRATEGY_ID_2 As String
+    Public Property CRGU_CLR_FIXED_EXIT_ID_2 As String
+    Public Property CRGU_CLR_DURATION_SPECIFIC_ID_2 As String
+    Public Property CRGU_CLR_COMPLIANT_AFTER_TRANSF_ID_2 As String
+    Public Property CRGU_CLR_RENTING_PROSPECTS_ID_2 As String
+    Public Property CRGU_CLR_CONTINU_BUSS_MODEL_ID_2 As String
+    Public Property CRGU_CLR_LT_TENANCY_AGREEMENT_ID_2 As String
+    Public Property CRGU_CLR_QUALITY_OPERATOR_ID_2 As String
+    Public Property CRGU_CLR_SPONSOR_CONTRIB_ID_2 As String
+    Public Property CRGU_LICENSE_ISSUED_SW_2 As Integer
+    Public Property CRGU_LTV_PROJECT_AM_2 As Decimal
+    Public Property CRGU_LOCATION_NM_2 As String
+    Public Property CRGU_OWN_FUNDS_PRESALES_AM_2 As Decimal
+    Public Property CRGU_OWN_FUNDS_AM_2 As Decimal
+    Public Property CRGU_PRESALES_AM_2 As Decimal
+    Public Property CRGU_DURATION_AM_2 As Integer
+    Public Property CRGU_LTR_AM_2 As Decimal
+    Public Property CRGU_BULLET_SW_2 As Integer
+    Public Property CRGU_COMM_CONT_PROJECT_SW_2 As Integer
+    Public Property CRGU_CONTAMINATED_SOILS_SW_2 As Integer
+    Public Property CRGU_PROJECT_ALIGNED_SW_2 As Integer
+    Public Property CRGU_COMPLIANT_BUILDING_SW_2 As Integer
+    Public Property CRGU_REBUILDING_YEAR_AM_2 As Integer
+    Public Property CRGU_PRIME_LOCATION_SW_2 As Integer
+    Public Property CRGU_COWORKING_SW_2 As Integer
+    Public Property CRGU_SALES_STRATEGY_NM_2 As String
+    Public Property CRGU_FIXED_EXIT_SW_2 As Integer
+    Public Property CRGU_DURATION_SPECIFIC_AM_2 As Integer
+    Public Property CRGU_COMPLIANT_AFTER_TRANSF_SW_2 As Integer
+    Public Property CRGU_RENTING_PROSPECTS_SW_2 As Integer
+    Public Property CRGU_CONTINU_BUSS_MODEL_SW_2 As Integer
+    Public Property CRGU_LT_TENANCY_AGREEMENT_SW_2 As Integer
+    Public Property CRGU_QUALITY_OPERATOR_NM_2 As String
+    Public Property CRGU_SPONSOR_CONTRIB_AM_2 As Decimal
+    Public Property PROJ_STATUS_ID_3 As Integer
+    Public Property PROJ_STATUS_FLOW_ID_3 As Integer
+    Public Property PROJ_STATUS_DATE_3 As Date
+    Public Property CRGU_CLR_LICENSE_ISSUED_ID_3 As String
+    Public Property CRGU_CLR_LTV_PROJECT_ID_3 As String
+    Public Property CRGU_CLR_LOCATION_ID_3 As String
+    Public Property CRGU_CLR_OWN_FUNDS_PRESALES_ID_3 As String
+    Public Property CRGU_CLR_OWN_FUNDS_ID_3 As String
+    Public Property CRGU_CLR_PRESALES_ID_3 As String
+    Public Property CRGU_CLR_DURATION_ID_3 As String
+    Public Property CRGU_CLR_LTR_ID_3 As String
+    Public Property CRGU_CLR_BULLET_ID_3 As String
+    Public Property CRGU_CLR_COMM_CONT_PROJECT_ID_3 As String
+    Public Property CRGU_CLR_CONTAMINATED_SOILS_ID_3 As String
+    Public Property CRGU_CLR_PROJECT_ALIGNED_ID_3 As String
+    Public Property CRGU_CLR_COMPLIANT_BUILDING_ID_3 As String
+    Public Property CRGU_CLR_REBUILDING_YEAR_ID_3 As String
+    Public Property CRGU_CLR_PRIME_LOCATION_ID_3 As String
+    Public Property CRGU_CLR_COWORKING_ID_3 As String
+    Public Property CRGU_CLR_SALES_STRATEGY_ID_3 As String
+    Public Property CRGU_CLR_FIXED_EXIT_ID_3 As String
+    Public Property CRGU_CLR_DURATION_SPECIFIC_ID_3 As String
+    Public Property CRGU_CLR_COMPLIANT_AFTER_TRANSF_ID_3 As String
+    Public Property CRGU_CLR_RENTING_PROSPECTS_ID_3 As String
+    Public Property CRGU_CLR_CONTINU_BUSS_MODEL_ID_3 As String
+    Public Property CRGU_CLR_LT_TENANCY_AGREEMENT_ID_3 As String
+    Public Property CRGU_CLR_QUALITY_OPERATOR_ID_3 As String
+    Public Property CRGU_CLR_SPONSOR_CONTRIB_ID_3 As String
+    Public Property CRGU_LICENSE_ISSUED_SW_3 As Integer
+    Public Property CRGU_LTV_PROJECT_AM_3 As Decimal
+    Public Property CRGU_LOCATION_NM_3 As String
+    Public Property CRGU_OWN_FUNDS_PRESALES_AM_3 As Decimal
+    Public Property CRGU_OWN_FUNDS_AM_3 As Decimal
+    Public Property CRGU_PRESALES_AM_3 As Decimal
+    Public Property CRGU_DURATION_AM_3 As Integer
+    Public Property CRGU_LTR_AM_3 As Decimal
+    Public Property CRGU_BULLET_SW_3 As Integer
+    Public Property CRGU_COMM_CONT_PROJECT_SW_3 As Integer
+    Public Property CRGU_CONTAMINATED_SOILS_SW_3 As Integer
+    Public Property CRGU_PROJECT_ALIGNED_SW_3 As Integer
+    Public Property CRGU_COMPLIANT_BUILDING_SW_3 As Integer
+    Public Property CRGU_REBUILDING_YEAR_AM_3 As Integer
+    Public Property CRGU_PRIME_LOCATION_SW_3 As Integer
+    Public Property CRGU_COWORKING_SW_3 As Integer
+    Public Property CRGU_SALES_STRATEGY_NM_3 As String
+    Public Property CRGU_FIXED_EXIT_SW_3 As Integer
+    Public Property CRGU_DURATION_SPECIFIC_AM_3 As Integer
+    Public Property CRGU_COMPLIANT_AFTER_TRANSF_SW_3 As Integer
+    Public Property CRGU_RENTING_PROSPECTS_SW_3 As Integer
+    Public Property CRGU_CONTINU_BUSS_MODEL_SW_3 As Integer
+    Public Property CRGU_LT_TENANCY_AGREEMENT_SW_3 As Integer
+    Public Property CRGU_QUALITY_OPERATOR_NM_3 As String
+    Public Property CRGU_SPONSOR_CONTRIB_AM_3 As Decimal
+
+End Class
+
