@@ -1,261 +1,313 @@
-Imports System.Web.Optimization
-
-Public Module BundleConfig
-    ' For more information on bundling, visit https://go.microsoft.com/fwlink/?LinkId=301862
-    Public Sub RegisterBundles(ByVal bundles As BundleCollection)
-
-        bundles.Add(New ScriptBundle("~/bundles/jquery").Include(
-                    "~/Scripts/jquery-{version}.js"))
-
-        bundles.Add(New ScriptBundle("~/bundles/jqueryui").Include(
-                    "~/Scripts/jquery-ui-{version}.js"))
-
-        bundles.Add(New ScriptBundle("~/bundles/jqueryval").Include(
-                    "~/Scripts/jquery.validate*"))
-
-        ' Use the development version of Modernizr to develop with and learn from. Then, when you're
-        ' ready for production, use the build tool at https://modernizr.com to pick only the tests you need.
-        bundles.Add(New ScriptBundle("~/bundles/modernizr").Include(
-                    "~/Scripts/modernizr-*"))
-
-        bundles.Add(New ScriptBundle("~/bundles/bootstrap").Include(
-                  "~/Scripts/bootstrap.js"))
-
-        bundles.Add(New StyleBundle("~/Content/css").Include(
-                  "~/Content/bootstrap.css",
-                  "~/Content/site.css"))
-    End Sub
-End Module
-
-
-Imports System.Web
-Imports System.Web.Mvc
-
-Public Module FilterConfig
-    Public Sub RegisterGlobalFilters(ByVal filters As GlobalFilterCollection)
-        filters.Add(New HandleErrorAttribute())
-    End Sub
-End Module
-
+controller
 Imports Serilog
-Imports Serilog.Events
-Imports System.Configuration
-Imports System.IO
+ 
+Public Class PdfController
 
-Namespace App_Start
-    Public Class LoggerConfig
-        ''' <summary>  
-        ''' Configure Serilog logger with settings from Web.config  
-        ''' </summary>  
-        Public Shared Sub ConfigureLogger()
-            Try
-                ' Read settings from Web.config  
-                Dim logBasePath = If(ConfigurationManager.AppSettings("Serilog:LogBasePath"), Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Logs"))
-                Dim retentionDays = Integer.Parse(If(ConfigurationManager.AppSettings("Serilog:RetentionDays"), "90"))
-                Dim minLevel = If(ConfigurationManager.AppSettings("Serilog:MinimumLevel"), "Information")
-                Dim enableConsole = Boolean.Parse(If(ConfigurationManager.AppSettings("Serilog:EnableConsole"), "true"))
-                Dim appName = If(ConfigurationManager.AppSettings("ApplicationName"), "ImmoSample")
-                Dim environment = If(ConfigurationManager.AppSettings("Environment"), "Development")
+    Inherits Controller
+ 
+    Private ReadOnly _constructionFollowUpService As IConstructionFollowUpService
 
-                ' Validate log path  
-                If String.IsNullOrWhiteSpace(logBasePath) Then
-                    logBasePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Logs")
-                End If
+    Private ReadOnly _pdfService As IPdfReportService
 
-                ' Parse minimum level  
-                Dim logLevel As LogEventLevel = LogEventLevel.Information
-                Select Case minLevel.ToLower()
-                    Case "debug"
-                        logLevel = LogEventLevel.Debug
-                    Case "information"
-                        logLevel = LogEventLevel.Information
-                    Case "warning"
-                        logLevel = LogEventLevel.Warning
-                    Case "error"
-                        logLevel = LogEventLevel.Error
-                    Case Else
-                        logLevel = LogEventLevel.Information
-                End Select
+    Private ReadOnly _logger As ILogger
+ 
+    Private Shared ReadOnly RdlcPaths As New Dictionary(Of String, String) From {
 
-                ' Create log directories  
-                Dim infoLogPath = Path.Combine(logBasePath, "Application", "Info")
-                Dim errorLogPath = Path.Combine(logBasePath, "Application", "Error")
-                Directory.CreateDirectory(infoLogPath)
-                Directory.CreateDirectory(errorLogPath)
+        {"Expected_FR",  "~/Reports/ConstructionFollowUp_Expected_FR.rdlc"},
 
-                ' Configure Serilog  
-                Dim config = New LoggerConfiguration() _
-                    .MinimumLevel.Is(logLevel) _
-                    .MinimumLevel.Override("Microsoft", LogEventLevel.Warning) _
-                    .MinimumLevel.Override("System", LogEventLevel.Warning) _
-                    .Enrich.WithProperty("Application", appName) _
-                    .Enrich.WithProperty("Environment", environment) _
-                    .Enrich.WithMachineName() _
-                    .Enrich.WithThreadId()
+        {"Expected_NL",  "~/Reports/ConstructionFollowUp_Expected_NL.rdlc"},
 
-                ' Console sink (for development)  
-                If enableConsole Then
-                    config = config.WriteTo.Console(
-                        outputTemplate:="[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj}{NewLine}{Exception}"
-                    )
-                End If
+        {"Committed_FR", "~/Reports/ConstructionFollowUp_Committed_FR.rdlc"},
 
-                ' Information logs  
-                config = config.WriteTo.File(
-                    path:=Path.Combine(infoLogPath, "app-.txt"),
-                    restrictedToMinimumLevel:=LogEventLevel.Information,
-                    rollingInterval:=RollingInterval.Day,
-                    retainedFileCountLimit:=retentionDays,
-                    fileSizeLimitBytes:=52428800,
-                    rollOnFileSizeLimit:=True,
-                    shared:=True,
-                    outputTemplate:="{Timestamp:yyyy-MM-dd HH:mm:ss.fff} [{Level:u3}] [{MachineName}] [{ThreadId}] {SourceContext} - {Message:lj}{NewLine}{Exception}"
-                )
+        {"Committed_NL", "~/Reports/ConstructionFollowUp_Committed_NL.rdlc"}
 
-                ' Error logs  
-                config = config.WriteTo.File(
-                    path:=Path.Combine(errorLogPath, "error-.txt"),
-                    restrictedToMinimumLevel:=LogEventLevel.Error,
-                    rollingInterval:=RollingInterval.Day,
-                    retainedFileCountLimit:=retentionDays * 2,
-                    fileSizeLimitBytes:=104857600,
-                    rollOnFileSizeLimit:=True,
-                    shared:=True,
-                    outputTemplate:="{Timestamp:yyyy-MM-dd HH:mm:ss.fff} [{Level:u3}] {SourceContext}{NewLine}Message: {Message:lj}{NewLine}{Exception}{NewLine}---{NewLine}"
-                )
+    }
+ 
+    Public Sub New(constructionFollowUpService As IConstructionFollowUpService,
 
-                ' Create logger  
-                Log.Logger = config.CreateLogger()
+                   pdfService As IPdfReportService)
 
-                ' Startup log  
-                Log.Information("========== Application Started ==========")
-                Log.Information("Application: {AppName}, Environment: {Environment}", appName, environment)
-                Log.Information("Log Path: {LogPath}, Retention: {Days} days", logBasePath, retentionDays)
-                Log.Information("========================================")
-            Catch ex As Exception
-                ' Fallback logger if configuration fails  
-                Log.Logger = New LoggerConfiguration() _
-                    .WriteTo.Console() _
-                    .CreateLogger()
-                Log.Fatal(ex, "Failed to configure logger - using fallback console logger")
-            End Try
-        End Sub
+        _constructionFollowUpService = constructionFollowUpService
 
-        ''' <summary>  
-        ''' Shutdown logger and flush pending logs  
-        ''' </summary>  
-        Public Shared Sub ShutdownLogger()
-            Log.Information("========== Application Stopped ==========")
-            Log.CloseAndFlush()
-        End Sub
-    End Class
-End Namespace
-Imports System
-Imports System.Collections.Generic
-Imports System.Linq
-Imports System.Web
-Imports System.Web.Mvc
-Imports System.Web.Routing
+        _pdfService = pdfService
 
-Public Module RouteConfig
-    Public Sub RegisterRoutes(ByVal routes As RouteCollection)
-        routes.IgnoreRoute("{resource}.axd/{*pathInfo}")
-
-        routes.MapRoute(
-            name:="Default",
-            url:="{controller}/{action}/{id}",
-            defaults:=New With {.controller = "Portal", .action = "Index", .id = UrlParameter.Optional} 'Loading Welcome Page on Fresh load
-        )
-    End Sub
-End Module
-
-
-Imports System.Data.Entity.Core.Metadata.Edm
-Imports System.Web.Mvc
-Imports Unity
-Imports Unity.Mvc5
-
-''' <summary>
-'''  Using the Unity for Dependancy Injection
-''' </summary>
-Public Class UnityConfig
-    Public Shared Sub RegisterComponents()
-        Dim container = New UnityContainer()
-
-        ' Register your dependencies here
-        ' This tell unity: when some one ask for IAdminTabRepository give them AdminTabRepository
-        container.RegisterType(Of IAdminTabRepository, AdminTabRepository)()
-        container.RegisterType(Of IAdminTabService, AdminTabService)()
-        container.RegisterType(Of IActorTabRepository, ActorTabRepository)()
-        container.RegisterType(Of IActorTabService, ActorTabService)()
-        container.RegisterType(Of ITcodCacheRepository, TcodCacheRepository)()
-        container.RegisterType(Of ITcodCacheService, TcodCacheService)()
-        container.RegisterType(Of IAssetTabRepository, AssetTabRepository)()
-        container.RegisterType(Of IGuidanceTabRepository, GuidanceTabRepository)()
-        container.RegisterType(Of IBreakevenTabRepository, BreakevenTabRepository)()
-        container.RegisterType(Of IGuidelinesTabRepository, GuidelinesTabRepository)()
-        container.RegisterType(Of IProjectCreditsTabService, ProjectCreditsTabService)()
-        container.RegisterType(Of IProjectCreditsTabRepository, ProjectCreditsTabRepository)
-        container.RegisterType(Of ICollateralTabService, CollateralTabService)()
-        container.RegisterType(Of ICollateralRepository, CollateralRepository)()
-        container.RegisterType(Of ILoanOfficerConstructionFollowUpRepository, LoanOfficerConstructionFollowUpRepository)()
-        container.RegisterType(Of ILoanOfficerConstructionFollowUpService, LoanOfficerConstructionFollowUpService)()
-        container.RegisterType(Of IUserRepository, UserRoleRepository)()
-        container.RegisterType(Of IUserService, UserService)()
-        container.RegisterType(Of IWelcomeRepository, WelcomeRepository)()
-        container.RegisterType(Of IAnalysisCommonRepository, AnalysisCommonRepository)()
-        container.RegisterType(Of IAnalysisCommonService, AnalysisCommonService)()
-
-
-        'RegisterByConvention(container)
-
-        ' set Unity as the dependency resolver for mvc
-        DependencyResolver.SetResolver(New UnityDependencyResolver(container))
+        _logger = Log.ForContext(Of PdfController)()
 
     End Sub
+ 
+    <HttpGet>
+
+    Public Function ConstructionFollowUpPdf(
+
+        projectId As Integer?,
+
+        stage As String,
+
+        language As String,
+
+        Optional projectStatusId As Integer? = Nothing,
+
+        Optional projectFlowId As Integer? = Nothing
+
+    ) As ActionResult
+ 
+        If Not projectId.HasValue OrElse projectId.Value <= 0 Then
+
+            _logger.Warning("ConstructionFollowUpPdf - Invalid projectId | ProjectId:{ProjectId}", projectId)
+
+            Return New HttpStatusCodeResult(400, "Invalid project ID.")
+
+        End If
+ 
+        Dim normalizedStage = If(stage, "").Trim()
+
+        Dim normalizedLang = If(language, "").Trim().ToUpper()
+ 
+        If normalizedStage <> "Expected" AndAlso normalizedStage <> "Committed" Then
+
+            Return New HttpStatusCodeResult(400, "Stage must be 'Expected' or 'Committed'.")
+
+        End If
+ 
+        If normalizedLang <> "FR" AndAlso normalizedLang <> "NL" Then
+
+            Return New HttpStatusCodeResult(400, "Language must be 'FR' or 'NL'.")
+
+        End If
+ 
+        Dim rdlcKey = normalizedStage & "_" & normalizedLang
+
+        Dim rdlcPath As String = Nothing
+
+        If Not RdlcPaths.TryGetValue(rdlcKey, rdlcPath) Then
+
+            Return New HttpStatusCodeResult(500, "Report template not found.")
+
+        End If
+ 
+        Try
+
+            Dim followUpData = _constructionFollowUpService.GetConstructionFollowUp(projectId, projectStatusId, projectFlowId)
+ 
+            Dim phases As List(Of ConstructionFollowUpPhase) = Nothing
+
+            If normalizedStage = "Expected" Then
+
+                phases = followUpData.Expected?.FirstOrDefault()?.Expected
+
+            Else
+
+                phases = followUpData.Committed?.FirstOrDefault()?.Committed
+
+            End If
+ 
+            If phases Is Nothing OrElse Not phases.Any() Then
+
+                _logger.Warning("ConstructionFollowUpPdf - No {Stage} data | ProjectId:{ProjectId}", normalizedStage, projectId.Value)
+
+                Return New HttpStatusCodeResult(404, "No " & normalizedStage & " data found for this project.")
+
+            End If
+ 
+            Dim dataSources As New Dictionary(Of String, IEnumerable) From {
+
+                {"PhaseData", phases}
+
+            }
+ 
+            Dim parameters As New Dictionary(Of String, String) From {
+
+                {"prm_ProjectId",     projectId.Value.ToString()},
+
+                {"prm_DocumentRef",   projectId.Value.ToString()},
+
+                {"prm_GeneratedDate", DateTime.Now.ToString("dd/MM/yyyy")}
+
+            }
+ 
+            Dim pdfBytes = _pdfService.GeneratePdf(rdlcPath, "CFU_" & rdlcKey, dataSources, parameters)
+ 
+            Dim fileName = "ConstructionFollowUp_" & normalizedStage & "_" & normalizedLang & "_" & DateTime.Now.ToString("yyyyMMdd") & ".pdf"
+
+            Return File(pdfBytes, "application/pdf", fileName)
+ 
+        Catch ex As Exception
+
+            Dim refId = Guid.NewGuid().ToString().Substring(0, 8).ToUpper()
+
+            _logger.Error(ex, "ConstructionFollowUpPdf - Error | RefId:{RefId} | ProjectId:{ProjectId} | Stage:{Stage} | Lang:{Lang}",
+
+                          refId, projectId.Value, normalizedStage, normalizedLang)
+
+            Return New HttpStatusCodeResult(500, "Could not generate PDF. Contact IT support with reference: " & refId)
+
+        End Try
+ 
+    End Function
+ 
 End Class
 
+service
+interface
+Imports System.Collections
+ 
+''' <summary>
 
-in analysis controller is this correct ?
- Private ReadOnly _adminTabService As IAdminTabService
- Private ReadOnly _actorTabService As IActorTabService
- Private ReadOnly _projectCreditsTabService As IProjectCreditsTabService
- Private ReadOnly _collateralTabService As ICollateralTabService
- Private ReadOnly _loanOfficerConstructionFollowUpService As ILoanOfficerConstructionFollowUpService
- Private ReadOnly _assetTabRepository As IAssetTabRepository
- Private ReadOnly _guidanceTabRepository As IGuidanceTabRepository
- Private ReadOnly _breakevenTabRepository As IBreakevenTabRepository
- Private ReadOnly _guidelinesTabRepository As IGuidelinesTabRepository
- Private ReadOnly _userService As IUserService
- Private ReadOnly _analysisCommonService As IAnalysisCommonService
- Private ReadOnly _logger As ILogger
- Private ReadOnly _analysisPdfService As IAnalysisPdfService
+''' Scalable PDF rendering interface.
 
- Protected ReadOnly Property Current_LoginUser As String
-     Get
-         If User IsNot Nothing AndAlso
-    User.Identity IsNot Nothing AndAlso
-    Not String.IsNullOrWhiteSpace(User.Identity.Name) Then
-             Return User.Identity.Name.ToUpper().Replace("BELWIRED\", "")
-         End If
-         Return "Anonymous"
-     End Get
- End Property
+''' Register once in DI — reuse from any controller for any report.
 
+'''
 
- Public Sub New(adminTabService As IAdminTabService, assetTabRepository As IAssetTabRepository, guidanceTabRepository As IGuidanceTabRepository, breakevenTabRepository As IBreakevenTabRepository, actorTabService As IActorTabService, projectCreditsTabService As IProjectCreditsTabService, collateralTabService As ICollateralTabService, guidelinesTabRepository As IGuidelinesTabRepository, loanOfficerConstructionFollowUpService As ILoanOfficerConstructionFollowUpService, userService As IUserService, analysisCommonService As IAnalysisCommonService, analysisPdfService As IAnalysisPdfService)
-     _adminTabService = adminTabService
-     _assetTabRepository = assetTabRepository
-     _guidanceTabRepository = guidanceTabRepository
-     _breakevenTabRepository = breakevenTabRepository
-     _projectCreditsTabService = projectCreditsTabService
-     _actorTabService = actorTabService
-     _collateralTabService = collateralTabService
-     _guidelinesTabRepository = guidelinesTabRepository
-     _loanOfficerConstructionFollowUpService = loanOfficerConstructionFollowUpService
-     _userService = userService
-     _analysisCommonService = analysisCommonService
-     _analysisPdfService = analysisPdfService
-     _logger = Log.ForContext(Of AnalysisController)()
- End Sub
+''' Usage pattern (same for every future page):
 
+'''   1. Get data from existing service
+
+'''   2. Build dataSources dictionary  (key = DataSource name in .rdlc)
+
+'''   3. Call GeneratePdf → get byte()
+
+'''   4. Return File(bytes, "application/pdf", "filename.pdf")
+
+''' </summary>
+
+Public Interface IPdfReportService
+ 
+    ''' <summary>
+
+    ''' Renders an .rdlc report to a PDF byte array.
+
+    ''' </summary>
+
+    ''' <param name="rdlcPath">Virtual path to the .rdlc file, e.g. "~/Reports/MyReport.rdlc"</param>
+
+    ''' <param name="reportName">Friendly name used for logging and error messages</param>
+
+    ''' <param name="dataSources">
+
+    '''   Key   = DataSource name as defined inside the .rdlc
+
+    '''   Value = IEnumerable data (List, DataTable, etc.)
+
+    ''' </param>
+
+    ''' <param name="parameters">Optional report parameters (e.g. Language "FR"/"NL")</param>
+
+    ''' <returns>PDF bytes ready to stream as a file download</returns>
+
+    Function GeneratePdf(
+
+        rdlcPath As String,
+
+        reportName As String,
+
+        dataSources As Dictionary(Of String, IEnumerable),
+
+        Optional parameters As Dictionary(Of String, String) = Nothing
+
+    ) As Byte()
+ 
+End Interface
+
+implementation
+Imports System.Collections
+
+Imports System.Web.Hosting
+
+Imports Microsoft.Reporting.WebForms
+
+Imports Serilog
+ 
+''' <summary>
+
+''' Never changes when new reports are added. Only rdlcPath + data changes per feature.
+
+''' </summary>
+
+Public Class PdfReportService
+
+    Implements IPdfReportService
+ 
+    Private ReadOnly _logger As ILogger
+ 
+    Public Sub New()
+
+        _logger = Log.ForContext(Of PdfReportService)()
+
+    End Sub
+ 
+    Public Function GeneratePdf(
+
+        rdlcPath As String,
+
+        reportName As String,
+
+        dataSources As Dictionary(Of String, IEnumerable),
+
+        Optional parameters As Dictionary(Of String, String) = Nothing
+
+    ) As Byte() Implements IPdfReportService.GeneratePdf
+ 
+        _logger.Information("PdfReportService - Generating PDF | Report:{ReportName}", reportName)
+ 
+        ' 1. Resolve virtual path to physical path
+
+        Dim physicalPath As String = HostingEnvironment.MapPath(rdlcPath)
+
+        If String.IsNullOrEmpty(physicalPath) Then
+
+            Throw New ArgumentException($"PdfReportService - Could not resolve rdlc path: {rdlcPath}")
+
+        End If
+ 
+        ' 2. Create and configure LocalReport
+
+        Dim report As New LocalReport()
+
+        report.ReportPath = physicalPath
+
+        report.EnableExternalImages = True
+ 
+        ' 3. Bind data sources
+
+        ' Key must match the DataSource name defined inside the .rdlc file
+
+        If dataSources IsNot Nothing Then
+
+            For Each kvp In dataSources
+
+                report.DataSources.Add(New ReportDataSource(kvp.Key, kvp.Value))
+
+            Next
+
+        End If
+ 
+        ' 4. Set optional parameters (e.g. Language = "FR" / "NL")
+
+        If parameters IsNot Nothing AndAlso parameters.Count > 0 Then
+
+            Dim reportParams = parameters.Select(
+
+                Function(p) New ReportParameter(p.Key, p.Value)
+
+            ).ToArray()
+
+            report.SetParameters(reportParams)
+
+        End If
+ 
+        ' 5. Render to PDF bytes
+
+        Dim bytes As Byte() = report.Render("PDF")
+ 
+        _logger.Information("PdfReportService - PDF generated successfully | Report:{ReportName} | Size:{Bytes} bytes",
+
+                            reportName, bytes.Length)
+
+        Return bytes
+ 
+    End Function
+ 
+End Class
+
+ 
